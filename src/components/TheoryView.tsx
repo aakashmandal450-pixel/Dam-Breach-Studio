@@ -1,3 +1,4 @@
+import { EXAMPLES } from "@/lib/breach/examples";
 import { EQUATIONS, I_TABLE, LIMITATIONS, PARAM_DOCS } from "@/lib/breach/docs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -8,11 +9,34 @@ export function TheoryView() {
         <p className="text-xs font-medium uppercase tracking-[0.16em] text-accent">Mechanistic engine</p>
         <h1 className="font-display text-3xl font-medium tracking-tight md:text-4xl">Equations, parameters, limits</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Every symbol used in the formation model is defined here. The engine is a simplified physical
-          model in the lineage of NWS BREACH, DLBreach and WinDAM — coupled hydraulics, excess-shear
-          erosion, and a roof-collapse switch — not a regression on historic peaks.
+          Every symbol used in the formation model is defined here. The engine is a simplified physical model in the
+          lineage of NWS BREACH, DLBreach and WinDAM — coupled hydraulics, excess-shear erosion, and a roof-collapse
+          switch — not a regression on historic peaks.
         </p>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Example cases</CardTitle>
+          <CardDescription>
+            Presets on the Simulate page. Load one from the Example case dropdown, then open Results after a run.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {EXAMPLES.map((ex) => (
+            <div key={ex.id} className="rounded-md border border-border bg-background p-4">
+              <p className="font-medium">{ex.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{ex.blurb}</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{ex.theory}</p>
+              <p className="mt-2 font-mono text-[11px] text-foreground/70">
+                mode={ex.inputs.mode} · I={ex.inputs.erosionIndexI} · Hb=
+                {(ex.inputs.crestElev - ex.inputs.baseElev).toFixed(1)} m · V₀=
+                {ex.inputs.volumeM3.toLocaleString()} m³
+              </p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -33,7 +57,7 @@ export function TheoryView() {
       <Card>
         <CardHeader>
           <CardTitle>Parameter catalogue</CardTitle>
-          <CardDescription>Units, typical ranges, and where each term appears.</CardDescription>
+          <CardDescription>Units, typical ranges, and where each term appears. Match symbols on the input schematic.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[40rem] text-left text-sm">
@@ -54,7 +78,8 @@ export function TheoryView() {
                   <td className="py-2 pr-3 text-muted-foreground">{p.unit}</td>
                   <td className="py-2 pr-3 text-muted-foreground">{p.range}</td>
                   <td className="py-2 text-muted-foreground">
-                    {p.meaning} <span className="block font-mono text-[11px] text-foreground/70">{p.equation}</span>
+                    {p.meaning}{" "}
+                    <span className="block font-mono text-[11px] text-foreground/70">{p.equation}</span>
                   </td>
                 </tr>
               ))}
