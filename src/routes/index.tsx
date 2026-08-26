@@ -30,12 +30,19 @@ function SimulatePage() {
   const step = result?.series[Math.min(playIndex, (result?.series.length ?? 1) - 1)] ?? null;
 
   const stats = useMemo(() => {
-    if (!result) return null;
+    if (!result || result.series.length === 0) return null;
+    const first = result.series[0];
+    const last = result.series[result.series.length - 1];
+    const volReleased = Math.max(0, first.V - last.V);
+    const tauMax = result.series.reduce((m, s) => Math.max(m, s.tau), 0);
+    const tBreach =
+      result.tEmpty ??
+      (last.stage === "empty" ? last.t : result.series[result.series.length - 1].t);
+
     return [
-      { k: "Peak Q", v: `${formatNumber(result.Qpeak, 2)} m³/s` },
+      { k: "Peak discharge Qp", v: `${formatNumber(result.Qpeak, 2)} m³/s` },
       { k: "Time to peak", v: `${formatNumber(result.tPeak / 60, 1)} min` },
-      { k: "Final Wb", v: `${formatNumber(result.finalWb, 2)} m` },
-      { k: "Breach depth", v: `${formatNumber(result.finalDepth, 2)} m` },
+      { k: "Time to empty / end", v: `${formatNumber(tBreach / 60, 1)} min` },
       {
         k: "Headcut through C",
         v:
@@ -47,6 +54,10 @@ function SimulatePage() {
         k: "Roof collapse",
         v: result.tCollapse == null ? "—" : `${formatNumber(result.tCollapse / 60, 1)} min`,
       },
+      { k: "Volume released", v: `${formatNumber(volReleased, 0)} m³` },
+      { k: "Final Wb", v: `${formatNumber(result.finalWb, 2)} m` },
+      { k: "Breach depth", v: `${formatNumber(result.finalDepth, 2)} m` },
+      { k: "Max shear τ", v: `${formatNumber(tauMax, 1)} Pa` },
       { k: "Compute", v: `${formatNumber(result.elapsedMs, 0)} ms` },
     ];
   }, [result]);
@@ -81,7 +92,29 @@ function SimulatePage() {
 
   function exportCsv() {
     if (!result) return;
-    downloadText(`${slug(inputs.projectName)}-hydrograph.csv`, resultToCsv(result), "text/csv");
+    downloadText(`${slug(inputs.projectName)}-series.csv`, resultToCsv(result), "text/csv");
+  }
+
+  function exportSummary() {
+    if (!result || !stats) return;
+    const payload = {
+      project: inputs.projectName,
+      mode: inputs.mode,
+      peakQ_m3s: result.Qpeak,
+      timeToPeak_min: result.tPeak / 60,
+      timeToEmpty_min: result.tEmpty != null ? result.tEmpty / 60 : null,
+      tHeadcutBreach_min: result.tHeadcutBreach != null ? result.tHeadcutBreach / 60 : null,
+      tRoofCollapse_min: result.tCollapse != null ? result.tCollapse / 60 : null,
+      finalWb_m: result.finalWb,
+      breachDepth_m: result.finalDepth,
+      stats: Object.fromEntries(stats.map((s) => [s.k, s.v])),
+      warnings: result.warnings,
+    };
+    downloadText(
+      `${slug(inputs.projectName)}-summary.json`,
+      JSON.stringify(payload, null, 2),
+      "application/json",
+    );
   }
 
   function onImport(file: File) {
@@ -107,35 +140,33 @@ function SimulatePage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-accent">Formation engine</p>
-            <h1 className="font-display text-3xl font-medium tracking-tight">{inputs.projectName}</h1>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Physically based breach growth — weir / orifice, Wan–Fell erosion, headcut migration, falling
-              reservoir.
-            </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-accent">Formation engine</p>
+            <h1 className="font-display truncate text-xl font-medium tracking-tight md:text-2xl">
+              {inputs.projectName}
+            </h1>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={run}>
+            <Button size="sm" onClick={run}>
               <Play className="size-4" />
               Run formation
             </Button>
             <Button
+              size="sm"
               variant={workspaceTab === "results" ? "accent" : "secondary"}
               onClick={() => setWorkspaceTab("results")}
               disabled={!result}
-              title={result ? "Open results" : "Run a simulation first"}
             >
               <ChartLine className="size-4" />
               Results
             </Button>
-            <Button variant="outline" onClick={exportProject}>
+            <Button size="sm" variant="outline" onClick={exportProject}>
               <Download className="size-4" />
-              Export project
+              Project
             </Button>
-            <Button variant="outline" onClick={() => fileRef.current?.click()}>
+            <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
               <Upload className="size-4" />
               Import
             </Button>
@@ -153,27 +184,64 @@ function SimulatePage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-end sm:gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Label htmlFor="example-preset">Example case</Label>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+          <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-2.5">
+            <Label htmlFor="example-preset" className="text-[11px]">
+              Example case
+            </Label>
             <select
               id="example-preset"
-              className="h-10 w-full rounded-md border border-border bg-input px-3 text-sm"
+              className="h-8 w-full rounded-md border border-border bg-input px-2 text-xs"
               value={exampleId}
               onChange={(e) => onExampleChange(e.target.value)}
             >
-              <option value="custom">Custom (current inputs)</option>
+              <option value="custom">Custom</option>
               {EXAMPLES.map((ex) => (
                 <option key={ex.id} value={ex.id}>
                   {ex.title}
                 </option>
               ))}
             </select>
+            {exampleId !== "custom" && (
+              <p className="line-clamp-3 text-[10px] leading-snug text-muted-foreground">
+                {EXAMPLES.find((e) => e.id === exampleId)?.blurb}
+              </p>
+            )}
           </div>
-          {exampleId !== "custom" && (
-            <p className="max-w-md text-xs text-muted-foreground sm:pb-2">
-              {EXAMPLES.find((e) => e.id === exampleId)?.blurb}
-            </p>
+
+          {workspaceTab === "inputs" && (
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <div className="border-b border-border px-3 py-1.5">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Input schematic — symbols match the parameter tabs (Hb, C, Z1, Z2, Wb, WL, R, x_h)
+                </p>
+              </div>
+              <div className="max-h-[11rem] overflow-hidden px-1">
+                <DamSchematic inputs={inputs} step={null} />
+              </div>
+            </div>
+          )}
+
+          {workspaceTab === "results" && result && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+              <span>
+                Qp <strong className="text-foreground">{formatNumber(result.Qpeak, 1)}</strong> m³/s
+              </span>
+              <span className="text-border">|</span>
+              <span>
+                t_peak <strong className="text-foreground">{formatNumber(result.tPeak / 60, 1)}</strong> min
+              </span>
+              <span className="text-border">|</span>
+              <span>
+                Wb <strong className="text-foreground">{formatNumber(result.finalWb, 2)}</strong> m
+              </span>
+              {step && (
+                <>
+                  <span className="text-border">|</span>
+                  <Badge tone="accent">{step.stage}</Badge>
+                </>
+              )}
+            </div>
           )}
         </div>
 
@@ -199,8 +267,8 @@ function SimulatePage() {
 
         {workspaceTab === "inputs" && (
           <Card>
-            <CardHeader>
-              <CardTitle>Inputs</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Inputs</CardTitle>
             </CardHeader>
             <CardContent>
               <ParamForm />
@@ -270,7 +338,7 @@ function SimulatePage() {
                 </Card>
 
                 {stats && (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                     {stats.map((s) => (
                       <div key={s.k} className="rounded-lg border border-border bg-card px-3 py-3">
                         <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.k}</p>
@@ -293,7 +361,11 @@ function SimulatePage() {
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={exportCsv}>
                     <Download className="size-4" />
-                    Export hydrograph CSV
+                    Export time-series CSV
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportSummary}>
+                    <Download className="size-4" />
+                    Export summary JSON
                   </Button>
                   <Button variant="secondary" size="sm" onClick={() => setWorkspaceTab("inputs")}>
                     <Settings2 className="size-4" />
