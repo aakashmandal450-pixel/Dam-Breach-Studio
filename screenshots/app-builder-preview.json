@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Dam Breach Studio",
+      "hasCanvas": false,
+      "bodyTextLen": 1230,
+      "bodyTextHash": "7f2edc61014c3f2bd739075443282fe864f9734c8f92f680eb17c5e81788bccb",
+      "bodyTextPrefix": "Skip to content Dam Breach Studio Simulate Theory Install & shar",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Dam Breach Studio",
+      "hasCanvas": false,
+      "bodyTextLen": 1198,
+      "bodyTextHash": "b0320ffa20d32bdf007c32fe9de2cd077f528df0ba5aadd2e95e58c79853ecd7",
+      "bodyTextPrefix": "Skip to content Dam Breach Studio FORMATION ENGINE Homogeneous e",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
