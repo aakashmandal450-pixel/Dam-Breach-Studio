@@ -29,7 +29,17 @@ function SimulatePage() {
       { k: "Time to peak", v: `${formatNumber(result.tPeak / 60, 1)} min` },
       { k: "Final Wb", v: `${formatNumber(result.finalWb, 2)} m` },
       { k: "Breach depth", v: `${formatNumber(result.finalDepth, 2)} m` },
-      { k: "Roof collapse", v: result.tCollapse == null ? "—" : `${formatNumber(result.tCollapse / 60, 1)} min` },
+      {
+        k: "Headcut through C",
+        v:
+          result.tHeadcutBreach == null
+            ? "—"
+            : `${formatNumber(result.tHeadcutBreach / 60, 1)} min`,
+      },
+      {
+        k: "Roof collapse",
+        v: result.tCollapse == null ? "—" : `${formatNumber(result.tCollapse / 60, 1)} min`,
+      },
       { k: "Compute", v: `${formatNumber(result.elapsedMs, 0)} ms` },
     ];
   }, [result]);
@@ -87,8 +97,8 @@ function SimulatePage() {
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-accent">Formation engine</p>
             <h1 className="font-display text-3xl font-medium tracking-tight">{inputs.projectName}</h1>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Physically based breach growth — weir / orifice hydraulics, Wan–Fell erosion, falling reservoir.
-              Not an empirical peak-flow formula.
+              Physically based breach growth — weir / orifice, Wan–Fell erosion, headcut migration through the
+              crest, falling reservoir. Not an empirical peak-flow formula.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -174,7 +184,7 @@ function SimulatePage() {
             </Card>
 
             {stats && (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {stats.map((s) => (
                   <div key={s.k} className="rounded-lg border border-border bg-card px-3 py-3">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.k}</p>
