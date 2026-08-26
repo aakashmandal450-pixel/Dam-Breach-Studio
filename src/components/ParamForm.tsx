@@ -30,7 +30,7 @@ export function ParamForm() {
       <FieldGroup title="Dam geometry">
         <Num id="crestElev" label="Crest elevation" unit="m" hint="Top of dam." k="crestElev" />
         <Num id="baseElev" label="Base elevation" unit="m" hint="Foundation / breach invert floor." k="baseElev" />
-        <Num id="crestWidth" label="Crest width C" unit="m" hint="Horizontal crest thickness." k="crestWidth" />
+        <Num id="crestWidth" label="Crest width C" unit="m" hint="Horizontal crest thickness. Headcut migrates through C." k="crestWidth" />
         <Num id="crestLength" label="Crest length" unit="m" hint="Valley-crossing length. Caps final Wb." k="crestLength" />
         <Num id="zUp" label="Upstream slope Z1" unit="H:1V" hint="Horizontal:vertical of the upstream face." k="zUp" />
         <Num id="zDown" label="Downstream slope Z2" unit="H:1V" hint="Downstream face. Steeper faces concentrate shear." k="zDown" />
@@ -50,10 +50,41 @@ export function ParamForm() {
         <Num id="erosionIndexI" label="Erosion rate index I" unit="—" hint="Wan & Fell. 2 = rapid, 4 = slow. Dominates the answer." k="erosionIndexI" step={0.1} />
         <Num id="tauC" label="Critical shear τc" unit="Pa" hint="No erosion below this shear." k="tauC" />
         <Num id="rhoD" label="Dry density ρd" unit="kg/m³" hint="Used to convert Ce into a volume rate." k="rhoD" />
-        <Num id="phiDeg" label="Friction angle φ" unit="°" hint="Sets a residual side-slope floor after collapse." k="phiDeg" />
+        <Num id="phiDeg" label="Friction angle φ" unit="°" hint="Sets residual side-slope floor: Zb ≥ cot(φ)." k="phiDeg" />
         <Num id="manningN" label="Manning n" unit="—" hint="Roughness of the breach channel." k="manningN" step={0.005} />
         <Num id="zb" label="Breach side slope Zb" unit="H:1V" hint="Trapezoid batter of the open breach." k="zb" step={0.05} />
         <Num id="sideErosionFactor" label="Side erosion factor" unit="—" hint="Widening relative to deepening (≈ 1–2)." k="sideErosionFactor" step={0.1} />
+      </FieldGroup>
+
+      <FieldGroup title="Headcut (overtopping)">
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label htmlFor="headcutEnabled">Headcut module</Label>
+          <select
+            id="headcutEnabled"
+            className="h-10 rounded-md border border-border bg-input px-3 text-sm"
+            value={inputs.headcutEnabled ? "on" : "off"}
+            onChange={(e) => setInput("headcutEnabled", e.target.value === "on")}
+          >
+            <option value="on">On — migrate scarp through crest width C</option>
+            <option value="off">Off — pure surface erosion (legacy)</option>
+          </select>
+        </div>
+        <Num
+          id="headcutInitDepth"
+          label="Initiation head"
+          unit="m"
+          hint="Overtopping depth required before the discrete headcut is tracked."
+          k="headcutInitDepth"
+          step={0.01}
+        />
+        <Num
+          id="headcutAdvanceFactor"
+          label="Advance factor f_h"
+          unit="—"
+          hint="Multiplies excess-shear rate for horizontal advance. Typical 3–15."
+          k="headcutAdvanceFactor"
+          step={0.5}
+        />
       </FieldGroup>
 
       <FieldGroup title="Hydraulics & initiation">
