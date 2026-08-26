@@ -21,8 +21,8 @@ export const PARAM_DOCS: ParamDoc[] = [
     name: "Crest width",
     unit: "m",
     range: "2–12 typical",
-    meaning: "Horizontal width of the dam crest between the upstream and downstream edges.",
-    equation: "Geometry of the eroded prism",
+    meaning: "Horizontal width of the dam crest. Headcut must migrate this distance before full deepening.",
+    equation: "x_h advances 0 → C",
   },
   {
     symbol: "Z1, Z2",
@@ -77,8 +77,24 @@ export const PARAM_DOCS: ParamDoc[] = [
     name: "Applied shear stress",
     unit: "Pa",
     range: "computed",
-    meaning: "Pipe wall shear (piping) or Manning bed shear (open breach).",
-    equation: "Open: τ = ρ g n² U² / Rh^{1/3}",
+    meaning: "Pipe wall shear, Manning bed shear, or hydrostatic headcut-face shear.",
+    equation: "Open: τ = ρ g n² U² / Rh^{1/3}; Headcut face: τ ≈ ρ g h",
+  },
+  {
+    symbol: "x_h",
+    name: "Headcut position",
+    unit: "m",
+    range: "0 – C",
+    meaning: "Distance the vertical scarp has migrated into the crest from the downstream edge.",
+    equation: "dx_h/dt = f_h · ε(τ_face)",
+  },
+  {
+    symbol: "f_h",
+    name: "Headcut advance factor",
+    unit: "—",
+    range: "3–15",
+    meaning: "Scales horizontal advance relative to the excess-shear rate (Temple-style calibration knob).",
+    equation: "dx_h/dt = f_h · (Ce/ρd) max(τ_face − τc, 0)",
   },
   {
     symbol: "Q",
@@ -138,16 +154,26 @@ export const EQUATIONS = [
     note: "Bonelli-type driving-pressure form. L is the core / pipe length.",
   },
   {
+    title: "Headcut face shear & advance",
+    latex: "τ_face ≈ ρ g h ,   dx_h/dt = f_h ε(τ_face)",
+    note: "Temple / WinDAM-style discrete headcut. Deepening is throttled until x_h reaches the crest width C. After breakthrough, full bed-shear erosion applies.",
+  },
+  {
     title: "Roof collapse",
     latex: "2 R ≥ κ · (crest − invert)",
     note: "When the pipe is large enough relative to remaining cover, the roof collapses and an open trapezoidal breach is born.",
+  },
+  {
+    title: "Residual side slope",
+    latex: "Z_b ≥ cot(φ)",
+    note: "The open-breach batter cannot stand steeper than the friction angle; the model snaps Zb to the residual if needed.",
   },
 ];
 
 export const LIMITATIONS = [
   "Homogeneous fill is assumed. Zoned dams, filters, and cores are not resolved as separate materials.",
-  "Headcut migration (typical of cohesive overtopping) is represented only through surface erosion, not as a discrete headcut module.",
-  "Side-slope failure is a residual-friction rule, not a full limit-equilibrium search.",
+  "Headcut advance uses a hydrostatic face-shear driver scaled by f_h — not a full jet-impingement or SITES energy-dissipation formulation.",
+  "Side-slope failure is a residual-friction rule, not a full limit-equilibrium search (no SLOPE/W-style slip surfaces).",
   "The erosion-rate index I should come from a Hole Erosion Test or a carefully chosen typical value. It dominates the answer.",
   "Constant or slowly varying inflow. A full flood hydrograph can be added later as a boundary condition.",
   "This is a screening / teaching engine in the spirit of NWS BREACH, DLBreach and WinDAM — not a replacement for a site-specific numerical study.",
