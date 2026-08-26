@@ -1,6 +1,8 @@
 {
-  "name": "app-builder-workspace",
+  "name": "dam-breach-studio",
   "private": true,
+  "version": "1.0.0",
+  "description": "Mechanistic earthen-dam breach formation dashboard (weir/orifice + Wan–Fell erosion)",
   "sideEffects": false,
   "type": "module",
   "overrides": {
