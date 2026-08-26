@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChartLine, Download, Play, Settings2, Upload } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { DamSchematic } from "@/components/DamSchematic";
@@ -322,7 +322,7 @@ function WorkspaceTabButton({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   badge?: "empty";
 }) {
