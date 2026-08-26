@@ -8,7 +8,7 @@ function clamp(v: number, lo: number, hi: number) {
 }
 
 /**
- * Mechanistic breach-formation engine (simplified physical model).
+ * Mechanistic breach-formation engine (physics v2).
  *
  * Hydraulics
  *   Open breach:  Q = Cw · Wavg · h^1.5     (broad-crested trapezoidal weir)
@@ -24,10 +24,15 @@ function clamp(v: number, lo: number, hi: number) {
  * Pipe wall shear (Bonelli-type driving pressure)
  *   τ = ρ g R H / (2 L)
  *
- * Geometry
- *   Deepening: zb ← zb − ε Δt
- *   Widening:  Wb ← Wb + 2 ε fs Δt
- *   Roof collapse when 2R ≥ collapseRatio · cover
+ * Headcut (overtopping, Temple / WinDAM-style)
+ *   Initiate when overtopping head ≥ h_init
+ *   Face shear ≈ ρ g h (hydrostatic on the vertical scarp)
+ *   dx/dt = f_h · ε(τ_face)   through crest width C
+ *   Deepening is limited until the headcut breaches the upstream crest edge
+ *
+ * Geotechnics
+ *   Residual side slope cannot be steeper than the friction angle:
+ *   Zb ≥ cot(φ)
  *
  * Reservoir
  *   V(y) = V0 (y / y0)^m
@@ -55,14 +60,22 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
   const Ce = Math.pow(10, -p.erosionIndexI);
   const kd = Ce / Math.max(p.rhoD, 200);
 
+  const C = Math.max(p.crestWidth, 0.5);
+  const headcutOn = p.mode === "overtopping" && (p.headcutEnabled !== false);
+  const fH = clamp(p.headcutAdvanceFactor ?? 6, 0.5, 40);
+  const hInit = Math.max(p.headcutInitDepth ?? 0.04, 0.01);
+
   let y = y0;
   let V = volumeFromY(y);
-  let zb = p.mode === "piping" ? p.pipeInvert : p.crestElev - 0.04;
+  let zb = p.mode === "piping" ? p.pipeInvert : p.crestElev - 0.02;
   let Wb = p.mode === "piping" ? 0 : Math.max(p.initialNotchWidth, 0.2);
   let R = Math.max(p.initialPipeRadius, 0.02);
   let Zb = Math.max(p.zb, 0.05);
+  let xHeadcut = 0;
+  let headcutActive = false;
   let collapsed = p.mode === "overtopping";
   let tCollapse: number | null = p.mode === "overtopping" ? 0 : null;
+  let tHeadcutBreach: number | null = headcutOn ? null : 0;
   let tEmpty: number | null = null;
 
   const phiRad = (p.phiDeg * Math.PI) / 180;
@@ -81,6 +94,9 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
   if (p.erosionIndexI > 5.5) {
     warnings.push("Very high erosion-rate index (I > 5.5): the breach may barely grow within the run window.");
   }
+  if (headcutOn) {
+    warnings.push("Headcut module on: deepening is limited until the headcut migrates through the crest width C.");
+  }
 
   for (let i = 0; i <= nSteps; i++) {
     const t = i * dt;
@@ -89,6 +105,7 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
     let tau = 0;
     let stage: BreachStage = collapsed ? "open" : "piping";
 
+    // —— Piping branch ——
     if (!collapsed) {
       const Hpipe = Math.max(WL - p.pipeInvert, 0);
       if (Hpipe > 0) {
@@ -102,6 +119,8 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
           tCollapse = t;
           Wb = Math.max(2 * R, p.initialNotchWidth);
           zb = clamp(p.pipeInvert - R, p.baseElev, p.crestElev);
+          xHeadcut = C;
+          tHeadcutBreach = t;
           stage = "open";
         }
       } else {
@@ -109,23 +128,72 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
       }
     }
 
+    // —— Open / overtopping branch ——
     if (collapsed) {
       const h = Math.max(WL - zb, 0);
+      const hCrest = Math.max(WL - p.crestElev, 0);
+
       if (h > 1e-4 && WL >= zb) {
         const Wavg = Wb + Zb * h;
         const qWeir = p.Cw * Wavg * Math.pow(h, 1.5);
         Q += qWeir;
+
         const A = Math.max(h * (Wb + Zb * h), 1e-6);
         const Pw = Wb + 2 * h * Math.sqrt(1 + Zb * Zb);
         const Rh = A / Math.max(Pw, 1e-6);
         const U = qWeir / A;
-        tau = (RHO * G * p.manningN * p.manningN * U * U) / Math.pow(Math.max(Rh, 0.03), 1 / 3);
-        const er = kd * Math.max(tau - p.tauC, 0);
-        const dz = Math.min(er * dt, 0.04 * Hb);
-        zb = Math.max(zb - dz, p.baseElev);
-        Wb = Math.min(Wb + 2 * er * p.sideErosionFactor * dt, p.crestLength * 1.05);
-        Zb = Math.max(Zb, zPhi * 0.45);
-        stage = "open";
+        const tauBed =
+          (RHO * G * p.manningN * p.manningN * U * U) / Math.pow(Math.max(Rh, 0.03), 1 / 3);
+
+        // Residual side-slope: cannot stand steeper than φ
+        if (Zb < zPhi * 0.95) {
+          Zb = zPhi;
+        }
+
+        const headcutComplete = !headcutOn || xHeadcut >= C - 1e-6;
+
+        if (headcutOn && !headcutComplete) {
+          // Initiate discrete headcut once overtopping head is meaningful
+          if (!headcutActive && hCrest >= hInit) {
+            headcutActive = true;
+          }
+
+          if (headcutActive || hCrest >= hInit) {
+            headcutActive = true;
+            // Hydrostatic face stress on the vertical scarp (order-of-magnitude Temple driver)
+            const tauFace = RHO * G * Math.max(hCrest, h * 0.35);
+            tau = Math.max(tauBed, tauFace);
+            const erFace = kd * Math.max(tauFace - p.tauC, 0);
+            const dx = fH * erFace * dt;
+            xHeadcut = Math.min(C, xHeadcut + dx);
+
+            // Limited scarp lowering while the headcut is still in the crest
+            const erLimited = kd * Math.max(tauBed - p.tauC, 0) * 0.25;
+            const dz = Math.min(erLimited * dt, 0.015 * Hb);
+            zb = Math.max(zb - dz, p.crestElev - 0.35 * Hb);
+            Wb = Math.min(Wb + 2 * erFace * p.sideErosionFactor * 0.5 * dt, p.crestLength * 1.05);
+            stage = "headcut";
+
+            if (xHeadcut >= C - 1e-6 && tHeadcutBreach == null) {
+              tHeadcutBreach = t;
+              // Drop invert once the crest is fully cut through
+              zb = Math.min(zb, p.crestElev - 0.15 * Hb);
+            }
+          } else {
+            tau = tauBed;
+            stage = hCrest > 0 ? "open" : "filling";
+          }
+        } else {
+          // Full open-channel erosion after headcut breach (or when module is off)
+          tau = tauBed;
+          const er = kd * Math.max(tauBed - p.tauC, 0);
+          const dz = Math.min(er * dt, 0.04 * Hb);
+          zb = Math.max(zb - dz, p.baseElev);
+          Wb = Math.min(Wb + 2 * er * p.sideErosionFactor * dt, p.crestLength * 1.05);
+          Zb = Math.max(Zb, zPhi * 0.45);
+          if (headcutOn) xHeadcut = C;
+          stage = "open";
+        }
       } else if (WL < p.crestElev - 0.02 && p.mode === "overtopping" && i < 3) {
         stage = "filling";
       }
@@ -160,6 +228,7 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
       Wb,
       Wtop,
       R,
+      xHeadcut,
       tau,
       V,
       stage,
@@ -181,6 +250,7 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
     Qpeak,
     tPeak,
     tCollapse,
+    tHeadcutBreach,
     tEmpty,
     finalWb: last?.Wb ?? 0,
     finalDepth: last ? p.crestElev - last.zb : 0,
@@ -195,6 +265,7 @@ function emptyResult(t0: number, warnings: string[]): SimResult {
     Qpeak: 0,
     tPeak: 0,
     tCollapse: null,
+    tHeadcutBreach: null,
     tEmpty: null,
     finalWb: 0,
     finalDepth: 0,
@@ -204,7 +275,8 @@ function emptyResult(t0: number, warnings: string[]): SimResult {
 }
 
 export function resultToCsv(result: SimResult): string {
-  const header = "t_s,t_hr,Q_m3s,WL_m,zb_m,Wb_m,Wtop_m,R_m,tau_Pa,V_m3,stage";
+  const header =
+    "t_s,t_hr,Q_m3s,WL_m,zb_m,Wb_m,Wtop_m,R_m,xHeadcut_m,tau_Pa,V_m3,stage";
   const rows = result.series.map((s) =>
     [
       s.t.toFixed(1),
@@ -215,6 +287,7 @@ export function resultToCsv(result: SimResult): string {
       s.Wb.toFixed(4),
       s.Wtop.toFixed(4),
       s.R.toFixed(4),
+      (s.xHeadcut ?? 0).toFixed(4),
       s.tau.toFixed(3),
       s.V.toFixed(2),
       s.stage,
