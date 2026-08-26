@@ -1,5 +1,5 @@
 export type FailureMode = "overtopping" | "piping";
-export type BreachStage = "filling" | "piping" | "open" | "empty";
+export type BreachStage = "filling" | "piping" | "headcut" | "open" | "empty";
 
 export interface StudioInputs {
   projectName: string;
@@ -28,6 +28,13 @@ export interface StudioInputs {
   zb: number;
   sideErosionFactor: number;
 
+  /** Enable Temple/WinDAM-style headcut migration during overtopping. */
+  headcutEnabled: boolean;
+  /** Overtopping head (m) required before a discrete headcut is tracked. */
+  headcutInitDepth: number;
+  /** Multiplier on the excess-shear rate for horizontal headcut advance (typically 3–15). */
+  headcutAdvanceFactor: number;
+
   CdOrifice: number;
   Cw: number;
   initialNotchWidth: number;
@@ -47,6 +54,8 @@ export interface SimStep {
   Wb: number;
   Wtop: number;
   R: number;
+  /** Headcut position into the crest from the downstream edge (0 … crestWidth). */
+  xHeadcut: number;
   tau: number;
   V: number;
   stage: BreachStage;
@@ -57,6 +66,8 @@ export interface SimResult {
   Qpeak: number;
   tPeak: number;
   tCollapse: number | null;
+  /** Time when the headcut first reaches the upstream crest edge (overtopping). */
+  tHeadcutBreach: number | null;
   tEmpty: number | null;
   finalWb: number;
   finalDepth: number;
@@ -87,6 +98,9 @@ export const DEFAULT_INPUTS: StudioInputs = {
   manningN: 0.03,
   zb: 0.5,
   sideErosionFactor: 1.2,
+  headcutEnabled: true,
+  headcutInitDepth: 0.04,
+  headcutAdvanceFactor: 6,
   CdOrifice: 0.6,
   Cw: 1.7,
   initialNotchWidth: 1.2,
