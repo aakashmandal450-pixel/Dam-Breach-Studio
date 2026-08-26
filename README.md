@@ -187,7 +187,7 @@ This application is an **engineering screening and teaching tool**. Always docum
 - [x] Mechanistic formation engine + dashboard  
 - [x] Theory page and parameter documentation  
 - [x] Project JSON / hydrograph CSV exchange  
-- [ ] README and public repo hygiene  
+- [x] README and public repo hygiene  
 - [ ] Headcut module for cohesive overtopping  
 - [ ] Sensitivity / Monte Carlo on \(I\) and \(\tau_c\)  
 - [ ] Published validation cases  
