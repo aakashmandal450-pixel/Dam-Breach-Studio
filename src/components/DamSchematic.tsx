@@ -32,7 +32,14 @@ export function DamSchematic({ inputs, step }: Props) {
   const WbPx = Math.min(180, Math.max(8, ((step?.Wb ?? inputs.initialNotchWidth) / Math.max(inputs.crestLength, 1)) * 220));
   const pipeR = Math.max(4, ((step?.R ?? inputs.initialPipeRadius) / Hb) * damH * 2.2);
   const pipeY = elevToY(inputs.pipeInvert);
-  const open = !step || step.stage === "open" || step.stage === "empty" || inputs.mode === "overtopping";
+  const stage = step?.stage ?? (inputs.mode === "overtopping" ? "open" : "piping");
+  const open = stage === "open" || stage === "empty" || stage === "headcut" || inputs.mode === "overtopping";
+  const inHeadcut = stage === "headcut";
+
+  // Headcut position: 0 at downstream crest edge → crestWidth at upstream edge
+  const C = Math.max(inputs.crestWidth, 0.5);
+  const xH = clamp(step?.xHeadcut ?? 0, 0, C);
+  const headcutX = crestR - (xH / C) * crestW;
 
   const waterPoly = `${toeL - 160},${ground} ${toeL - 160},${Math.min(waterY, ground)} ${
     open && waterY < zbY + 2
@@ -63,6 +70,29 @@ export function DamSchematic({ inputs, step }: Props) {
         />
       )}
 
+      {inHeadcut && xH > 0 && xH < C && (
+        <g>
+          <line
+            x1={headcutX}
+            y1={crestY}
+            x2={headcutX}
+            y2={Math.min(zbY + 24, ground - 20)}
+            stroke="#b45309"
+            strokeWidth="2.2"
+            strokeDasharray="4 2"
+          />
+          <text
+            x={headcutX + 6}
+            y={crestY + 16}
+            fontSize="10"
+            fontFamily="IBM Plex Sans"
+            fill="#b45309"
+          >
+            x_h = {xH.toFixed(2)} m
+          </text>
+        </g>
+      )}
+
       {WL > inputs.baseElev && (
         <polygon points={waterPoly} fill="#3d6f82" fillOpacity="0.35" stroke="#245460" strokeWidth="1" />
       )}
@@ -71,11 +101,7 @@ export function DamSchematic({ inputs, step }: Props) {
         <circle cx={cx} cy={pipeY} r={pipeR} fill="#3d6f82" fillOpacity="0.55" stroke="#245460" strokeWidth="1.2" />
       )}
 
-      <polyline
-        points={`${crestL},${crestY} ${crestR},${crestY}`}
-        stroke="#1a1814"
-        strokeWidth="2.2"
-      />
+      <polyline points={`${crestL},${crestY} ${crestR},${crestY}`} stroke="#1a1814" strokeWidth="2.2" />
 
       <Dim x1={crestL} x2={crestR} y={crestY - 18} label={`C = ${inputs.crestWidth} m`} />
       <Dim v x1={24} y1={crestY} y2={ground} label={`Hb = ${Hb.toFixed(1)} m`} />
@@ -100,6 +126,10 @@ export function DamSchematic({ inputs, step }: Props) {
       </text>
     </svg>
   );
+}
+
+function clamp(v: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, v));
 }
 
 function Dim({
