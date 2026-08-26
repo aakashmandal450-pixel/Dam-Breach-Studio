@@ -19,13 +19,18 @@ export function ResultCharts({ result, playIndex }: { result: SimResult; playInd
     Q: Number(s.Q.toFixed(3)),
     Wb: Number(s.Wb.toFixed(3)),
     depth: Number((s.WL - s.zb > 0 ? s.WL - s.zb : 0).toFixed(3)),
+    WL: Number(s.WL.toFixed(3)),
+    zb: Number(s.zb.toFixed(3)),
+    V: Number((s.V / 1000).toFixed(3)),
+    tau: Number(s.tau.toFixed(2)),
+    xH: Number((s.xHeadcut ?? 0).toFixed(3)),
   }));
   const cursor = data[Math.min(playIndex, data.length - 1)];
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <ChartCard title="Outflow hydrograph" unit="m³/s">
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="#d4cdc0" strokeDasharray="3 3" />
             <XAxis dataKey="hr" tick={{ fontSize: 11 }} tickLine={false} />
@@ -43,8 +48,9 @@ export function ResultCharts({ result, playIndex }: { result: SimResult; playInd
           </p>
         )}
       </ChartCard>
+
       <ChartCard title="Breach growth" unit="m">
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="#d4cdc0" strokeDasharray="3 3" />
             <XAxis dataKey="hr" tick={{ fontSize: 11 }} tickLine={false} />
@@ -55,6 +61,65 @@ export function ResultCharts({ result, playIndex }: { result: SimResult; playInd
           </LineChart>
         </ResponsiveContainer>
         <p className="mt-1 text-xs text-muted-foreground">Black = base width Wb · Teal = flow head over invert</p>
+      </ChartCard>
+
+      <ChartCard title="Water level & invert" unit="m">
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#d4cdc0" strokeDasharray="3 3" />
+            <XAxis dataKey="hr" tick={{ fontSize: 11 }} tickLine={false} />
+            <YAxis tick={{ fontSize: 11 }} tickLine={false} width={40} />
+            <RTooltip contentStyle={{ background: "#fbf8f2", border: "1px solid #d4cdc0", fontSize: 12 }} />
+            <Line type="monotone" dataKey="WL" stroke="#245460" dot={false} strokeWidth={1.6} name="WL" />
+            <Line type="monotone" dataKey="zb" stroke="#b45309" dot={false} strokeWidth={1.6} name="zb" />
+          </LineChart>
+        </ResponsiveContainer>
+        <p className="mt-1 text-xs text-muted-foreground">Teal = pool WL · Amber = breach invert zb</p>
+      </ChartCard>
+
+      <ChartCard title="Reservoir volume" unit="10³ m³">
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#d4cdc0" strokeDasharray="3 3" />
+            <XAxis dataKey="hr" tick={{ fontSize: 11 }} tickLine={false} />
+            <YAxis tick={{ fontSize: 11 }} tickLine={false} width={48} />
+            <RTooltip
+              contentStyle={{ background: "#fbf8f2", border: "1px solid #d4cdc0", fontSize: 12 }}
+              formatter={(v) => [`${formatNumber(Number(v), 2)} ×10³ m³`, "V"]}
+            />
+            <Area type="monotone" dataKey="V" stroke="#1a1814" fill="#c4b49a" fillOpacity={0.35} strokeWidth={1.6} />
+          </AreaChart>
+        </ResponsiveContainer>
+        <p className="mt-1 text-xs text-muted-foreground">Storage drawn down by breach outflow (and inflow)</p>
+      </ChartCard>
+
+      <ChartCard title="Applied shear stress" unit="Pa">
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#d4cdc0" strokeDasharray="3 3" />
+            <XAxis dataKey="hr" tick={{ fontSize: 11 }} tickLine={false} />
+            <YAxis tick={{ fontSize: 11 }} tickLine={false} width={48} />
+            <RTooltip
+              contentStyle={{ background: "#fbf8f2", border: "1px solid #d4cdc0", fontSize: 12 }}
+              formatter={(v) => [`${formatNumber(Number(v), 1)} Pa`, "τ"]}
+            />
+            <Line type="monotone" dataKey="tau" stroke="#7c2d12" dot={false} strokeWidth={1.6} name="τ" />
+          </LineChart>
+        </ResponsiveContainer>
+        <p className="mt-1 text-xs text-muted-foreground">Pipe-wall, headcut-face, or Manning bed shear driving erosion</p>
+      </ChartCard>
+
+      <ChartCard title="Headcut position x_h" unit="m">
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#d4cdc0" strokeDasharray="3 3" />
+            <XAxis dataKey="hr" tick={{ fontSize: 11 }} tickLine={false} />
+            <YAxis tick={{ fontSize: 11 }} tickLine={false} width={40} />
+            <RTooltip contentStyle={{ background: "#fbf8f2", border: "1px solid #d4cdc0", fontSize: 12 }} />
+            <Line type="monotone" dataKey="xH" stroke="#b45309" dot={false} strokeWidth={1.6} name="x_h" />
+          </LineChart>
+        </ResponsiveContainer>
+        <p className="mt-1 text-xs text-muted-foreground">Distance into crest from downstream edge (0 → C)</p>
       </ChartCard>
     </div>
   );
