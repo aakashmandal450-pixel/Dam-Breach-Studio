@@ -1,5 +1,17 @@
-import { EXAMPLES } from "@/lib/breach/examples";
-import { EQUATIONS, I_TABLE, LIMITATIONS, PARAM_DOCS } from "@/lib/breach/docs";
+import {
+  EQUATIONS,
+  I_TABLE,
+  LIMITATIONS,
+  PARAM_DOCS,
+  MANNING_TABLE,
+  HEADCUT_DOCS,
+  BREACH_SIDE_SLOPE_DOC,
+  MORAINE_DOC,
+  TYPICAL_VALUES,
+  ICE_THERMAL_DOC,
+  MORAINE_STABILITY_DOC,
+  MODULE_SCOPE_DOC,
+} from "@/lib/breach/docs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function TheoryView() {
@@ -17,24 +29,15 @@ export function TheoryView() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Example cases</CardTitle>
-          <CardDescription>
-            Presets on the Simulate page. Load one from the Example case dropdown, then open Results after a run.
-          </CardDescription>
+          <CardTitle>{MODULE_SCOPE_DOC.title}</CardTitle>
+          <CardDescription>{MODULE_SCOPE_DOC.summary}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          {EXAMPLES.map((ex) => (
-            <div key={ex.id} className="rounded-md border border-border bg-background p-4">
-              <p className="font-medium">{ex.title}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{ex.blurb}</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{ex.theory}</p>
-              <p className="mt-2 font-mono text-[11px] text-foreground/70">
-                mode={ex.inputs.mode} · I={ex.inputs.erosionIndexI} · Hb=
-                {(ex.inputs.crestElev - ex.inputs.baseElev).toFixed(1)} m · V₀=
-                {ex.inputs.volumeM3.toLocaleString()} m³
-              </p>
-            </div>
-          ))}
+        <CardContent>
+          <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
+            {MODULE_SCOPE_DOC.points.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
 
@@ -112,6 +115,69 @@ export function TheoryView() {
               ))}
             </tbody>
           </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Glacial / moraine lake volume from area</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            When bathymetry is unavailable, inventory-style power laws estimate storage from surface
+            area. The Reservoir tab offers Sakai (Himalaya), Cook &amp; Quincey (global), Huggel
+            (Alpine), Evans, and O’Connor (Cascades). Units follow the source papers (typically{" "}
+            <span className="font-mono">A</span> in km² and <span className="font-mono">V</span> in
+            10⁶ m³, or SI forms for O’Connor / Cook–Quincey). These are screening relations with
+            large scatter — always prefer a surveyed stage–storage curve for design-level work.
+          </p>
+          <p>
+            Freeboard <span className="font-mono">f = crest − WL</span> is shown alongside the
+            estimate so you can see whether the pool is already overtopping before a wave or breach
+            run.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{ICE_THERMAL_DOC.title}</CardTitle>
+          <CardDescription>{ICE_THERMAL_DOC.summary}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          {ICE_THERMAL_DOC.equations.map((eq) => (
+            <div key={eq.title} className="rounded-md border border-border bg-background p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{eq.title}</p>
+              <p className="mt-1 font-mono text-sm text-foreground">{eq.latex}</p>
+              <p className="mt-1 text-xs">{eq.note}</p>
+            </div>
+          ))}
+          <ul className="list-disc space-y-1 pl-5 text-xs">
+            {ICE_THERMAL_DOC.limits.map((l) => (
+              <li key={l.slice(0, 40)}>{l}</li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{MORAINE_STABILITY_DOC.title}</CardTitle>
+          <CardDescription>{MORAINE_STABILITY_DOC.summary}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          {MORAINE_STABILITY_DOC.equations.map((eq) => (
+            <div key={eq.title} className="rounded-md border border-border bg-background p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{eq.title}</p>
+              <p className="mt-1 font-mono text-sm text-foreground">{eq.latex}</p>
+              <p className="mt-1 text-xs">{eq.note}</p>
+            </div>
+          ))}
+          <ul className="list-disc space-y-1 pl-5 text-xs">
+            {MORAINE_STABILITY_DOC.classes.map((l) => (
+              <li key={l.slice(0, 40)}>{l}</li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
 

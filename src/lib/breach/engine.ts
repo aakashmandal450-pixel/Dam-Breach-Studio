@@ -1,4 +1,5 @@
 import type { BreachStage, SimResult, SimStep, StudioInputs } from "./types";
+import { interpolateInflow } from "./inflowSeries";
 
 const G = 9.81;
 const RHO = 1000;
@@ -57,8 +58,15 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
   const volumeFromY = (yy: number) => V0 * Math.pow(Math.max(yy, 0) / y0, m);
   const yFromVolume = (vol: number) => y0 * Math.pow(Math.max(vol, 0) / V0, 1 / m);
 
-  const Ce = Math.pow(10, -p.erosionIndexI);
-  const kd = Ce / Math.max(p.rhoD, 200);
+  // Homogeneous: one I. Zoned: core I for piping; shell I for open-breach / overtopping erosion.
+  const I_core = p.erosionIndexI;
+  const I_shell = p.damStructure === "zoned" ? (p.shellErosionIndexI ?? p.erosionIndexI) : p.erosionIndexI;
+  const tauC_shell = p.damStructure === "zoned" ? (p.shellTauC ?? p.tauC) : p.tauC;
+  const Ce_core = Math.pow(10, -I_core);
+  const Ce_shell = Math.pow(10, -I_shell);
+  const kd_core = Ce_core / Math.max(p.rhoD, 200);
+  const kd_shell = Ce_shell / Math.max(p.rhoD, 200);
+  let kd = kd_core;
 
   const C = Math.max(p.crestWidth, 0.5);
   const headcutOn = p.mode === "overtopping" && (p.headcutEnabled !== false);
@@ -104,9 +112,11 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
     let Q = Math.max(p.spillwayQ, 0);
     let tau = 0;
     let stage: BreachStage = collapsed ? "open" : "piping";
+    const tauCrit = collapsed ? tauC_shell : p.tauC;
 
-    // —— Piping branch ——
+    // —— Piping branch (core material) ——
     if (!collapsed) {
+      kd = kd_core;
       const Hpipe = Math.max(WL - p.pipeInvert, 0);
       if (Hpipe > 0) {
         const area = Math.PI * R * R;
@@ -128,8 +138,10 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
       }
     }
 
-    // —— Open / overtopping branch ——
+    // —— Open / overtopping branch (shell if zoned) ——
     if (collapsed) {
+      kd = kd_shell;
+      const tauCrit = tauC_shell;
       const h = Math.max(WL - zb, 0);
       const hCrest = Math.max(WL - p.crestElev, 0);
 
@@ -161,14 +173,17 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
           if (headcutActive || hCrest >= hInit) {
             headcutActive = true;
             // Hydrostatic face stress on the vertical scarp (order-of-magnitude Temple driver)
-            const tauFace = RHO * G * Math.max(hCrest, h * 0.35);
+            // Hydrostatic face shear + mild dynamic factor (screening upgrade of pure ρgh)
+            const hFace = Math.max(hCrest, h * 0.35);
+            const FrScale = Math.min(1.2, Math.sqrt(Math.max(hCrest, 0) / Math.max(C, 0.5)));
+            const tauFace = RHO * G * hFace * (1 + 0.25 * FrScale);
             tau = Math.max(tauBed, tauFace);
-            const erFace = kd * Math.max(tauFace - p.tauC, 0);
+            const erFace = kd * Math.max(tauFace - tauCrit, 0);
             const dx = fH * erFace * dt;
             xHeadcut = Math.min(C, xHeadcut + dx);
 
             // Limited scarp lowering while the headcut is still in the crest
-            const erLimited = kd * Math.max(tauBed - p.tauC, 0) * 0.25;
+            const erLimited = kd * Math.max(tauBed - tauCrit, 0) * 0.25;
             const dz = Math.min(erLimited * dt, 0.015 * Hb);
             zb = Math.max(zb - dz, p.crestElev - 0.35 * Hb);
             Wb = Math.min(Wb + 2 * erFace * p.sideErosionFactor * 0.5 * dt, p.crestLength * 1.05);
@@ -186,7 +201,7 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
         } else {
           // Full open-channel erosion after headcut breach (or when module is off)
           tau = tauBed;
-          const er = kd * Math.max(tauBed - p.tauC, 0);
+          const er = kd * Math.max(tauBed - tauCrit, 0);
           const dz = Math.min(er * dt, 0.04 * Hb);
           zb = Math.max(zb - dz, p.baseElev);
           Wb = Math.min(Wb + 2 * er * p.sideErosionFactor * dt, p.crestLength * 1.05);
@@ -199,9 +214,14 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
       }
     }
 
-    const dV = (p.inflowM3s - Q) * dt;
+    // Inflow: discrete hydrograph Q_in(t) when enabled, else constant inflowM3s
+    const Qin =
+      p.inflowSeriesEnabled && p.inflowSeries && p.inflowSeries.length > 0
+        ? interpolateInflow(p.inflowSeries, t)
+        : p.inflowM3s;
+    const dV = (Qin - Q) * dt;
     if (V + dV < 0) {
-      Q = V / dt + p.inflowM3s;
+      Q = V / dt + Qin;
       V = 0;
     } else {
       V = V + dV;
