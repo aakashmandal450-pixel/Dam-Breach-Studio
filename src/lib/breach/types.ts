@@ -1,9 +1,29 @@
 export type FailureMode = "overtopping" | "piping";
+export type DamStructure = "homogeneous" | "zoned" | "moraine" | "ice_cored_moraine";
 export type BreachStage = "filling" | "piping" | "headcut" | "open" | "empty";
+
+/** Matches ids in src/lib/lake/volume.ts */
+export type LakeVolumeFormulaId =
+  | "manual"
+  | "sakai"
+  | "cook_quincey"
+  | "huggel"
+  | "evans"
+  | "oconnor";
+
+/** Time unit for building a discrete inflow series. */
+export type InflowIntervalUnit = "s" | "min" | "h";
+
+/** One node of Q_in(t). timeSec is always stored in seconds from t = 0. */
+export interface InflowSeriesPoint {
+  timeSec: number;
+  Q: number;
+}
 
 export interface StudioInputs {
   projectName: string;
   mode: FailureMode;
+  damStructure: DamStructure;
 
   crestElev: number;
   baseElev: number;
@@ -16,7 +36,20 @@ export interface StudioInputs {
   initialWL: number;
   volumeM3: number;
   surfaceAreaHa: number;
+  /** How volumeM3 was obtained / suggested. */
+  lakeVolumeFormula: LakeVolumeFormulaId;
   inflowM3s: number;
+  /**
+   * Optional discrete inflow hydrograph Q_in(t).
+   * When non-empty and inflowSeriesEnabled, the engine interpolates Q at each step
+   * instead of using the constant inflowM3s.
+   */
+  inflowSeriesEnabled: boolean;
+  inflowSeries: InflowSeriesPoint[];
+  /** UI helpers for regenerating the table (not required by engine). */
+  inflowSeriesDuration: number;
+  inflowSeriesInterval: number;
+  inflowSeriesUnit: InflowIntervalUnit;
   storageExponent: number;
   spillwayQ: number;
 
@@ -24,6 +57,9 @@ export interface StudioInputs {
   phiDeg: number;
   tauC: number;
   erosionIndexI: number;
+  /** Zoned dams: shell erosion index (overtopping). Core uses erosionIndexI for piping. */
+  shellErosionIndexI: number;
+  shellTauC: number;
   manningN: number;
   zb: number;
   sideErosionFactor: number;
@@ -43,7 +79,20 @@ export interface StudioInputs {
   collapseRatio: number;
 
   dt: number;
+  /** Display unit for dt (stored value is always seconds). */
+  dtUnit: "s" | "min" | "h";
   tMaxHours: number;
+  /** Display unit for max duration (stored value is always hours). */
+  tMaxUnit: "s" | "min" | "h";
+  /** Half-width for I uncertainty band (Qp at I±deltaI). */
+  uncertaintyDeltaI: number;
+
+  /**
+   * When false, the GLOF / ice screening module is omitted entirely
+   * (simple homogeneous or zoned earthfill runs). Default true so existing
+   * projects keep the panel; turn off for ordinary dam-breach work.
+   */
+  glofIceEnabled: boolean;
 }
 
 export interface SimStep {
@@ -78,6 +127,7 @@ export interface SimResult {
 export const DEFAULT_INPUTS: StudioInputs = {
   projectName: "Homogeneous earthfill — overtopping",
   mode: "overtopping",
+  damStructure: "homogeneous",
   crestElev: 12,
   baseElev: 0,
   crestWidth: 4,
@@ -88,13 +138,21 @@ export const DEFAULT_INPUTS: StudioInputs = {
   initialWL: 12.15,
   volumeM3: 180000,
   surfaceAreaHa: 3.2,
+  lakeVolumeFormula: "manual",
   inflowM3s: 2,
+  inflowSeriesEnabled: false,
+  inflowSeries: [],
+  inflowSeriesDuration: 6,
+  inflowSeriesInterval: 1,
+  inflowSeriesUnit: "h",
   storageExponent: 2,
   spillwayQ: 0,
   rhoD: 1800,
   phiDeg: 32,
   tauC: 8,
   erosionIndexI: 3.2,
+  shellErosionIndexI: 2.8,
+  shellTauC: 5,
   manningN: 0.03,
   zb: 0.5,
   sideErosionFactor: 1.2,
@@ -108,5 +166,9 @@ export const DEFAULT_INPUTS: StudioInputs = {
   pipeInvert: 4,
   collapseRatio: 0.55,
   dt: 2,
+  dtUnit: "s",
   tMaxHours: 6,
+  tMaxUnit: "h",
+  uncertaintyDeltaI: 0.5,
+  glofIceEnabled: true,
 };

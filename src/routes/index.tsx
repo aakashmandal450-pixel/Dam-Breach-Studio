@@ -1,24 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChartLine, Download, Play, Settings2, Upload } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { DamSchematic } from "@/components/DamSchematic";
 import { ParamForm } from "@/components/ParamForm";
-import { ResultCharts } from "@/components/ResultCharts";
+import { ImpulseWavePanel } from "@/components/ImpulseWavePanel";
+import { ResultsView } from "@/components/ResultsView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { EXAMPLES } from "@/lib/breach/examples";
-import { resultToCsv, runBreachSimulation } from "@/lib/breach/engine";
+import { runBreachSimulation } from "@/lib/breach/engine";
 import type { StudioInputs } from "@/lib/breach/types";
 import { cn, downloadText, formatNumber } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 
 export const Route = createFileRoute("/")({ component: SimulatePage });
 
-type WorkspaceTab = "inputs" | "results";
+type WorkspaceTab = "inputs" | "impulse" | "results";
 
 function SimulatePage() {
   const { inputs, result, playIndex, running, setResult, setPlayIndex, setRunning, setInputs } =
@@ -26,41 +26,6 @@ function SimulatePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("inputs");
   const [exampleId, setExampleId] = useState<string>("custom");
-
-  const step = result?.series[Math.min(playIndex, (result?.series.length ?? 1) - 1)] ?? null;
-
-  const stats = useMemo(() => {
-    if (!result || result.series.length === 0) return null;
-    const first = result.series[0];
-    const last = result.series[result.series.length - 1];
-    const volReleased = Math.max(0, first.V - last.V);
-    const tauMax = result.series.reduce((m, s) => Math.max(m, s.tau), 0);
-    const tBreach =
-      result.tEmpty ??
-      (last.stage === "empty" ? last.t : result.series[result.series.length - 1].t);
-
-    return [
-      { k: "Peak discharge Qp", v: `${formatNumber(result.Qpeak, 2)} m³/s` },
-      { k: "Time to peak", v: `${formatNumber(result.tPeak / 60, 1)} min` },
-      { k: "Time to empty / end", v: `${formatNumber(tBreach / 60, 1)} min` },
-      {
-        k: "Headcut through C",
-        v:
-          result.tHeadcutBreach == null
-            ? "—"
-            : `${formatNumber(result.tHeadcutBreach / 60, 1)} min`,
-      },
-      {
-        k: "Roof collapse",
-        v: result.tCollapse == null ? "—" : `${formatNumber(result.tCollapse / 60, 1)} min`,
-      },
-      { k: "Volume released", v: `${formatNumber(volReleased, 0)} m³` },
-      { k: "Final Wb", v: `${formatNumber(result.finalWb, 2)} m` },
-      { k: "Breach depth", v: `${formatNumber(result.finalDepth, 2)} m` },
-      { k: "Max shear τ", v: `${formatNumber(tauMax, 1)} Pa` },
-      { k: "Compute", v: `${formatNumber(result.elapsedMs, 0)} ms` },
-    ];
-  }, [result]);
 
   useEffect(() => {
     if (!running || !result) return;
@@ -86,33 +51,6 @@ function SimulatePage() {
     downloadText(
       `${slug(inputs.projectName)}.json`,
       JSON.stringify(inputs, null, 2),
-      "application/json",
-    );
-  }
-
-  function exportCsv() {
-    if (!result) return;
-    downloadText(`${slug(inputs.projectName)}-series.csv`, resultToCsv(result), "text/csv");
-  }
-
-  function exportSummary() {
-    if (!result || !stats) return;
-    const payload = {
-      project: inputs.projectName,
-      mode: inputs.mode,
-      peakQ_m3s: result.Qpeak,
-      timeToPeak_min: result.tPeak / 60,
-      timeToEmpty_min: result.tEmpty != null ? result.tEmpty / 60 : null,
-      tHeadcutBreach_min: result.tHeadcutBreach != null ? result.tHeadcutBreach / 60 : null,
-      tRoofCollapse_min: result.tCollapse != null ? result.tCollapse / 60 : null,
-      finalWb_m: result.finalWb,
-      breachDepth_m: result.finalDepth,
-      stats: Object.fromEntries(stats.map((s) => [s.k, s.v])),
-      warnings: result.warnings,
-    };
-    downloadText(
-      `${slug(inputs.projectName)}-summary.json`,
-      JSON.stringify(payload, null, 2),
       "application/json",
     );
   }
@@ -186,37 +124,36 @@ function SimulatePage() {
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
           <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-2.5">
-            <Label htmlFor="example-preset" className="text-[11px]">
-              Example case
-            </Label>
-            <select
-              id="example-preset"
-              className="h-8 w-full rounded-md border border-border bg-input px-2 text-xs"
-              value={exampleId}
-              onChange={(e) => onExampleChange(e.target.value)}
-            >
-              <option value="custom">Custom</option>
-              {EXAMPLES.map((ex) => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.title}
-                </option>
-              ))}
-            </select>
-            {exampleId !== "custom" && (
-              <p className="line-clamp-3 text-[10px] leading-snug text-muted-foreground">
-                {EXAMPLES.find((e) => e.id === exampleId)?.blurb}
-              </p>
-            )}
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Project</p>
+            <p className="break-words text-sm font-medium leading-snug text-foreground">
+              {inputs.projectName || "—"}
+            </p>
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Edit name and examples under Inputs → Project. Mode:{" "}
+              <span className="text-foreground">
+                {inputs.mode === "piping" ? "piping" : "overtopping"}
+              </span>
+              {" · "}
+              <span className="text-foreground">
+                {inputs.damStructure === "zoned"
+                  ? "zoned core"
+                  : inputs.damStructure === "ice_cored_moraine"
+                    ? "ice-cored"
+                    : inputs.damStructure === "moraine"
+                      ? "moraine"
+                      : "homogeneous"}
+              </span>
+            </p>
           </div>
 
           {workspaceTab === "inputs" && (
             <div className="overflow-hidden rounded-lg border border-border bg-card">
               <div className="border-b border-border px-3 py-1.5">
                 <p className="text-[11px] font-medium text-muted-foreground">
-                  Input schematic — symbols match the parameter tabs (Hb, C, Z1, Z2, Wb, WL, R, x_h)
+                  Live cross-section — updates with geometry, WL, core, and failure mode
                 </p>
               </div>
-              <div className="max-h-[11rem] overflow-hidden px-1">
+              <div className="px-1 py-1">
                 <DamSchematic inputs={inputs} step={null} />
               </div>
             </div>
@@ -235,10 +172,12 @@ function SimulatePage() {
               <span>
                 Wb <strong className="text-foreground">{formatNumber(result.finalWb, 2)}</strong> m
               </span>
-              {step && (
+              {result.series[Math.min(playIndex, result.series.length - 1)] && (
                 <>
                   <span className="text-border">|</span>
-                  <Badge tone="accent">{step.stage}</Badge>
+                  <Badge tone="accent">
+                    {result.series[Math.min(playIndex, result.series.length - 1)].stage}
+                  </Badge>
                 </>
               )}
             </div>
@@ -255,6 +194,12 @@ function SimulatePage() {
             onClick={() => setWorkspaceTab("inputs")}
             icon={<Settings2 className="size-3.5" />}
             label="Inputs"
+          />
+          <WorkspaceTabButton
+            active={workspaceTab === "impulse"}
+            onClick={() => setWorkspaceTab("impulse")}
+            icon={<ChartLine className="size-3.5" />}
+            label="Impulse wave"
           />
           <WorkspaceTabButton
             active={workspaceTab === "results"}
@@ -286,6 +231,17 @@ function SimulatePage() {
           </Card>
         )}
 
+        {workspaceTab === "impulse" && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Impulse wave (2-D)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImpulseWavePanel />
+            </CardContent>
+          </Card>
+        )}
+
         {workspaceTab === "results" && (
           <div className="flex flex-col gap-4">
             {!result ? (
@@ -301,82 +257,16 @@ function SimulatePage() {
                 </CardContent>
               </Card>
             ) : (
-              <>
-                <Card>
-                  <CardHeader className="flex-row items-center justify-between">
-                    <CardTitle>Simulation — cross-section</CardTitle>
-                    {step && <Badge tone="accent">{step.stage}</Badge>}
-                  </CardHeader>
-                  <CardContent>
-                    <DamSchematic inputs={inputs} step={step} />
-                    {result.series.length > 1 && (
-                      <div className="mt-4 flex flex-col gap-2">
-                        <Slider
-                          min={0}
-                          max={result.series.length - 1}
-                          step={1}
-                          value={[playIndex]}
-                          onValueChange={(v) => {
-                            setRunning(false);
-                            setPlayIndex(v[0] ?? 0);
-                          }}
-                        />
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{((step?.t ?? 0) / 60).toFixed(1)} min</span>
-                          <button
-                            type="button"
-                            className="text-accent"
-                            onClick={() => setRunning(!running)}
-                          >
-                            {running ? "Pause" : "Play"}
-                          </button>
-                          <span>Q = {formatNumber(step?.Q ?? 0, 2)} m³/s</span>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {stats && (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                    {stats.map((s) => (
-                      <div key={s.k} className="rounded-lg border border-border bg-card px-3 py-3">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.k}</p>
-                        <p className="font-mono text-sm tabular-nums">{s.v}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {result.warnings.length > 0 && (
-                  <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-warn">
-                    {result.warnings.map((w) => (
-                      <p key={w}>{w}</p>
-                    ))}
-                  </div>
-                )}
-
-                <ResultCharts result={result} playIndex={playIndex} />
-
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={exportCsv}>
-                    <Download className="size-4" />
-                    Export time-series CSV
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={exportSummary}>
-                    <Download className="size-4" />
-                    Export summary JSON
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setWorkspaceTab("inputs")}>
-                    <Settings2 className="size-4" />
-                    Edit inputs
-                  </Button>
-                  <Button size="sm" onClick={run}>
-                    <Play className="size-4" />
-                    Re-run
-                  </Button>
-                </div>
-              </>
+              <ResultsView
+                inputs={inputs}
+                result={result}
+                playIndex={playIndex}
+                running={running}
+                setPlayIndex={setPlayIndex}
+                setRunning={setRunning}
+                onEditInputs={() => setWorkspaceTab("inputs")}
+                onRerun={run}
+              />
             )}
           </div>
         )}
