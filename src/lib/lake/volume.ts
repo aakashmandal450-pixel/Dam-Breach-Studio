@@ -47,13 +47,15 @@ export const LAKE_VOLUME_FORMULAS: LakeVolumeFormula[] = [
   },
   {
     id: "cook_quincey",
-    name: "Cook & Quincey (global)",
-    region: "Global compilations",
-    // Re-plot of Huggel data: V (m³) = 0.1217 · A(m²)^1.4129
+    name: "Cook & Quincey (re-plot of Huggel)",
+    region: "Alpine / similar (re-plotted)",
+    // Cook & Quincey (2015) Table 1 refined re-plot of Huggel (2002)'s original 15-lake dataset:
+    // V (m³) = 0.1217 · A(m²)^1.4129. NOT their separate ~69-lake global compiled fit
+    // (which is a differently-shaped equation, roughly V ≈ 1e-7 · A^1.434).
     compute: (areaM2) => {
       return 0.1217 * Math.pow(Math.max(areaM2, 1), 1.4129);
     },
-    note: "Global compilation (Cook & Quincey 2015, re-plot of Huggel). Broad screening; scatter is large.",
+    note: "Cook & Quincey (2015) refined re-plot of Huggel (2002) data — not Cook & Quincey's own separate global compiled-dataset fit. Broad screening; scatter is large.",
   },
   {
     id: "huggel",

@@ -12,12 +12,19 @@ function clamp(v: number, lo: number, hi: number) {
  * Mechanistic breach-formation engine (physics v2).
  *
  * Hydraulics
- *   Open breach:  Q = Cw · Wavg · h^1.5     (broad-crested trapezoidal weir)
+ *   Open breach:  Q = Cw · Wavg · h^1.5     (averaged-width simplification of a
+ *                 broad-crested trapezoidal weir — NOT the rigorous compound
+ *                 trapezoidal-weir formula; adequate for screening, not a
+ *                 substitute for a full compound-section rating.)
  *   Piping:       Q = Cd · π R² √(2 g H)     (orifice)
  *
- * Erosion (Wan & Fell / excess shear)
- *   Ce = 10^(−I)
+ * Erosion (excess-shear form, inspired by Wan & Fell's erodibility framework)
+ *   Ce = 10^(−I)                            (erosion-rate index → erodibility coefficient)
  *   ε  = (Ce / ρd) · max(τ − τc, 0)         [m/s]
+ *   NOTE: kd = Ce/ρd does not dimensionally reduce to Wan & Fell's own erosion-rate
+ *   coefficient units, and this is not their literal published regression — treat
+ *   as a screening-level erodibility relationship in the same spirit, not a citation
+ *   of the exact Wan & Fell (2004) equation.
  *
  * Bed shear (open channel, Manning)
  *   τ = ρ g n² U² / Rh^(1/3)
