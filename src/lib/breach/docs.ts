@@ -140,7 +140,7 @@ export const EQUATIONS = [
   {
     title: "Open-breach weir",
     latex: "Q = Cw (Wb + Zb h) h^{3/2}",
-    note: "Broad-crested trapezoidal weir. Default Cw = 1.7 (metric). Head h = WL − invert. Zb is the BREACH channel side slope, not the dam face slope.",
+    note: "Averaged-width simplification of a broad-crested trapezoidal weir (not the rigorous compound trapezoidal-section formula). Default Cw = 1.7 (metric). Head h = WL − invert. Zb is the BREACH channel side slope, not the dam face slope.",
   },
   {
     title: "Piping orifice",
@@ -148,9 +148,9 @@ export const EQUATIONS = [
     note: "Used until roof collapse (2R ≥ κ · cover), then the model switches to the open weir.",
   },
   {
-    title: "Erosion rate (Wan & Fell)",
+    title: "Erosion rate (excess-shear, inspired by Wan & Fell)",
     latex: "ε = (10^{−I} / ρd) max(τ − τc, 0)",
-    note: "A change of 1 in I changes the rate by a factor of ten. Zoned dams: core I for piping; shell I for open-breach / overtopping erosion.",
+    note: "Screening-level excess-shear erodibility relationship in the spirit of Wan & Fell's erosion-index framework — kd = 10^{−I}/ρd does not dimensionally reduce to their literal published erosion-rate coefficient, so treat this as inspired-by rather than a direct citation of the Wan & Fell (2004) equation. A change of 1 in I changes the rate by a factor of ten. Zoned dams: core I for piping; shell I for open-breach / overtopping erosion.",
   },
   {
     title: "Open-channel (Manning) shear",

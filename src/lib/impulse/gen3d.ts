@@ -8,7 +8,15 @@
  *   aM/h ≈ (1/2) P^{4/5} · cos²(γ)     (weaker than 2-D channel confinement)
  *   HM/h ≈ (5/6) P^{4/5} · cos²(γ)
  *   rM/h ≈ 5 P^{1/2}
- * Decay beyond rM ~ (rM/r)^{2/3} (geometric spreading stronger than 2-D).
+ * Decay beyond rM ~ (rM/r)^{1} (geometric spreading stronger than 2-D).
+ *
+ * NOTE (Phase 11B fix): the radial decay exponent was corrected from 2/3 to 1.
+ * Heller (co-author, Heller & Spinneken 2015, Coastal Eng. 104:113–134)
+ * describes r^{-1} as "an overall mean of the tests" for 3D radial decay —
+ * i.e. a representative single exponent across the dataset, not a
+ * P-dependent regression term the way the 2D far-field exponent is.
+ * The near-field aM/h, HM/h, rM/h, and TM* coefficients above are unverified
+ * against the primary source and should be treated as provisional.
  */
 
 import type { Impulse3DInputs, Impulse3DLimits, Impulse3DResult } from "./types";
@@ -77,7 +85,8 @@ export function computeImpulse3D(p: Impulse3DInputs): Impulse3DResult {
     ar = aM * ratio;
     Hr = HM * ratio;
   } else {
-    const decay = Math.pow(rM / r, 2 / 3);
+    // r^-1 mean decay per Heller & Spinneken (2015) — see module docstring
+    const decay = Math.pow(rM / r, 1);
     ar = aM * decay;
     Hr = HM * decay;
   }

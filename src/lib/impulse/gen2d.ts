@@ -10,15 +10,19 @@
  *   M  = (ρs (1 − n) Vs_bulk) / (ρw b h²)   [relative slide mass]
  *   P  = F · S^{1/2} · M^{1/4} · cos^{1/2}(α · 6/7)   [impulse product]
  *
- *   aM / h = (3/4)  P^{4/5}
- *   HM / h = (5/4)  P^{4/5}
+ *   aM / h = (4/9)  P^{4/5}
+ *   HM / h = (5/9)  P^{4/5}
  *   xM / h = (11/2) P^{1/2}
  *   TM √(g/h) = 9 P^{1/2}
  *   c ≈ √[g (h + a)]   (solitary-wave estimate)
  *
  * At arbitrary X = x/h the amplitude decays approximately as
- *   a(x)/h ≈ aM/h · (xM / x)^{1/3}   for x ≥ xM
+ *   a(x)/h ≈ aM/h · (xM / x)^{4/15}   for x ≥ xM
  * (with a floor at the near-field value). Period grows slowly with distance.
+ *
+ * Coefficients verified against Heller & Hager (2010), J. Waterw. Port
+ * Coast. Ocean Eng. 136(3):145–155, Table 1 (Phase 11B fix — previous
+ * values of 3/4, 5/4, and exponent 1/3 did not match the published table).
  *
  * All limitation ranges match Table 3-2 of the VAW tool (screening envelope).
  */
@@ -66,9 +70,9 @@ export function computeImpulse2D(p: Impulse2DInputs): Impulse2DResult {
   const cosTerm = Math.cos((6 / 7) * alphaRad);
   const P = F * Math.sqrt(S) * Math.pow(clampMin(M), 0.25) * Math.sqrt(Math.max(cosTerm, 0));
 
-  // Near-field maxima
-  const aM_h = 0.75 * Math.pow(clampMin(P), 0.8);
-  const HM_h = 1.25 * Math.pow(clampMin(P), 0.8);
+  // Near-field maxima (Heller & Hager 2010, Table 1)
+  const aM_h = (4 / 9) * Math.pow(clampMin(P), 0.8);
+  const HM_h = (5 / 9) * Math.pow(clampMin(P), 0.8);
   const xM_h = 5.5 * Math.sqrt(clampMin(P));
   const TM_star = 9 * Math.sqrt(clampMin(P)); // T √(g/h)
 
@@ -91,8 +95,8 @@ export function computeImpulse2D(p: Impulse2DInputs): Impulse2DResult {
     ax = aM * r;
     Hx = HM * r;
   } else {
-    // decay ~ X^{-1/3} beyond xM
-    const decay = Math.pow(xM / x, 1 / 3);
+    // decay ~ X^{-4/15} beyond xM (Heller & Hager 2010)
+    const decay = Math.pow(xM / x, 4 / 15);
     ax = aM * decay;
     Hx = HM * decay;
   }
