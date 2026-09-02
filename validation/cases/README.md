@@ -55,7 +55,7 @@ loader won't. `jiti` resolves them the same way the app itself does.)
 
 | Case | Type | Completeness |
 |---|---|---|
-| `teton-1976.json` | Engineered earthfill, piping | Geometry, reservoir volume, and observed peak discharge/timing are sourced. Erodibility/pipe parameters (rhoD, phiDeg, tauC, erosionIndexI, CdOrifice, pipe geometry) are typical-value placeholders — the actual Bureau of Reclamation forensic report would have real values and should replace these. |
+| `teton-1976.json` | Engineered earthfill, piping | Geometry, reservoir volume, observed peak discharge/timing, and `collapseRatio` (derived from the documented ~25 ft pre-collapse hole diameter) are sourced. `erosionIndexI`/`tauC`/pipe geometry remain placeholders -- and per the case file's `sourcingCaveat`, literature suggests the *real* erosion index for Teton's core (non-plastic windblown silt) would be lower/more erodible than the current default, which would make the current overestimate worse, not better. `collapseRatio` alone brought Qpeak error from +245.8% to +167.8%; fixing the remaining gap needs the actual Reclamation forensic erodibility data, not further guessing. |
 | `dig-tsho-1985.json` | Moraine/GLOF, wave-triggered overtopping | Moraine height, lake volume, and observed peak discharge are sourced (with a genuine range across studies — sources disagree by ~15%, reported as-is rather than picking one). Geometry (crest width/length, side slopes) and all erodibility parameters are unsourced placeholders. Treat this one as a seed case, not a validated result, until better-sourced geometry is found. |
 
 Add a new case by copying the JSON shape in either file, running it through

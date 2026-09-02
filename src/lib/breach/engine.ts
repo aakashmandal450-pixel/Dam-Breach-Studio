@@ -128,7 +128,14 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
       if (Hpipe > 0) {
         const area = Math.PI * R * R;
         Q += p.CdOrifice * area * Math.sqrt(2 * G * Hpipe);
-        tau = (RHO * G * R * Hpipe) / (2 * Math.max(p.coreLength, 0.5));
+        const pressurized = 2 * R < Hpipe;
+        if (pressurized) {
+          tau = (RHO * G * R * Hpipe) / (2 * Math.max(p.coreLength, 0.5));
+        } else {
+          const RhFreeSurface = Hpipe / 4;
+          const Sf = Hpipe / Math.max(p.coreLength, 0.5);
+          tau = RHO * G * RhFreeSurface * Sf;
+        }
         R += kd * Math.max(tau - p.tauC, 0) * dt;
         const cover = Math.max(p.crestElev - p.pipeInvert, 0.2);
         if (2 * R >= p.collapseRatio * cover) {
