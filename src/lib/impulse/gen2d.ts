@@ -7,7 +7,8 @@
  *
  *   F  = Vs / √(g h)
  *   S  = s / h
- *   M  = (ρs (1 − n) Vs_bulk) / (ρw b h²)   [relative slide mass]
+ *   M  = (ρs Vs_bulk) / (ρw b h²)   [relative slide mass — bulk volume, no
+ *        porosity reduction; matches the VAW sheet's M18 formula exactly]
  *   P  = F · S^{1/2} · M^{1/4} · cos^{1/2}(α · 6/7)   [impulse product]
  *
  *   aM / h = (4/9)  P^{4/5}
@@ -16,13 +17,22 @@
  *   TM √(g/h) = 9 P^{1/2}
  *   c ≈ √[g (h + a)]   (solitary-wave estimate)
  *
- * At arbitrary X = x/h the amplitude decays approximately as
- *   a(x)/h ≈ aM/h · (xM / x)^{4/15}   for x ≥ xM
- * (with a floor at the near-field value). Period grows slowly with distance.
+ * Far field (x ≥ xM), recomputed directly from P and X = x/h — NOT a decay
+ * applied to the near-field peak:
+ *   H(x)/h      = (3/4) · [P · X^{-1/3}]^{4/5}
+ *   a(x)        = H(x) · 4/5
+ *   T(x) √(g/h) = 9 · P^{1/4} · X^{5/16}
  *
- * Coefficients verified against Heller & Hager (2010), J. Waterw. Port
- * Coast. Ocean Eng. 136(3):145–155, Table 1 (Phase 11B fix — previous
- * values of 3/4, 5/4, and exponent 1/3 did not match the published table).
+ * Build-up zone (0 < x < xM) has no VAW formula to match against — treated
+ * as a linear ramp from 0 to the near-field peak, for screening only.
+ *
+ * Phase 12: both M and the far-field formulas were corrected against the
+ * live VAW workbook (formulas recalculated via LibreOffice headless, then
+ * diffed cell-by-cell against this code — see validation/README.md and
+ * gen2d.verification.test.ts). The Phase 11B version applied an undocumented
+ * porosity correction to M and decayed H/a/T from the near-field peak using
+ * xM/x rather than recomputing from X directly; neither matches the
+ * reference tool, confirmed numerically, not just algebraically.
  *
  * All limitation ranges match Table 3-2 of the VAW tool (screening envelope).
  */
@@ -51,15 +61,18 @@ export function computeImpulse2D(p: Impulse2DInputs): Impulse2DResult {
   const s = clampMin(p.s);
   const Vs = clampMin(p.Vs);
   const vol = clampMin(p.slideVolume);
-  const n = Math.min(Math.max(p.nPercent, 0), 80) / 100; // fraction
   const alphaRad = (p.alphaDeg * Math.PI) / 180;
   const x = Math.max(p.x, 0);
 
   // Dimensionless groups
   const F = Vs / Math.sqrt(G * h);
   const S = s / h;
-  const solidVol = vol * (1 - n);
-  const mass = p.rhoS * solidVol;
+  // NOTE (Phase 12): M is the *bulk* slide mass term, matching the VAW workbook's
+  // own M18 formula exactly (rhoS * Vs_bulk, no porosity reduction). An earlier
+  // version multiplied by (1 - n) here, which the reference tool does not do —
+  // confirmed by recalculating the live VAW sheet and comparing cell-for-cell
+  // (see validation/README.md). `n` still enters via the limitation envelope below.
+  const mass = p.rhoS * vol;
   const M = mass / (RHO_W * b * h * h);
   const D = p.rhoS / RHO_W;
   const Vrel = vol / (b * h * h);
@@ -86,22 +99,30 @@ export function computeImpulse2D(p: Impulse2DInputs): Impulse2DResult {
   // At distance x
   let ax: number;
   let Hx: number;
+  let Tx: number;
   if (x <= 0) {
     ax = aM;
     Hx = HM;
+    Tx = TM;
   } else if (x < xM) {
-    // build-up zone: interpolate from 0 → max (simple ramp for screening)
+    // build-up zone: interpolate from 0 → max (simple ramp for screening —
+    // the VAW formulas themselves are only defined for x ≥ xM, so this
+    // segment has no reference-tool equivalent to verify against)
     const r = x / xM;
     ax = aM * r;
     Hx = HM * r;
+    Tx = TM * r;
   } else {
-    // decay ~ X^{-4/15} beyond xM (Heller & Hager 2010)
-    const decay = Math.pow(xM / x, 4 / 15);
-    ax = aM * decay;
-    Hx = HM * decay;
+    // Direct far-field recomputation from P and X = x/h (VAW Eq. 3.19/3.20),
+    // NOT a decay applied to the near-field peak — that was Phase 11B's
+    // approach and it does not algebraically match this formula (confirmed
+    // by comparing both against the live VAW sheet, see validation/README.md).
+    const Hx_h = 0.75 * Math.pow(clampMin(P) * Math.pow(X, -1 / 3), 0.8);
+    Hx = Hx_h * h;
+    ax = Hx * (4 / 5); // VAW's a(x) is always 4/5 of H(x), same ratio as the near-field case
+    const Tx_star = 9 * Math.pow(clampMin(P), 0.25) * Math.pow(X, 5 / 16); // T(x)·√(g/h)
+    Tx = Tx_star * Math.sqrt(h / G);
   }
-  // Period grows mildly with distance
-  const Tx = TM * (x > xM ? Math.pow(x / xM, 0.15) : 1);
   const cx = Math.sqrt(G * (h + ax));
   const Lx = cx * Tx;
 

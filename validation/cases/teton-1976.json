@@ -1,0 +1,66 @@
+{
+  "id": "teton-1976",
+  "name": "Teton Dam, Idaho, USA (1976)",
+  "eventDate": "1976-06-05",
+  "damStructure": "zoned",
+  "mode": "piping",
+  "sources": [
+    {
+      "citation": "Bureau of Reclamation, Teton Dam History",
+      "url": "https://www.usbr.gov/pn/snakeriver/dams/uppersnake/teton/index.html"
+    },
+    {
+      "citation": "ASDSO Dam Failures and Lessons Learned, Teton Dam (Idaho, 1976) case study",
+      "url": "https://damfailures.org/case-study/teton-dam-idaho-1976"
+    },
+    {
+      "citation": "Simulating the 1976 Teton Dam Failure using Geoclaw and HEC-RAS and comparing with Historical Observations, arXiv:2206.00766",
+      "url": "https://arxiv.org/abs/2206.00766"
+    },
+    {
+      "citation": "USGS, Summary of Significant Floods in the US, PR, and the VI, 1970-1989 (2008), via usdeadlyevents.com compilation",
+      "url": "https://www.usdeadlyevents.com/1976-june-5-teton-dam-failure-teton-river-newdale-southeast-idaho-11-12/"
+    }
+  ],
+  "inputOverrides": {
+    "projectName": "Teton Dam 1976 (case study)",
+    "mode": "piping",
+    "damStructure": "zoned",
+    "baseElev": 0,
+    "crestElev": 93,
+    "crestWidth": 10.7,
+    "crestLength": 914.4,
+    "initialWL": 82,
+    "volumeM3": 289000000,
+    "inflowM3s": 0,
+    "spillwayQ": 0
+  },
+  "sourced": {
+    "baseElev": "riverbed taken as datum 0",
+    "crestElev": "structural height 305 ft ≈ 93 m (ASDSO case study)",
+    "crestWidth": "10.7 m (Geoclaw/HEC-RAS comparison paper, arXiv:2206.00766)",
+    "crestLength": "914.4 m (Geoclaw/HEC-RAS comparison paper, arXiv:2206.00766)",
+    "initialWL": "82 m water surface elevation above riverbed at time of failure — reservoir had not yet reached full pool (arXiv:2206.00766)",
+    "volumeM3": "2.89e8 m3 = 234,260 acre-ft, reservoir volume at time of failure, below the 3.55e8 m3 design capacity (arXiv:2206.00766, citing Reclamation 2006)"
+  },
+  "unsourcedFields": [
+    "zUp", "zDown", "coreLength", "rhoD", "phiDeg", "tauC", "erosionIndexI",
+    "shellErosionIndexI", "shellTauC", "manningN", "zb", "sideErosionFactor",
+    "CdOrifice", "Cw", "initialNotchWidth", "initialPipeRadius", "pipeInvert",
+    "collapseRatio"
+  ],
+  "unsourcedFieldsNote": "These use DEFAULT_INPUTS' typical zoned-earthfill values. The actual Bureau of Reclamation forensic investigation almost certainly has real erodibility/pipe-geometry data for this dam; replace these before treating this case as a rigorous validation rather than a plausibility check.",
+  "observed": {
+    "peakDischargeM3s": {
+      "value": 65100,
+      "range": [65100, 68000],
+      "note": "USGS estimate of 2.3 million ft3/s converted to SI (≈65,130 m3/s); some sources round to ~2.3–2.4 million cfs.",
+      "source": "USGS Summary of Significant Floods 1970-1989 (2008)"
+    },
+    "breachFormationHours": {
+      "value": 0.95,
+      "note": "Reclamation analysis: significant internal destruction occurred over ~1 hour, 11:00–11:57 on 1976-06-05 (arXiv:2206.00766, citing Solava & Delatte 2003 / Reclamation 1976). Full reservoir drained (173,000 acre-ft) in 2h23m, a separate, longer figure — use breachFormationHours for the erosion/enlargement phase, not total drawdown.",
+      "source": "Reclamation 1976 forensic timeline, via arXiv:2206.00766"
+    }
+  }
+}

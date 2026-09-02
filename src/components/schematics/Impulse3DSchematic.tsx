@@ -80,15 +80,20 @@ export function Impulse3DSchematic({ inputs, result }: Props) {
       </text>
 
       <g transform="translate(430, 36)">
-        <text x={0} y={0} fontSize="11" fontFamily="Georgia, serif" fontWeight="600" fill="#1a1a1a">At gauge</text>
-        <text x={0} y={20} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`aM = ${fmt(result?.aM ?? 0, 2)} m`}</text>
-        <text x={0} y={36} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`HM = ${fmt(result?.HM ?? 0, 2)} m`}</text>
-        <text x={0} y={52} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`ar = ${fmt(result?.ar ?? 0, 2)} m`}</text>
-        <text x={0} y={68} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`Hr = ${fmt(result?.Hr ?? 0, 2)} m`}</text>
-        <text x={0} y={90} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`h = ${fmt(inputs.h, 1)} m`}</text>
-        <text x={0} y={106} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`α = ${fmt(inputs.alphaDeg, 0)}°`}</text>
-        <text x={0} y={122} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`Vs = ${fmt(inputs.Vs, 1)} m/s`}</text>
-        <text x={0} y={138} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`Hfall = ${fmt(inputs.fallHeight, 0)} m`}</text>
+        <text x={0} y={0} fontSize="11" fontFamily="Georgia, serif" fontWeight="600" fill="#1a1a1a">At gauge (r, γ)</text>
+        <text x={0} y={20} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`ac1 (crest) = ${fmt(result?.ac1 ?? result?.a0c1 ?? 0, 2)} m`}</text>
+        <text x={0} y={36} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`at1 (trough) = ${fmt(result?.at1 ?? result?.a0t1 ?? 0, 2)} m`}</text>
+        <text x={0} y={52} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`ac2 (2nd crest) = ${fmt(result?.ac2 ?? result?.a0c2 ?? 0, 2)} m`}</text>
+        <text x={0} y={68} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`H = ac1+at1 = ${fmt(result?.HM ?? 0, 2)} m`}</text>
+        {result?.insideNearField && (
+          <text x={0} y={84} fontSize="9" fontFamily="Georgia, serif" fill="#c0392b">
+            gauge is inside near field — boundary estimate shown
+          </text>
+        )}
+        <text x={0} y={102} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`h = ${fmt(inputs.h, 1)} m`}</text>
+        <text x={0} y={118} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`α = ${fmt(inputs.alphaDeg, 0)}°`}</text>
+        <text x={0} y={134} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`Vs = ${fmt(inputs.Vs, 1)} m/s`}</text>
+        <text x={0} y={150} fontSize="10" fontFamily="Georgia, serif" fill="#1a1a1a">{`Hfall = ${fmt(inputs.fallHeight, 0)} m`}</text>
       </g>
     </svg>
   );
