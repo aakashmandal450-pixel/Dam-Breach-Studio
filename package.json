@@ -19,6 +19,8 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts",
+    "test:verify": "node --experimental-strip-types --test \"src/lib/**/*.verification.test.ts\"",
+    "validate:case": "jiti validation/cases/run_case.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -77,6 +79,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "jiti": "^2.7.0",
     "@eslint/js": "^9.20.0",
     "@types/node": "^22.16.5",
     "@types/pg": "^8.11.10",

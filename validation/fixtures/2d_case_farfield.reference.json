@@ -1,0 +1,29 @@
+{
+  "_readme": "Ground truth extracted by validation/tools/extract_vaw_fixture.py from the live formulas in attachments/BFE_VAW_Impulse_Wave_Manual_Computational_Tool_v1-0.xlsm, sheet 'Generation | Propagation (2D)'. Values were produced by LibreOffice recalculating the workbook's own Eq. 3.13-3.21 formulas with the inputs below -- not hand re-derived. Regenerate with: python3 validation/tools/extract_vaw_fixture.py --sheet 2d --out <path> Vs=20 Vsbulk=50000 s=10 b=80 rhoS=1900 n=35 alpha=45 h=40 x=300",
+  "case": "2d-farfield-a (x=300m, beyond xM≈141.6m)",
+  "inputs": {
+    "Vs": 20, "slideVolume": 50000, "s": 10, "b": 80,
+    "rhoS": 1900, "nPercent": 35, "alphaDeg": 45, "h": 40, "x": 300
+  },
+  "reference": {
+    "F": 1.0096375546923,
+    "S": 0.25,
+    "M": 0.7421875,
+    "D": 1.9,
+    "Vrel": 0.390625,
+    "B": 2,
+    "X": 7.5,
+    "P": 0.414305297835131,
+    "HM": 10.9810501674871,
+    "aM": 8.78484013398965,
+    "xM": 141.606413750297,
+    "TM": 11.6976398160761,
+    "cXM": 21.8764549622291,
+    "LM": 255.902890600767,
+    "Hx": 8.66219535360581,
+    "ax": 6.92975628288465,
+    "Tx": 27.3668472352066,
+    "cx": 21.456488741989,
+    "Lx": 587.196449605942
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "_readme": "Ground truth extracted directly from the live 'Generation | Propagation (3D)' sheet in attachments/BFE_VAW_Impulse_Wave_Manual_Computational_Tool_v1-0.xlsm via LibreOffice headless recalculation. gamma=20 (nonzero) deliberately chosen to exercise the SECH directional term, not just the on-axis case.",
+  "case": "3d-farfield-a (r=300m, gamma=20deg, beyond r0(gamma)≈89.2m)",
+  "inputs": {
+    "Vs": 20, "slideVolume": 50000, "s": 10, "b": 80,
+    "rhoS": 1900, "nPercent": 35, "alphaDeg": 45, "h": 40, "r": 300, "gammaDeg": 20
+  },
+  "reference": {
+    "F": 1.0096375546923044,
+    "S": 0.25,
+    "M": 0.7421875,
+    "D": 1.9,
+    "rhoGRatio": 2.923076923076923,
+    "Vrel": 0.390625,
+    "B": 2.0,
+    "Rrel": 7.5,
+    "P": 0.4143052978351312,
+    "r0_0": 89.715175125773,
+    "r0_90": 85.26470149427304,
+    "r0Gamma": 89.15832674019366,
+    "rStar": 210.84167325980633,
+    "a0c1": 8.14331089783218,
+    "a0t1": 11.268337706987365,
+    "a0c2": 5.024049807043289,
+    "ac1": 1.6276087242679202,
+    "at1": 2.504097228219394,
+    "ac2": 2.919672509427431,
+    "cc1": 19.19768409289319,
+    "cc2": 14.363515370046663,
+    "T1": 18.145424424636936,
+    "L1": 348.3501258356481
+  }
+}
