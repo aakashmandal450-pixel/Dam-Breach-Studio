@@ -57,12 +57,67 @@ export interface StudioInputs {
   phiDeg: number;
   tauC: number;
   erosionIndexI: number;
+  /**
+   * Exponent n on excess shear: ε = kd·(τ−τc)^n. Default 1 = today's linear
+   * (Wan & Fell-style) behaviour for cohesive/fine soils. Literature values:
+   * n≈1.3 for cohesionless sand/gravel (Chen & Anderson 1986), n≈1.5 matches
+   * Meyer-Peter–Müller-style transport-capacity scaling (as used in NWS BREACH).
+   * Applies to the core/homogeneous material (piping + non-zoned overtopping).
+   */
+  erosionExponent: number;
   /** Zoned dams: shell erosion index (overtopping). Core uses erosionIndexI for piping. */
   shellErosionIndexI: number;
   shellTauC: number;
+  /** Same as erosionExponent but for the zoned-dam shell material. Default 1. */
+  shellErosionExponent: number;
+
+  /**
+   * Zoned-dam core geometry (trapezoidal core drawn on the cross-section and used
+   * by DamSchematic). ct = top width (m), Zc = core face batter (H:1V),
+   * Hc/Hb = core height as a fraction of dam height.
+   */
+  coreTopWidth: number;
+  coreSideSlope: number;
+  coreHeightFraction: number;
+
   manningN: number;
   zb: number;
   sideErosionFactor: number;
+
+  /**
+   * Open-breach erosion closure (does NOT affect piping or the headcut face, which
+   * always stay on excess-shear).
+   *  - "excess_shear" (default): detachment-limited ε = kd·(τ−τc)^n — unchanged legacy law.
+   *  - "transport_capacity": sediment-transport-limited Meyer-Peter–Müller with the
+   *    Smart (1984) gradation factor + Exner continuity — the NWS BREACH lineage, for
+   *    cohesionless / granular / moraine / rockfill material (NOT fine cohesive soils).
+   */
+  erosionModel: "excess_shear" | "transport_capacity";
+  /**
+   * How the excess-shear erodibility coefficient kd is obtained. Applies wherever the
+   * excess-shear law is used (piping, headcut face, and open breach when
+   * erosionModel = "excess_shear").
+   *  - "index"  (default): kd = 10^(−I) / ρd — legacy Wan & Fell-style index (unchanged).
+   *  - "hanson": kd = 2e-7 · τc^(−0.5)  [m³/(N·s)] — Hanson & Simon (2001) JET regression
+   *              (kd[cm³/N·s] = 0.2·τc^(−0.5), converted to SI); forces the exponent n = 1.
+   *  - "direct": use kdDirect, a measured JET value entered in cm³/(N·s) (converted to SI).
+   */
+  kdMode: "index" | "hanson" | "direct";
+  /** Measured detachment-rate coefficient from a JET, in cm³/(N·s). Used only when kdMode = "direct". */
+  kdDirect: number;
+
+  /** Median grain size D50 (m). Transport-capacity closure only. */
+  grainD50_m: number;
+  /** Gradation ratio D90/D30 for the Smart (1984) factor (D90/D30)^0.2. Transport-capacity only. */
+  grainD90D30Ratio: number;
+  /** Sediment grain density ρs (kg/m³). Transport-capacity only. Default 2650 (quartz). */
+  grainDensity: number;
+  /** Bed porosity p (0–1) in the Exner conversion. Transport-capacity only. */
+  porosity: number;
+  /** Critical Shields parameter θc. Transport-capacity only. Default 0.047 (MPM). */
+  criticalShields: number;
+  /** Meyer-Peter–Müller transport coefficient Kt. Transport-capacity only. Default 8. */
+  mpmCoefficient: number;
 
   /** Enable Temple/WinDAM-style headcut migration during overtopping. */
   headcutEnabled: boolean;
@@ -70,6 +125,44 @@ export interface StudioInputs {
   headcutInitDepth: number;
   /** Multiplier on the excess-shear rate for horizontal headcut advance (typically 3–15). */
   headcutAdvanceFactor: number;
+  /**
+   * Which headcut-migration law drives horizontal scarp advance dxh/dt.
+   *  - "hydrostatic" (default): legacy Temple-style dxh/dt = fh·ε(τ_face) with τ_face≈ρg·h_face.
+   *  - "energy": WinDAM / USDA-SITES energy-dissipation law dX/dt = C·(q·H)^(1/3), q = unit
+   *    overfall discharge [m²/s], H = drop height. C is a material headcut-erodibility that can
+   *    be tied to the same JET anchor as kd. Only affects overtopping; piping is unchanged.
+   */
+  headcutLaw: "hydrostatic" | "energy";
+  /** WinDAM/SITES energy-headcut coefficient C in dX/dt = C·(q·H)^(1/3). Used only when headcutLaw="energy". */
+  headcutEnergyCoeff: number;
+  /**
+   * Deepening-gate throttle: fraction of the excess-shear rate allowed to lower the invert
+   * WHILE the headcut is still migrating through the crest width C. Legacy value 0.25 (default,
+   * unchanged). Exposed so the gate — long suspected of over-throttling wide-crest moraine
+   * breaches — can be re-examined; raise toward 1 to let the invert deepen closer to the full rate.
+   */
+  headcutGateDeepenFraction: number;
+  /** Per-step cap on gated deepening as a fraction of dam height Hb. Legacy 0.015 (default, unchanged). */
+  headcutGateDeepenCap: number;
+
+  /**
+   * Wave-overtopping transient forcing (opt-in) — the GLOF wave→breach chain. When enabled in
+   * overtopping mode, a displacement/impulse wave (from the Impulse module's run-up result)
+   * rides over the crest as a short pulse of peak depth waveOvertopDepth for waveOvertopDuration,
+   * supplying the erosive head that initiates incision when the still pool sits at/near the crest
+   * (little/no freeboard — the classic moraine-GLOF trigger). Applied to the erosion hydraulics
+   * ONLY, not to reservoir storage (a wave is a surface surge, not added lake volume). Off by
+   * default → engine behaviour is byte-identical to the pre-wave model.
+   */
+  waveForcingEnabled: boolean;
+  /** Peak wave-overtopping depth on the crest d0 [m] (from run-up). Wave forcing only. */
+  waveOvertopDepth: number;
+  /** Wave-overtopping duration tO [s] of one pulse (from run-up). Wave forcing only. */
+  waveOvertopDuration: number;
+  /** Number of successive wave pulses (a GLOF wave train). Default 1. Wave forcing only. */
+  waveOvertopCount: number;
+  /** Spacing between successive wave pulses [s] (0 → use waveOvertopDuration ≈ wave period). Wave forcing only. */
+  waveOvertopPeriod: number;
 
   CdOrifice: number;
   Cw: number;
@@ -77,6 +170,28 @@ export interface StudioInputs {
   initialPipeRadius: number;
   pipeInvert: number;
   collapseRatio: number;
+
+  /**
+   * Discrete bank mass-wasting during open-breach widening (moraine / ice_cored_moraine
+   * only — ignored for homogeneous/zoned). Screening proxy for the fluvial-erosion +
+   * geotechnical bank-collapse coupling documented for moraine breaches (Westoby et al.
+   * 2014, HR-BREACH; validated against Dig Tsho). Smooth excess-shear erosion alone
+   * under-widens moraine channels; this adds periodic discrete slump events instead.
+   */
+  bankCollapseEnabled: boolean;
+  /**
+   * Unsupported bank height (as a fraction of dam height Hb) the channel can expose
+   * via deepening before a bank-collapse event triggers. Screening proxy, not a
+   * literal limit-equilibrium (Culmann) calculation — smaller values collapse more
+   * often / in smaller increments. Typical 0.08–0.20.
+   */
+  bankCollapseHeightFraction: number;
+  /**
+   * Converts the exposed bank height at collapse into an instantaneous widening of
+   * Wb (both banks retreat as the slumped wedge is washed out). Screening proxy.
+   * Typical 1–3.
+   */
+  bankCollapseWidthFactor: number;
 
   dt: number;
   /** Display unit for dt (stored value is always seconds). */
@@ -151,20 +266,50 @@ export const DEFAULT_INPUTS: StudioInputs = {
   phiDeg: 32,
   tauC: 8,
   erosionIndexI: 3.2,
+  erosionExponent: 1,
   shellErosionIndexI: 2.8,
   shellTauC: 5,
+  shellErosionExponent: 1,
   manningN: 0.03,
   zb: 0.5,
   sideErosionFactor: 1.2,
+  // Zoned-core geometry (cross-section drawing)
+  coreTopWidth: 2.5,
+  coreSideSlope: 0.5,
+  coreHeightFraction: 0.85,
+  // Erosion closure — defaults preserve the legacy excess-shear + index-kd behaviour exactly
+  erosionModel: "excess_shear",
+  kdMode: "index",
+  kdDirect: 0.5,
+  grainD50_m: 0.03,
+  grainD90D30Ratio: 8,
+  grainDensity: 2650,
+  porosity: 0.35,
+  criticalShields: 0.047,
+  mpmCoefficient: 8,
   headcutEnabled: true,
   headcutInitDepth: 0.04,
   headcutAdvanceFactor: 6,
+  // Headcut law + deepening-gate — defaults preserve the legacy hydrostatic behaviour exactly
+  headcutLaw: "hydrostatic",
+  headcutEnergyCoeff: 0.5,
+  headcutGateDeepenFraction: 0.25,
+  headcutGateDeepenCap: 0.015,
+  // Wave-overtopping transient forcing — off by default (regression-safe)
+  waveForcingEnabled: false,
+  waveOvertopDepth: 0,
+  waveOvertopDuration: 0,
+  waveOvertopCount: 1,
+  waveOvertopPeriod: 0,
   CdOrifice: 0.6,
   Cw: 1.7,
   initialNotchWidth: 1.2,
   initialPipeRadius: 0.08,
   pipeInvert: 4,
   collapseRatio: 0.55,
+  bankCollapseEnabled: true,
+  bankCollapseHeightFraction: 0.12,
+  bankCollapseWidthFactor: 1.5,
   dt: 2,
   dtUnit: "s",
   tMaxHours: 6,
