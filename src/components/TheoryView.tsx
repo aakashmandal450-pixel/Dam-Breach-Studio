@@ -5,6 +5,8 @@ import {
   PARAM_DOCS,
   MANNING_TABLE,
   HEADCUT_DOCS,
+  WAVE_FORCING_DOC,
+  EROSION_MODEL_DOC,
   BREACH_SIDE_SLOPE_DOC,
   MORAINE_DOC,
   TYPICAL_VALUES,
@@ -54,6 +56,72 @@ export function TheoryView() {
               <p className="mt-2 text-sm text-muted-foreground">{eq.note}</p>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{EROSION_MODEL_DOC.title}</CardTitle>
+          <CardDescription>{EROSION_MODEL_DOC.summary}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-foreground">Open-breach closure (erosionModel)</p>
+            <ul className="mt-1.5 list-disc space-y-1 pl-5">
+              {EROSION_MODEL_DOC.models.map((m) => (
+                <li key={m.slice(0, 24)}>{m}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-foreground">Erodibility provenance (kdMode)</p>
+            <ul className="mt-1.5 list-disc space-y-1 pl-5">
+              {EROSION_MODEL_DOC.kdModes.map((m) => (
+                <li key={m.slice(0, 24)}>{m}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-md border border-border bg-background p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Slope is not double-counted</p>
+            <p className="mt-1 text-xs">{EROSION_MODEL_DOC.whyNotSmartSlope}</p>
+          </div>
+          <p>{EROSION_MODEL_DOC.guidance}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{HEADCUT_DOCS.title}</CardTitle>
+          <CardDescription>{HEADCUT_DOCS.summary}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <ul className="list-disc space-y-1.5 pl-5">
+            {HEADCUT_DOCS.effects.map((e) => (
+              <li key={e.slice(0, 32)}>{e}</li>
+            ))}
+          </ul>
+          <div className="rounded-md border border-border bg-background p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Module off</p>
+            <p className="mt-1 text-xs">{HEADCUT_DOCS.whenOff}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{WAVE_FORCING_DOC.title}</CardTitle>
+          <CardDescription>{WAVE_FORCING_DOC.summary}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <ul className="list-disc space-y-1.5 pl-5">
+            {WAVE_FORCING_DOC.effects.map((e) => (
+              <li key={e.slice(0, 32)}>{e}</li>
+            ))}
+          </ul>
+          <div className="rounded-md border border-border bg-background p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Forcing off</p>
+            <p className="mt-1 text-xs">{WAVE_FORCING_DOC.whenOff}</p>
+          </div>
         </CardContent>
       </Card>
 

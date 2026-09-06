@@ -15,6 +15,7 @@ import { useStudio } from "@/store/studio";
 import type { StudioInputs } from "@/lib/breach/types";
 import { EXAMPLES } from "@/lib/breach/examples";
 import { headcutDefaultsForStructure } from "@/lib/breach/headcutDefaults";
+import { erosionDefaultsForStructure } from "@/lib/breach/erosionDefaults";
 import { cn } from "@/lib/utils";
 import { LakeVolumePanel } from "@/components/LakeVolumePanel";
 import { InflowSeriesPanel } from "@/components/InflowSeriesPanel";
@@ -221,6 +222,12 @@ export function ParamForm() {
                   setInput("headcutEnabled", hd.headcutEnabled);
                   setInput("headcutInitDepth", hd.headcutInitDepth);
                   setInput("headcutAdvanceFactor", hd.headcutAdvanceFactor);
+                  // Open-breach erosion closure: granular moraine/rockfill → transport-capacity;
+                  // engineered homogeneous/zoned fills stay on detachment-limited excess-shear.
+                  const ed = erosionDefaultsForStructure(v);
+                  setInput("erosionModel", ed.erosionModel);
+                  setInput("grainD50_m", ed.grainD50_m);
+                  setInput("grainD90D30Ratio", ed.grainD90D30Ratio);
                 }}
               >
                 <option value="homogeneous">Homogeneous fill (one material)</option>
@@ -267,6 +274,84 @@ export function ParamForm() {
               </>
             )}
 
+            <div className="sm:col-span-2 mt-1 border-t border-border pt-2">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Open-breach erosion closure</p>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Applies to open-breach deepening / widening only — piping and the headcut face always use excess-shear.
+                See Theory → Erosion closure.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="erosionModel" className="text-xs leading-tight">Erosion law</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground" aria-label="About erosion law">
+                      <Info className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                    Excess-shear (default) is detachment-limited ε = kd(τ−τc)^n for cohesive fills.
+                    Transport-capacity is Meyer-Peter–Müller + Smart (1984) → Exner for cohesionless
+                    granular / moraine / rockfill (NWS BREACH lineage). Do not use transport-capacity for fine cohesive soils.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <select
+                id="erosionModel"
+                className="h-8 rounded-md border border-border bg-input px-2 text-sm"
+                value={inputs.erosionModel ?? "excess_shear"}
+                onChange={(e) => setInput("erosionModel", e.target.value as StudioInputs["erosionModel"])}
+              >
+                <option value="excess_shear">Excess-shear (detachment-limited)</option>
+                <option value="transport_capacity">Transport-capacity (MPM / Smart → Exner)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="kdMode" className="text-xs leading-tight">Erodibility kd source</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground" aria-label="About kd source">
+                      <Info className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                    index (default): kd = 10^(−I)/ρd (legacy). hanson: kd = 2×10⁻⁷·τc^(−0.5) from Hanson &amp;
+                    Simon (2001) JET regression, forces n = 1. direct: enter a measured JET kd in cm³/(N·s).
+                    Applies wherever excess-shear is active.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <select
+                id="kdMode"
+                className="h-8 rounded-md border border-border bg-input px-2 text-sm"
+                value={inputs.kdMode ?? "index"}
+                onChange={(e) => setInput("kdMode", e.target.value as StudioInputs["kdMode"])}
+              >
+                <option value="index">Index — kd = 10^(−I)/ρd (legacy)</option>
+                <option value="hanson">Hanson &amp; Simon JET — kd = 2e−7·τc^(−0.5)</option>
+                <option value="direct">Direct — measured JET kd</option>
+              </select>
+            </div>
+
+            {(inputs.kdMode ?? "index") === "direct" && (
+              <Num id="kdDirect" label="Measured JET kd" symbol="kd" unit="cm³/(N·s)" hint="Site-measured detachment-rate coefficient from a Jet Erosion Test, in cm³/(N·s). Converted to SI ×10⁻⁶ internally. Typical: 0.1–10." k="kdDirect" step={0.01} />
+            )}
+
+            {(inputs.erosionModel ?? "excess_shear") === "transport_capacity" && (
+              <>
+                <Num id="grainD50_m" label="Median grain size" symbol="D₅₀" unit="m" hint="Median bed grain diameter. Moraine matrix ≈ 0.02–0.04 m; rockfill coarser. Transport-capacity only — Shields stress θ = τ/((s−1)ρg·D₅₀)." k="grainD50_m" step={0.005} />
+                <Num id="grainD90D30Ratio" label="Gradation ratio" symbol="D₉₀/D₃₀" unit="—" hint="Smart (1984) gradation factor (D₉₀/D₃₀)^0.2. Well-graded moraine debris ≈ 8–12. Transport-capacity only." k="grainD90D30Ratio" step={0.5} />
+                <Num id="grainDensity" label="Grain density" symbol="ρs" unit="kg/m³" hint="Sediment particle density. Default 2650 (quartz). Transport-capacity only." k="grainDensity" step={10} />
+                <Num id="criticalShields" label="Critical Shields" symbol="θc" unit="—" hint="Critical Shields parameter for incipient motion. Default 0.047 (MPM); lower on steep / fine beds. Transport-capacity only." k="criticalShields" step={0.001} />
+                <Num id="mpmCoefficient" label="MPM coefficient" symbol="Kt" unit="—" hint="Meyer-Peter–Müller transport coefficient. Default 8 (classic); Wong &amp; Parker (2006) recalibrate ≈3.97. Transport-capacity only." k="mpmCoefficient" step={0.5} />
+                <Num id="porosity" label="Bed porosity" symbol="p" unit="—" hint="Bed porosity in the Exner conversion ε = qs/((1−p)·Lreach). Typical 0.25–0.45. Transport-capacity only." k="porosity" step={0.01} />
+              </>
+            )}
+
             </FieldGrid>
         )}
 
@@ -289,7 +374,81 @@ export function ParamForm() {
               </select>
             </div>
             <Num id="headcutInitDepth" label="Initiation head" symbol="hinit" unit="m" hint="Overtopping depth on the crest before the discrete headcut is tracked. Defaults depend on dam structure (see Theory → Headcut). Typical 0.03–0.06 m." k="headcutInitDepth" step={0.01} />
-            <Num id="headcutAdvanceFactor" label="Advance factor" symbol="fh" unit="—" hint="How fast the scarp migrates through crest width C. Moraine defaults ~4; zoned clay ~8; homogeneous ~6. Range 3–15. Deepening is limited until breakthrough." k="headcutAdvanceFactor" step={0.5} />
+            <Num id="headcutAdvanceFactor" label="Advance factor" symbol="fh" unit="—" hint="How fast the scarp migrates through crest width C. Moraine defaults ~4; zoned clay ~8; homogeneous ~6. Range 3–15. Deepening is limited until breakthrough. Used by the hydrostatic law only." k="headcutAdvanceFactor" step={0.5} />
+
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="headcutLaw" className="text-xs leading-tight">Migration law</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground" aria-label="About headcut migration law">
+                      <Info className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                    Hydrostatic (default, legacy): dxh/dt = fh·ε(τface), τface ≈ ρg·hface. Energy: WinDAM /
+                    USDA-SITES dissipation dX/dt = C·(q·H)^(1/3), q = unit overfall discharge, H = drop height.
+                    Only affects overtopping; piping is unchanged.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <select
+                id="headcutLaw"
+                className="h-8 rounded-md border border-border bg-input px-2 text-sm"
+                value={inputs.headcutLaw ?? "hydrostatic"}
+                onChange={(e) => setInput("headcutLaw", e.target.value as StudioInputs["headcutLaw"])}
+              >
+                <option value="hydrostatic">Hydrostatic — dxh/dt = fh·ε(τface) (legacy)</option>
+                <option value="energy">WinDAM energy — dX/dt = C·(q·H)^(1/3)</option>
+              </select>
+            </div>
+
+            {(inputs.headcutLaw ?? "hydrostatic") === "energy" && (
+              <Num id="headcutEnergyCoeff" label="Energy coefficient" symbol="C" unit="—" hint="WinDAM/SITES headcut erodibility in dX/dt = C·(q·H)^(1/3). Higher = faster scarp migration. Tie to the same material as kd; typical screening 0.5–2. Used by the energy law only." k="headcutEnergyCoeff" step={0.1} />
+            )}
+
+            <div className="sm:col-span-2 mt-1 border-t border-border pt-2">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Deepening gate</p>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                While the scarp migrates through crest width C, invert lowering is throttled. Raise the fraction
+                toward 1 to let a wide-crest moraine breach deepen closer to the full rate. See Theory → Headcut.
+              </p>
+            </div>
+            <Num id="headcutGateDeepenFraction" label="Gate fraction" symbol="gf" unit="—" hint="Fraction of the excess-shear rate allowed to lower the invert while the headcut is still inside the crest. Legacy 0.25. Range 0.05–1." k="headcutGateDeepenFraction" step={0.05} />
+            <Num id="headcutGateDeepenCap" label="Gate cap" symbol="—" unit="×Hb" hint="Per-step cap on gated deepening as a fraction of dam height Hb. Legacy 0.015. Range 0.005–0.1." k="headcutGateDeepenCap" step={0.005} />
+            {inputs.mode === "overtopping" && (
+              <>
+                <div className="sm:col-span-2 mt-1 border-t border-border pt-2">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Wave-overtopping forcing (GLOF trigger)</p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Injects a transient displacement-wave overtopping pulse (peak depth d₀ over duration tO, from
+                    Impulse → run-up) as erosive head only — not reservoir volume. Lets a lake sitting at/near its
+                    rim (little or no freeboard) initiate a breach the standing head alone cannot. Off = legacy.
+                    See Theory → Wave forcing.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <Label htmlFor="waveForcingEnabled" className="text-xs">Wave forcing</Label>
+                  <select
+                    id="waveForcingEnabled"
+                    className="h-8 rounded-md border border-border bg-input px-2 text-sm"
+                    value={inputs.waveForcingEnabled ? "on" : "off"}
+                    onChange={(e) => setInput("waveForcingEnabled", e.target.value === "on")}
+                  >
+                    <option value="off">Off — hydrostatic head only (legacy)</option>
+                    <option value="on">On — add wave-overtopping pulse train</option>
+                  </select>
+                </div>
+                {inputs.waveForcingEnabled && (
+                  <>
+                    <Num id="waveOvertopDepth" label="Peak overtop depth" symbol="d₀" unit="m" hint="Peak wave-overtopping depth on the crest, from the Impulse module's run-up result (RunupResult.d0)." k="waveOvertopDepth" step={0.1} />
+                    <Num id="waveOvertopDuration" label="Overtop duration" symbol="tO" unit="s" hint="Duration of a single overtopping pulse, from run-up (RunupResult.tO)." k="waveOvertopDuration" step={1} />
+                    <Num id="waveOvertopCount" label="Pulse count" symbol="N" unit="—" hint="Number of successive wave pulses (a GLOF wave train). Default 1; range 1–20." k="waveOvertopCount" step={1} />
+                    <Num id="waveOvertopPeriod" label="Pulse spacing" symbol="T" unit="s" hint="Time between successive pulse starts. 0 → use the overtop duration as the spacing." k="waveOvertopPeriod" step={1} />
+                  </>
+                )}
+              </>
+            )}
           </FieldGrid>
         )}
 

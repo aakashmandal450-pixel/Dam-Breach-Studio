@@ -1,0 +1,89 @@
+{
+  "id": "dig-tsho-1985-wave",
+  "name": "Dig Tsho, Khumbu, Nepal (1985) — wave-triggered breach chain",
+  "eventDate": "1985-08-04",
+  "damStructure": "moraine",
+  "mode": "overtopping",
+  "sources": [
+    {
+      "citation": "Vuichard, D. & Zimmermann, M. (1987), as reported in Bajracharya, Shrestha & Rajbhandari, 'Glacial Lake Outburst Floods in the Sagarmatha Region', Mountain Research and Development 27(4)",
+      "url": "https://bioone.org/journals/mountain-research-and-development/volume-27/issue-4/mrd.0783/Glacial-Lake-Outburst-Floods-in-the-Sagarmatha-Region/10.1659/mrd.0783.full"
+    },
+    {
+      "citation": "Cenderelli & Wohl-type peak discharge compilation, 'Peak discharge estimates of glacial-lake outburst floods and normal climatic floods in the Mount Everest region, Nepal'",
+      "url": "https://www.researchgate.net/publication/223763100_Peak_discharge_estimates_of_glacial-lake_outburst_floods_and_normal_climatic_floods_in_the_Mount_Everest_region_Nepal"
+    },
+    {
+      "citation": "Westoby, M.J. et al. (2014), 'Modelling outburst floods from moraine-dammed glacial lakes', Earth-Science Reviews 134 — moraine breach erodibility is calibrated, not measured, and the trigger is a displacement wave over near-zero freeboard.",
+      "url": "https://doi.org/10.1016/j.earscirev.2014.03.009"
+    }
+  ],
+  "inputOverrides": {
+    "projectName": "Dig Tsho 1985 (wave-triggered)",
+    "mode": "overtopping",
+    "damStructure": "moraine",
+    "baseElev": 0,
+    "crestElev": 18,
+    "initialWL": 18,
+    "volumeM3": 5000000,
+    "surfaceAreaHa": 50,
+    "storageExponent": 1.8,
+    "inflowM3s": 0,
+    "spillwayQ": 0,
+    "crestWidth": 25,
+    "crestLength": 220,
+    "zUp": 1.8,
+    "zDown": 2.5,
+    "rhoD": 1900,
+    "phiDeg": 34,
+    "tauC": 4,
+    "erosionIndexI": 1.17,
+    "manningN": 0.035,
+    "sideErosionFactor": 1.3,
+    "initialNotchWidth": 5,
+    "Cw": 1.6,
+    "headcutEnabled": true,
+    "headcutInitDepth": 0.2,
+    "headcutAdvanceFactor": 8,
+    "headcutLaw": "energy",
+    "headcutEnergyCoeff": 1.0,
+    "waveForcingEnabled": true,
+    "waveOvertopDepth": 3.93,
+    "waveOvertopDuration": 41.7,
+    "waveOvertopCount": 3,
+    "glofIceEnabled": true
+  },
+  "sourced": {
+    "volumeM3": "~5,000,000 m3 of water released (Bajracharya et al. 2007)",
+    "initialWL": "lake believed full to its rim just before the outbreak (Bajracharya et al. 2007) — freeboard 0, modeled as level with the crest",
+    "surfaceAreaHa": "Dig Tsho lake area ~0.5 km2 = 50 ha (Sagarmatha-region GLOF inventories)",
+    "waveOvertopDepth": "peak crest-overtopping depth d0 = 3.93 m from the Impulse module's 3D run-up of the representative displacement wave (R = 8.73 m, freeboard 0) — the ice-avalanche surge that triggered this event",
+    "waveOvertopDuration": "overtopping duration tO = 41.7 s from the same 3D run-up result"
+  },
+  "modelingNotes": {
+    "activeWaterColumn": "crestElev is set to the ~18 m ACTIVE WATER COLUMN (lake depth at the dam), NOT the ~60 m moraine dam height used in the seed case dig-tsho-1985.json. 5.0M m3 over ~50 ha gives a mean depth ~10 m and a max depth ~18 m; the breach cuts through the moraine down to the lake floor (baseElev 0). Using the full 60 m as the water column makes the headcut-breakthrough invert drop (crestElev - 0.15*Hb = 9 m) fire an unphysical instantaneous discharge spike at t ~ 36 s.",
+    "waveIsTheTrigger": "With freeboard 0 and inflowM3s 0, the standing head is zero and the dam does NOT breach without the wave (Qpeak = 0.0, the documented -100% failure). The wave-overtopping pulse train supplies the transient erosive head that initiates crest incision; once the invert cuts below still-water level the lake self-drains. Set waveForcingEnabled=false to recover the 0.0 result.",
+    "calibratedErodibility": "erosionIndexI = 1.17 is CALIBRATED (a highly erodible loose bouldery till), not sourced — no measured Dig Tsho till erodibility exists. This follows standard moraine-breach back-analysis practice (Westoby et al. 2014): the wave-forcing chain enables initiation, then erodibility is the single knob tuned to the observed peak. The energy-headcut coefficient C, wave count, and deepening-gate fraction have only second-order effect on Qpeak.",
+    "headcutLaw": "headcutLaw='energy' uses the WinDAM/USDA-SITES energy-dissipation migration dX/dt = C*(q*H)^(1/3); the legacy hydrostatic law gives a similar peak here because the peak is drawdown/erodibility-governed once the crest is cut through."
+  },
+  "unsourcedFields": [
+    "crestWidth", "crestLength", "zUp", "zDown", "erosionIndexI",
+    "rhoD", "phiDeg", "tauC", "manningN", "sideErosionFactor",
+    "initialNotchWidth", "Cw", "headcutInitDepth", "headcutAdvanceFactor",
+    "headcutEnergyCoeff", "waveOvertopCount"
+  ],
+  "unsourcedFieldsNote": "Moraine geometry and till erodibility remain unsourced/calibrated. This case demonstrates the wave->breach forcing chain (Improvement #2) reproducing the observed peak; it is a calibrated back-analysis, not a blind prediction. Breach WIDTH is over-predicted (~105 m simulated vs field estimates nearer ~60 m) — a known limitation of the smooth-widening + screening bank-collapse proxy, pending the Culmann limit-equilibrium upgrade (Improvement #3).",
+  "observed": {
+    "peakDischargeM3s": {
+      "value": 1600,
+      "range": [1375, 1600],
+      "note": "1600 m3/s reported at/near the breach site (Vuichard & Zimmermann 1987, via Bajracharya et al. 2007). A separate compilation reports ~1375 m3/s at a gauge 7.1 km downstream — the two aren't directly comparable (different measurement points) but both are included as the genuine range across sources rather than picking one.",
+      "source": "Vuichard & Zimmermann 1987; Cenderelli-type peak discharge compilation"
+    },
+    "breachFormationHours": {
+      "value": null,
+      "note": "No sourced breach-formation duration found yet for this event. The simulated peak arrives ~0.8 h after the wave trigger; treat as a model output, not an observation.",
+      "source": null
+    }
+  }
+}
