@@ -1,0 +1,54 @@
+{
+  "id": "dig-tsho-1985",
+  "name": "Dig Tsho, Khumbu, Nepal (1985)",
+  "eventDate": "1985-08-04",
+  "damStructure": "moraine",
+  "mode": "overtopping",
+  "sources": [
+    {
+      "citation": "Vuichard, D. & Zimmermann, M. (1987), as reported in Bajracharya, Shrestha & Rajbhandari, 'Glacial Lake Outburst Floods in the Sagarmatha Region', Mountain Research and Development 27(4)",
+      "url": "https://bioone.org/journals/mountain-research-and-development/volume-27/issue-4/mrd.0783/Glacial-Lake-Outburst-Floods-in-the-Sagarmatha-Region/10.1659/mrd.0783.full"
+    },
+    {
+      "citation": "Cenderelli & Wohl-type peak discharge compilation, 'Peak discharge estimates of glacial-lake outburst floods and normal climatic floods in the Mount Everest region, Nepal'",
+      "url": "https://www.researchgate.net/publication/223763100_Peak_discharge_estimates_of_glacial-lake_outburst_floods_and_normal_climatic_floods_in_the_Mount_Everest_region_Nepal"
+    }
+  ],
+  "inputOverrides": {
+    "projectName": "Dig Tsho 1985 (case study)",
+    "mode": "overtopping",
+    "damStructure": "moraine",
+    "baseElev": 0,
+    "crestElev": 60,
+    "initialWL": 60,
+    "volumeM3": 5000000,
+    "inflowM3s": 0,
+    "spillwayQ": 0,
+    "glofIceEnabled": true
+  },
+  "sourced": {
+    "crestElev": "moraine dam was 60 m high at its lowest point just before breach (Vuichard & Zimmermann 1987, via Bajracharya et al. 2007)",
+    "initialWL": "lake believed full to its rim just before the outbreak (Bajracharya et al. 2007) — modeled as level with crestElev",
+    "volumeM3": "~5,000,000 m3 of water released (Bajracharya et al. 2007)"
+  },
+  "unsourcedFields": [
+    "crestWidth", "crestLength", "zUp", "zDown", "coreLength",
+    "rhoD", "phiDeg", "tauC", "erosionIndexI", "shellErosionIndexI",
+    "shellTauC", "manningN", "zb", "sideErosionFactor",
+    "headcutInitDepth", "headcutAdvanceFactor"
+  ],
+  "unsourcedFieldsNote": "No sourced geometry or moraine-till erodibility data found for this case yet. This trigger was a wave-induced overtopping (ice avalanche of ~150,000 m3 into the lake — see gen2d/gen3d for the wave-generation side of this event, not yet chained into this breach run). Treat this case as a seed/plausibility check only, not a validated result, until real geometry and till properties are sourced.",
+  "observed": {
+    "peakDischargeM3s": {
+      "value": 1600,
+      "range": [1375, 1600],
+      "note": "1600 m3/s reported at/near the breach site (Vuichard & Zimmermann 1987, via Bajracharya et al. 2007). A separate compilation reports ~1375 m3/s at a gauge 7.1 km downstream — the two aren't directly comparable (different measurement points) but both are included as the genuine range across sources rather than picking one.",
+      "source": "Vuichard & Zimmermann 1987; Cenderelli-type peak discharge compilation"
+    },
+    "breachFormationHours": {
+      "value": null,
+      "note": "No sourced breach-formation duration found yet for this event. Peak flow velocities of 4-5 m/s are reported (Vuichard & Zimmermann 1987) but that's a flow velocity downstream, not a breach-formation timescale — do not convert one into the other.",
+      "source": null
+    }
+  }
+}

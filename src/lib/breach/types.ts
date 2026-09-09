@@ -82,6 +82,12 @@ export interface StudioInputs {
 
   manningN: number;
   zb: number;
+  /**
+   * @deprecated No longer read by the engine. Open-breach and headcut-face widening now use a
+   * geometric friction-angle slump (ΔWb = 2·dz·cot(φ) each step) instead of this multiplier —
+   * see engine.ts. Field kept only so existing saved projects / UI forms don't break; safe to
+   * remove once the UI stops referencing it.
+   */
   sideErosionFactor: number;
 
   /**
@@ -163,6 +169,19 @@ export interface StudioInputs {
   waveOvertopCount: number;
   /** Spacing between successive wave pulses [s] (0 → use waveOvertopDuration ≈ wave period). Wave forcing only. */
   waveOvertopPeriod: number;
+
+  /**
+   * Fraction (0–1) of the avalanche/slide bulk volume treated as submerged in the lake for the
+   * ONE-TIME Archimedes displaced-volume step applied at wave-forcing handoff (see
+   * applyAvalancheDisplacement in engine.ts). This is separate from — and applied BEFORE — the
+   * transient wave pulse: the avalanche mass permanently occupies space in the lake (raising
+   * volumeM3 / initialWL, same as dropping a rock in a full glass), while the wave itself is a
+   * surface surge that must NOT touch reservoir volume (that stays on waveForcingEnabled).
+   * Default 1.0 = fully submerged (conservative upper bound on the level rise). Lower values
+   * account for material that piles up on the fan / above the waterline rather than displacing
+   * water. Unused unless a slide volume is actually passed to applyAvalancheDisplacement.
+   */
+  avalancheSubmergedFraction: number;
 
   CdOrifice: number;
   Cw: number;
@@ -301,6 +320,7 @@ export const DEFAULT_INPUTS: StudioInputs = {
   waveOvertopDuration: 0,
   waveOvertopCount: 1,
   waveOvertopPeriod: 0,
+  avalancheSubmergedFraction: 1.0,
   CdOrifice: 0.6,
   Cw: 1.7,
   initialNotchWidth: 1.2,

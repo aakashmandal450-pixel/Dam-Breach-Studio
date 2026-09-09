@@ -11,7 +11,8 @@
  *   peak discharge ≈ 1600 m³/s (range ~1375–2000)
  */
 import { DEFAULT_INPUTS, type StudioInputs } from "../../src/lib/breach/types.ts";
-import { runBreachSimulation, applyAvalancheDisplacement } from "../../src/lib/breach/engine.ts";
+import { runBreachSimulation } from "../../src/lib/breach/engine.ts";
+import { pulseHydrograph } from "../../src/lib/breach/inflowSeries.ts";
 import { computeImpulse2D } from "../../src/lib/impulse/gen2d.ts";
 import { computeImpulse3D } from "../../src/lib/impulse/gen3d.ts";
 import { computeRunup } from "../../src/lib/impulse/runup.ts";
@@ -73,54 +74,33 @@ function passToBreach(
   betaDeg: number,
   crestWidth: number,
   crestLength: number,
-  crestElev: number, // no longer used directly here (d0 now comes from runup.d0, not R−freeboard); kept for signature stability / future use
-  slideVolume: number,
+  crestElev: number,
   baseInputs: StudioInputs,
-): {
-  inputs: StudioInputs;
-  runup: ReturnType<typeof computeRunup>;
-  displacement: ReturnType<typeof applyAvalancheDisplacement>;
-} {
+): { inputs: StudioInputs; runup: ReturnType<typeof computeRunup> } {
   const runup = computeRunup({ a, H, h, betaDeg, f: freeboard, bK: crestWidth, T });
 
   const inputs: StudioInputs = { ...baseInputs };
   inputs.mode = "overtopping";
   inputs.headcutEnabled = true;
 
-  // ── Step 1: ONE-TIME Archimedes displaced-volume bump ──────────────────────────────
-  // The slide mass permanently occupies volume in the lake — this is real stored water,
-  // so it belongs on the reservoir side (volumeM3 / initialWL), applied ONCE, before the
-  // transient wave. Distinct from Step 2 below.
-  const displacement = applyAvalancheDisplacement({
-    slideVolume,
-    submergedFraction: inputs.avalancheSubmergedFraction,
-    volumeM3: inputs.volumeM3,
-    initialWL: inputs.initialWL,
-    baseElev: inputs.baseElev,
-    storageExponent: inputs.storageExponent,
-  });
-  inputs.volumeM3 = displacement.newVolumeM3;
-  inputs.initialWL = displacement.newInitialWL;
-
-  // ── Step 2: transient wave forcing, EROSION-ONLY (waveForcingEnabled) ───────────────
-  // Replaces the legacy fake-inflow hack entirely. The wave is a surge, not new water, so
-  // it must never touch volumeM3/inflowM3s/inflowSeries — only the erosion hydraulics via
-  // the validated Improvement #2 mechanism.
   if (runup.overtops) {
-    // Use the run-up module's own crest-overtopping depth d0 — NOT run-up R (a different
-    // physical quantity: R is the vertical climb up a slope, which can legitimately be tens
-    // of meters; d0 is the actual water depth flowing over the crest, which cannot exceed a
-    // small fraction of the lake depth). See docs.ts: "take d0 straight from the Impulse
-    // module's run-up result (RunupResult.d0)".
-    const d0 = Math.max(0, (runup as { d0?: number }).d0 ?? 0);
-    inputs.waveForcingEnabled = true;
-    inputs.waveOvertopDepth = d0;
-    inputs.waveOvertopDuration = Math.max(runup.tO, 1);
-    inputs.waveOvertopCount = 1;
-    inputs.waveOvertopPeriod = 0;
+    // Same logic as ImpulseWavePanel.passToBreach()
+    const excess = Math.max(0, runup.R - freeboard);
+    inputs.initialWL = crestElev + Math.min(0.15, Math.max(0.02, excess * 0.1));
+    const pulseQ = runup.qm * Math.max(crestLength * 0.25, 1);
+    inputs.inflowM3s = Math.max(inputs.inflowM3s, pulseQ);
+    if (runup.V > 0 && runup.tO > 0) {
+      const Vtot = runup.V * Math.max(crestLength * 0.25, 1);
+      const series = pulseHydrograph(Vtot, runup.tO, 20);
+      inputs.inflowSeries = series;
+      inputs.inflowSeriesEnabled = true;
+      inputs.inflowSeriesUnit = "s";
+      inputs.inflowSeriesDuration = runup.tO;
+      inputs.inflowSeriesInterval = Math.max(runup.tO / 20, 0.5);
+    }
   }
 
-  return { inputs, runup, displacement };
+  return { inputs, runup };
 }
 
 function main() {
@@ -168,7 +148,6 @@ function main() {
     dam.crestWidth,
     dam.crestLength,
     dam.crestElev,
-    impulse2D.slideVolume,
     {
       ...DEFAULT_INPUTS,
       projectName: "Dig Tsho 1985 – 2D wave → breach",
@@ -202,15 +181,11 @@ function main() {
     },
   );
 
-  console.log(`\n  --- Step 1: Avalanche displaced-volume bump (one-time, Archimedes) ---`);
-  console.log(`  Displaced volume    = ${chain2.displacement.displacedVolumeM3.toFixed(0)} m³`);
-  console.log(`  Lake level rise     = +${chain2.displacement.deltaWL.toFixed(3)} m (${dam.initialWL.toFixed(2)} → ${chain2.displacement.newInitialWL.toFixed(3)} m)`);
-  console.log(`\n  --- Step 2: Transient wave forcing (erosion-only) ---`);
-  console.log(`  Run-up R            = ${chain2.runup.R.toFixed(2)} m`);
+  console.log(`\n  Run-up R            = ${chain2.runup.R.toFixed(2)} m`);
   console.log(`  Freeboard f         = ${freeboard.toFixed(2)} m`);
   console.log(`  Overtops?           = ${chain2.runup.overtops ? "YES" : "NO"}`);
-  console.log(`  waveOvertopDepth d0 = ${chain2.inputs.waveOvertopDepth.toFixed(2)} m`);
-  console.log(`  waveOvertopDuration = ${chain2.inputs.waveOvertopDuration.toFixed(1)} s`);
+  console.log(`  Overtop volume V    = ${chain2.runup.V.toFixed(2)} m³/m`);
+  console.log(`  Overtop duration tO = ${chain2.runup.tO.toFixed(1)} s`);
   console.log(`  Wave height error vs published ${PUBLISHED_WAVE_H} m: ${pctError(r2.HM, PUBLISHED_WAVE_H)}`);
 
   console.log("\n  --- Breach after Pass-to-A3 (2D wave) ---");
@@ -243,7 +218,6 @@ function main() {
     dam.crestWidth,
     dam.crestLength,
     dam.crestElev,
-    impulse3D.slideVolume,
     {
       ...DEFAULT_INPUTS,
       projectName: "Dig Tsho 1985 – 3D wave → breach",
@@ -277,15 +251,11 @@ function main() {
     },
   );
 
-  console.log(`\n  --- Step 1: Avalanche displaced-volume bump (one-time, Archimedes) ---`);
-  console.log(`  Displaced volume    = ${chain3.displacement.displacedVolumeM3.toFixed(0)} m³`);
-  console.log(`  Lake level rise     = +${chain3.displacement.deltaWL.toFixed(3)} m (${dam.initialWL.toFixed(2)} → ${chain3.displacement.newInitialWL.toFixed(3)} m)`);
-  console.log(`\n  --- Step 2: Transient wave forcing (erosion-only) ---`);
-  console.log(`  Run-up R            = ${chain3.runup.R.toFixed(2)} m`);
+  console.log(`\n  Run-up R            = ${chain3.runup.R.toFixed(2)} m`);
   console.log(`  Freeboard f         = ${freeboard.toFixed(2)} m`);
   console.log(`  Overtops?           = ${chain3.runup.overtops ? "YES" : "NO"}`);
-  console.log(`  waveOvertopDepth d0 = ${chain3.inputs.waveOvertopDepth.toFixed(2)} m`);
-  console.log(`  waveOvertopDuration = ${chain3.inputs.waveOvertopDuration.toFixed(1)} s`);
+  console.log(`  Overtop volume V    = ${chain3.runup.V.toFixed(2)} m³/m`);
+  console.log(`  Overtop duration tO = ${chain3.runup.tO.toFixed(1)} s`);
   console.log(`  Wave height error vs published ${PUBLISHED_WAVE_H} m: ${pctError(r3.HM, PUBLISHED_WAVE_H)}`);
 
   console.log("\n  --- Breach after Pass-to-A3 (3D wave) ---");
