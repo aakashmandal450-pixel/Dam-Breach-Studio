@@ -178,6 +178,67 @@ export function energyHeadcutAdvance(C: number, qUnit: number, Hdrop: number, dt
   return Math.max(C, 0) * Math.cbrt(Math.max(qUnit * Hdrop, 0)) * dt;
 }
 
+/** Inputs to the one-time avalanche displaced-volume step (Archimedes, at wave-forcing handoff). */
+export interface AvalancheDisplacementInputs {
+  /** Avalanche / ice-slide bulk volume [m³] (the same slideVolume fed to the Impulse module). */
+  slideVolume: number;
+  /** Fraction (0–1) of that bulk volume treated as submerged. Use StudioInputs.avalancheSubmergedFraction. */
+  submergedFraction: number;
+  /** Lake volume BEFORE displacement [m³]. */
+  volumeM3: number;
+  /** Lake water-surface elevation BEFORE displacement [m]. */
+  initialWL: number;
+  baseElev: number;
+  /** Reservoir stage-storage exponent m in V(y) = V0·(y/y0)^m — same value the breach engine uses. */
+  storageExponent: number;
+}
+
+export interface AvalancheDisplacementResult {
+  /** Submerged bulk volume added to the lake [m³]. */
+  displacedVolumeM3: number;
+  /** Lake volume AFTER displacement [m³] — feed into StudioInputs.volumeM3. */
+  newVolumeM3: number;
+  /** Lake water-surface elevation AFTER displacement [m] — feed into StudioInputs.initialWL. */
+  newInitialWL: number;
+  /** Rise in water-surface elevation caused by the displacement alone [m]. */
+  deltaWL: number;
+}
+
+/**
+ * ONE-TIME Archimedes displaced-volume step for an avalanche/ice slide entering a lake.
+ *
+ * Physically distinct from — and applied BEFORE — the transient wave-overtopping forcing
+ * (waveForcingEnabled): the slide mass permanently occupies volume in the lake (like dropping a
+ * rock in a full glass — the water level rises and STAYS risen), whereas the wave itself is a
+ * surface surge that must never touch reservoir volume/discharge (that stays erosion-only).
+ * Conflating the two — as the legacy "pass to breach" handoff did by injecting the wave as fake
+ * inflowM3s/inflowSeries — double-counts water that was never added to the lake and skips the
+ * water that actually was.
+ *
+ *   Vdisplaced = slideVolume · submergedFraction
+ *   V_new      = V0 + Vdisplaced
+ *   y_new      = y0 · (V_new / V0)^(1/m)         (inverting the SAME power-law stage-storage
+ *                                                  curve V(y) = V0·(y/y0)^m used everywhere else
+ *                                                  in the engine — no separate/ad hoc geometry)
+ *
+ * Pure and side-effect free so it can be unit-verified independently of the breach engine.
+ */
+export function applyAvalancheDisplacement(o: AvalancheDisplacementInputs): AvalancheDisplacementResult {
+  const y0 = Math.max(o.initialWL - o.baseElev, 0.05);
+  const V0 = Math.max(o.volumeM3, 1);
+  const m = clamp(o.storageExponent, 1.2, 3.5);
+  const displaced = Math.max(o.slideVolume, 0) * clamp(o.submergedFraction, 0, 1);
+  const newVolume = V0 + displaced;
+  const newY = y0 * Math.pow(newVolume / V0, 1 / m);
+  const newWL = o.baseElev + newY;
+  return {
+    displacedVolumeM3: displaced,
+    newVolumeM3: newVolume,
+    newInitialWL: newWL,
+    deltaWL: newWL - o.initialWL,
+  };
+}
+
 export function runBreachSimulation(p: StudioInputs): SimResult {
   const t0 = performance.now();
   const warnings: string[] = [];
@@ -453,7 +514,12 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
             const erLimited = erosionRate(kd, tauBed, tauCrit, n) * gateFrac;
             const dz = Math.min(erLimited * dt, gateCap * Hb);
             zb = Math.max(zb - dz, p.crestElev - 0.35 * Hb);
-            Wb = Math.min(Wb + 2 * erFace * p.sideErosionFactor * 0.5 * dt, p.crestLength * 1.05);
+            // Geometric (SISYPHE-style) slump: the fresh vertical cut of height dz cannot stand
+            // steeper than the friction angle, so it lies back to φ by widening dz·cot(φ) on each
+            // bank. Replaces the arbitrary sideErosionFactor multiplier with the exact geometry of
+            // "flatten to φ" — ties widening to the same friction angle that already floors Zb,
+            // instead of a free-standing tunable knob.
+            Wb = Math.min(Wb + 2 * dz * zPhi, p.crestLength * 1.05);
             stage = "headcut";
 
             if (xHeadcut >= C - 1e-6 && tHeadcutBreach == null) {
@@ -494,7 +560,10 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
             : erosionRate(kd, tauBed, tauCrit, n);
           const dz = Math.min(er * dt, 0.04 * Hb);
           zb = Math.max(zb - dz, p.baseElev);
-          Wb = Math.min(Wb + 2 * er * p.sideErosionFactor * dt, p.crestLength * 1.05);
+          // Geometric (SISYPHE-style) slump — see comment at the headcut-phase widening above.
+          // ΔWb = 2·dz·cot(φ): the actual invert drop this step, laid back to the friction angle
+          // on both banks. Replaces the sideErosionFactor multiplier here too.
+          Wb = Math.min(Wb + 2 * dz * zPhi, p.crestLength * 1.05);
           Zb = Math.max(Zb, zPhi * 0.45);
           if (headcutOn) xHeadcut = C;
           stage = "open";

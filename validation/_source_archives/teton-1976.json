@@ -1,0 +1,76 @@
+{
+  "id": "teton-1976",
+  "name": "Teton Dam, Idaho, USA (1976)",
+  "eventDate": "1976-06-05",
+  "damStructure": "zoned",
+  "mode": "piping",
+  "sources": [
+    {
+      "citation": "Bureau of Reclamation, Teton Dam History",
+      "url": "https://www.usbr.gov/pn/snakeriver/dams/uppersnake/teton/index.html"
+    },
+    {
+      "citation": "ASDSO Dam Failures and Lessons Learned, Teton Dam (Idaho, 1976) case study",
+      "url": "https://damfailures.org/case-study/teton-dam-idaho-1976"
+    },
+    {
+      "citation": "Simulating the 1976 Teton Dam Failure using Geoclaw and HEC-RAS and comparing with Historical Observations, arXiv:2206.00766",
+      "url": "https://arxiv.org/abs/2206.00766"
+    },
+    {
+      "citation": "USGS, Summary of Significant Floods in the US, PR, and the VI, 1970-1989 (2008), via usdeadlyevents.com compilation",
+      "url": "https://www.usdeadlyevents.com/1976-june-5-teton-dam-failure-teton-river-newdale-southeast-idaho-11-12/"
+    },
+    {
+      "citation": "NWS Heritage, 'Tragedy at Teton: 1976 Dam Break Disaster' -- reports the internal erosion hole reached ~25 ft diameter shortly before the ~11:57am full breach",
+      "url": "https://vlab.noaa.gov/web/nws-heritage/-/tragedy-at-teton-1976-dam-break-disaster"
+    },
+    {
+      "citation": "Alabama Weather Network, 'June 5, 1976: The Teton Dam Collapse' -- independently corroborates the ~25 ft hole diameter just before collapse",
+      "url": "https://alabamaweathernetwork.com/june-5-1976-the-teton-dam-collapse/"
+    }
+  ],
+  "inputOverrides": {
+    "projectName": "Teton Dam 1976 (case study)",
+    "mode": "piping",
+    "damStructure": "zoned",
+    "baseElev": 0,
+    "crestElev": 93,
+    "crestWidth": 10.7,
+    "crestLength": 914.4,
+    "initialWL": 82,
+    "volumeM3": 289000000,
+    "inflowM3s": 0,
+    "spillwayQ": 0,
+    "collapseRatio": 0.086
+  },
+  "sourced": {
+    "baseElev": "riverbed taken as datum 0",
+    "crestElev": "structural height 305 ft ≈ 93 m (ASDSO case study)",
+    "crestWidth": "10.7 m (Geoclaw/HEC-RAS comparison paper, arXiv:2206.00766)",
+    "crestLength": "914.4 m (Geoclaw/HEC-RAS comparison paper, arXiv:2206.00766)",
+    "initialWL": "82 m water surface elevation above riverbed at time of failure — reservoir had not yet reached full pool (arXiv:2206.00766)",
+    "volumeM3": "2.89e8 m3 = 234,260 acre-ft, reservoir volume at time of failure, below the 3.55e8 m3 design capacity (arXiv:2206.00766, citing Reclamation 2006)",
+    "collapseRatio": "Derived, not directly reported: multiple independent sources (NWS Heritage; Alabama Weather Network) report the internal erosion hole reached ~25 ft (7.6 m) diameter shortly before the final catastrophic collapse. Taking that as the pipe diameter (2R) at collapse and cover = crestElev - pipeInvert = 89 m (pipeInvert itself still a placeholder, see below), collapseRatio = 2R/cover = 7.6/89 ≈ 0.086. This is an approximation, not an exact match of model quantities -- the reported '25 ft hole' is the visible surface/whirlpool expression, which is not guaranteed to equal the model's idealized internal pipe throat diameter exactly. Still a large, well-sourced improvement over the previous default (0.55), which allowed the simulated pipe to reach ~49 m diameter before collapsing -- about 6x larger than what was actually observed."
+  },
+  "sourcingCaveat": "Teton's real failure mechanism was seepage through open joints in fissured rhyolite foundation rock near the right abutment, eroding the adjacent embankment core at the rock/fill contact -- not a simple pipe forming through the middle of a homogeneous embankment. This engine's 'piping' mode models the latter (idealized circular conduit through the fill). Both erosionIndexI and pipeInvert remain unsourced placeholders as a result: literature consistently describes the core material (non-plastic windblown loess) as among the most erodible soil classes in the Wan & Fell (2004) Erosion Rate Index scheme, which if anything argues for a LOWER erosionIndexI than the current default 3.2 (more erodible), not a higher one -- so 'fixing' erosionIndexI alone would not resolve the Qpeak/timing overestimate and could make it worse. No numeric erosionIndexI/tauC specific to Teton was found via search; the Bureau of Reclamation's original forensic investigation almost certainly has lab-tested values and would be the authoritative source if available.",
+  "unsourcedFields": [
+    "zUp", "zDown", "coreLength", "rhoD", "phiDeg", "tauC", "erosionIndexI",
+    "shellErosionIndexI", "shellTauC", "manningN", "zb", "sideErosionFactor",
+    "CdOrifice", "Cw", "initialNotchWidth", "initialPipeRadius", "pipeInvert"
+  ],
+  "unsourcedFieldsNote": "These use DEFAULT_INPUTS' typical zoned-earthfill values. The actual Bureau of Reclamation forensic investigation almost certainly has real erodibility/pipe-geometry data for this dam; replace these before treating this case as a rigorous validation rather than a plausibility check.",
+  "observed": {
+    "peakDischargeM3s": {
+      "value": 65100,
+      "range": [65100, 68000],
+      "note": "USGS estimate of 2.3 million ft3/s converted to SI (≈65,130 m3/s); some sources round to ~2.3–2.4 million cfs.",
+      "source": "USGS Summary of Significant Floods 1970-1989 (2008)"
+    },
+    "breachFormationHours": {
+      "value": 0.95,
+      "note": "Reclamation analysis: significant internal destruction occurred over ~1 hour, 11:00–11:57 on 1976-06-05 (arXiv:2206.00766, citing Solava & Delatte 2003 / Reclamation 1976). Full reservoir drained (173,000 acre-ft) in 2h23m, a separate, longer figure — use breachFormationHours for the erosion/enlargement phase, not total drawdown.",
+      "source": "Reclamation 1976 forensic timeline, via arXiv:2206.00766"
+    }
+  }
+}

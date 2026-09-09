@@ -9,7 +9,7 @@ import { computeImpulse2D } from "@/lib/impulse/gen2d";
 import { computeImpulse3D } from "@/lib/impulse/gen3d";
 import { computeRunup } from "@/lib/impulse/runup";
 import { impactVelocityFromFallHeight } from "@/lib/impulse/velocity";
-import { pulseHydrograph } from "@/lib/breach/inflowSeries";
+import { applyAvalancheDisplacement } from "@/lib/breach/engine";
 import type { Impulse2DInputs, Impulse2DResult, Impulse3DInputs, Impulse3DResult } from "@/lib/impulse/types";
 import { formatNumber, cn } from "@/lib/utils";
 import { Impulse2DSchematic } from "@/components/schematics/Impulse2DSchematic";
@@ -80,24 +80,36 @@ export function ImpulseWavePanel() {
 
   function passToBreach() {
     if (!runup) return;
-    const pulseQ = runup.overtops ? runup.qm * Math.max(studio.crestLength * 0.25, 1) : 0;
-    const nextWL =
-      runup.overtops && runup.R > freeboard
-        ? studio.crestElev + Math.min(0.15, Math.max(0.02, runup.R - freeboard) * 0.1)
-        : studio.initialWL;
 
     setInput("mode", "overtopping");
     setInput("headcutEnabled", true);
-    setInput("initialWL", nextWL);
-    setInput("inflowM3s", Math.max(studio.inflowM3s, pulseQ));
-    if (runup.overtops && runup.V > 0 && runup.tO > 0) {
-      const Vtot = runup.V * Math.max(studio.crestLength * 0.25, 1);
-      const series = pulseHydrograph(Vtot, runup.tO, 20);
-      setInput("inflowSeries", series);
-      setInput("inflowSeriesEnabled", true);
-      setInput("inflowSeriesUnit", "s");
-      setInput("inflowSeriesDuration", runup.tO);
-      setInput("inflowSeriesInterval", Math.max(runup.tO / 20, 0.5));
+
+    // ── Step 1: ONE-TIME Archimedes displaced-volume bump ──────────────────
+    // The slide mass permanently occupies volume in the lake — real stored water,
+    // so it belongs on the reservoir side (volumeM3 / initialWL), applied once,
+    // before the transient wave. Distinct from Step 2 below. Same mechanism
+    // validated in validation/cases/run_digtsho_impulse_breach.ts.
+    const slideVolume = dim === "2d" ? p2.slideVolume : p3.slideVolume;
+    const displacement = applyAvalancheDisplacement({
+      slideVolume,
+      submergedFraction: studio.avalancheSubmergedFraction,
+      volumeM3: studio.volumeM3,
+      initialWL: studio.initialWL,
+      baseElev: studio.baseElev,
+      storageExponent: studio.storageExponent,
+    });
+    setInput("volumeM3", displacement.newVolumeM3);
+    setInput("initialWL", displacement.newInitialWL);
+
+    // ── Step 2: transient wave forcing, EROSION-ONLY (waveForcingEnabled) ──
+    // Replaces the legacy fake-inflow hack entirely. The wave is a surge, not
+    // new water, so it must never touch volumeM3/inflowM3s/inflowSeries — only
+    // the erosion hydraulics via the validated wave-forcing mechanism. d0/tO
+    // come straight from the Impulse module's own run-up result.
+    if (runup.overtops) {
+      setInput("waveForcingEnabled", true);
+      setInput("waveOvertopDepth", Math.max(runup.d0, 0));
+      setInput("waveOvertopDuration", Math.max(runup.tO, 1));
     }
     // Results stay in impulse store — do not clear r2/r3
   }
