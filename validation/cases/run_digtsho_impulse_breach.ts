@@ -116,8 +116,14 @@ function passToBreach(
     inputs.waveForcingEnabled = true;
     inputs.waveOvertopDepth = d0;
     inputs.waveOvertopDuration = Math.max(runup.tO, 1);
-    inputs.waveOvertopCount = 1;
-    inputs.waveOvertopPeriod = 0;
+    // EXPERIMENT (workstream b): test whether a repeated wave train — rather than
+    // a single pulse — sustains erosion long enough to develop a larger Qpeak.
+    // count=3, period=T (the wave's own period, r2.TM/r3.TM already passed in as
+    // the `T` parameter) is a physically-motivated proxy for a seiche continuing
+    // to slosh over the crest after the initial impulse, not an arbitrary tuning
+    // knob. Was count=1, period=0 (single pulse, legacy/validated baseline).
+    inputs.waveOvertopCount = 3;
+    inputs.waveOvertopPeriod = T;
   }
 
   return { inputs, runup, displacement };
