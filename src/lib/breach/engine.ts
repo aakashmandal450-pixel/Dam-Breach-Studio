@@ -11,7 +11,7 @@
  * DROP-IN: replace src/lib/breach/engine.ts with this file. No UI import changes required.
  */
 
-import type { BreachStage, SimResult, SimStep, StudioInputs } from "./types";
+import type { BreachStage, EmpiricalBreachResult, SimResult, SimStep, StudioInputs } from "./types";
 import { interpolateInflow } from "./inflowSeries.ts";
 
 const G = 9.81;
@@ -267,9 +267,104 @@ export function waveHead(
   return 0;
 }
 
+
+function empiricalVonThunGillette(Hw: number, Vw: number, highlyErodible: boolean): EmpiricalBreachResult {
+  const h = Math.max(Hw, 0.01);
+  const v = Math.max(Vw, 0);
+  const cb = v < 1.23e6 ? 6.1 : v < 6.17e6 ? 18.3 : v < 12.3e6 ? 42.7 : 54.9;
+  const width = 2.5 * h + cb;
+  const tf = highlyErodible ? 0.015 * h : 0.015 * h + 0.25;
+  return {
+    method: "von_thun_gillette",
+    predictedWidthM: width,
+    predictedDepthM: h,
+    formationTimeH: tf,
+    peakDischargeM3s: null,
+    notes: ["Average breach width and formation-time screening equations.", "Peak discharge is not supplied by this implementation of Von Thun and Gillette."]
+  };
+}
+
+function empiricalFroehlich(p: StudioInputs, Hw: number, Vw: number): EmpiricalBreachResult {
+  const h = Math.max(Hw, 0.01);
+  const v = Math.max(Vw, 0);
+  const ko = p.mode === "overtopping" ? 1.3 : 1.0;
+  const width = 0.27 * ko * Math.pow(Math.max(v, 1), 0.32) * Math.pow(h, 0.04);
+  const tfSec = 63.2 * Math.sqrt(Math.max(v, 0) / (G * h * h));
+  const qp = 0.607 * Math.pow(Math.max(v, 0), 0.295) * Math.pow(h, 1.24);
+  return {
+    method: "froehlich",
+    predictedWidthM: Number.isFinite(width) ? width : null,
+    predictedDepthM: h,
+    formationTimeH: Number.isFinite(tfSec) ? tfSec / 3600 : null,
+    peakDischargeM3s: Number.isFinite(qp) ? qp : null,
+    notes: ["Width and formation time use the Froehlich 2008 regression; peak flow uses Froehlich 1995q.", `K0=${ko.toFixed(1)} for ${p.mode} failure.`]
+  };
+}
+
+function empiricalMacDonald(
+  p: StudioInputs,
+  Hw: number,
+  Vout: number,
+  crestWidth: number,
+  zSide: number,
+): EmpiricalBreachResult {
+  const h = Math.max(Hw, 0.01);
+  const vout = Math.max(Vout, 0);
+  const clayCoreOrRockfill = p.damStructure === "zoned" || p.damStructure === "ice_cored_moraine";
+  const ver = clayCoreOrRockfill
+    ? 0.00348 * Math.pow(Math.max(vout * h, 0), 0.852)
+    : 0.0261 * Math.pow(Math.max(vout * h, 0), 0.769);
+  const tf = ver > 0 ? 0.0179 * Math.pow(ver, 0.364) : 0;
+  const C = Math.max(crestWidth, 0.01);
+  const Zb = Math.max(zSide, 0);
+  const numerator = ver - h * h * (C * Zb + (h * Zb * Zb) / 3);
+  const denominator = h * (C + (h * Zb) / 2);
+  const bottomWidth = denominator > 0 ? numerator / denominator : null;
+  return {
+    method: "macdonald",
+    predictedWidthM: bottomWidth != null && Number.isFinite(bottomWidth) ? Math.max(bottomWidth, 0) : null,
+    predictedDepthM: h,
+    formationTimeH: Number.isFinite(tf) ? tf : null,
+    peakDischargeM3s: null,
+    notes: [
+      `Vout=${vout.toFixed(2)} m³ and hw=${h.toFixed(2)} m were taken from the simulated run.`,
+      clayCoreOrRockfill ? "Clay-core/rockfill regression branch used." : "Earthfill regression branch used.",
+      "Peak discharge is not directly predicted by the implemented MacDonald–Langridge-Monopolis equations; use the simulated Qpeak for comparison."
+    ]
+  };
+}
+
+function buildEmpiricalResults(
+  p: StudioInputs,
+  series: SimStep[],
+  finalDepth: number,
+  zSide: number,
+): EmpiricalBreachResult[] {
+  if (!series.length) return [];
+  let vout = 0;
+  for (let i = 1; i < series.length; i++) {
+    const a = series[i - 1];
+    const b = series[i];
+    const dt = Math.max(b.t - a.t, 0);
+    vout += 0.5 * (Math.max(a.Q, 0) + Math.max(b.Q, 0)) * dt;
+  }
+  const last = series[series.length - 1];
+  const Hw = Math.max(last.WL - last.zb, finalDepth, 0.01);
+  const Vw = Math.max(last.V, 0);
+  const highlyErodible = p.erosionIndexI < 2.5;
+  return [
+    empiricalVonThunGillette(Hw, Vw, highlyErodible),
+    empiricalFroehlich(p, Hw, Vw),
+    empiricalMacDonald(p, Hw, vout, p.crestWidth, zSide),
+  ];
+}
+
 export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const tStart = performance.now();
   const warnings: string[] = [];
+  const DEBUG_HEADCUT = process.env.DBS_DEBUG_HEADCUT === "1"; // TEMP-DEBUG
+  const debugRows: string[] = []; // TEMP-DEBUG
+  if (DEBUG_HEADCUT) debugRows.push("t,dt,WL,h,hEff,hCr,wH,weirWidthFactor,xHead,Wb,zb,Q"); // TEMP-DEBUG
   // Adaptive Î”t bounds (user dt is the nominal / max step)
   const dtUser = Math.max(p.dt, 0.25);
   const dtMax = dtUser;
@@ -295,16 +390,32 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       `(D50=${(D50report * 1000).toFixed(2)} mm, I=${p.erosionIndexI ?? 3})`,
   );
 
-  let zb = Math.max(p.zb ?? p.baseElev + 0.5, p.baseElev + 0.05);
-  // (5) Zero-freeboard: start from a small seed notch, not a full teaching width
+  // Overtopping now has an explicit intact-dam stage. The starter notch is created only
+  // after the hydraulic erosion trigger is exceeded (unless the legacy guard is disabled).
+  const intactOvertopping = p.mode === "overtopping" && p.intactOvertoppingEnabled !== false;
   const notchSeed = Math.min(
     Math.max(p.initialNotchWidth ?? 1.2, 0.2),
     Math.max(0.5, 0.15 * Math.min(p.crestLength, 40)),
   );
-  let Wb = p.mode === "piping" ? 0 : notchSeed;
+  const starterDepth = Math.max(
+    p.starterNotchDepth ?? 0.05,
+    Math.max(p.starterNotchDepthRatio ?? 0.01, 0) * Hb,
+  );
+  let starterActive = p.mode === "piping" || !intactOvertopping;
+  let zb = starterActive
+    ? Math.max(p.zb ?? p.baseElev + 0.5, p.baseElev + 0.05)
+    : p.crestElev;
+  let Wb = p.mode === "piping" ? 0 : starterActive ? notchSeed : 0;
   let Zb = zPhi;
-  // Active weir width grows from seed toward geometric Wb during early overtopping
-  let weirWidthFactor = p.mode === "overtopping" ? 0.25 : 1;
+  // Active weir width grows from seed toward geometric Wb during developing breach.
+  let weirWidthFactor = p.mode === "overtopping" && starterActive ? 0.25 : 1;
+  let erosionExposure = 0;
+  let tErosionInitiation: number | null = null;
+  let tStarterNotch: number | null = starterActive && p.mode === "overtopping" ? 0 : null;
+  let tSignificantBreach: number | null = null;
+  const initialNotchArea = Math.max(notchSeed * Math.max(starterDepth, 0.01), 1e-4);
+  let breachDevelopmentIndex = 0;
+  let trueBreachActive = false;
 
   const pipeInvert = estimatePipeInvertPhreatic(p, Hb);
   warnings.push(`Pipe invert FORCED phreatic: ${pipeInvert.toFixed(2)} m`);
@@ -397,6 +508,14 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   let tEmp: number | null = null;
   let Qpeak = 0;
   let tPeak = 0;
+  let QovertoppingPeak = 0;
+  let tOvertoppingPeak = 0;
+  let QstarterPeak = 0;
+  let tStarterPeak = 0;
+  let QbreachPeak = 0;
+  let tBreachPeak = 0;
+  let QtotalPeak = 0;
+  let tTotalPeak = 0;
   const series: SimStep[] = [];
 
   warnings.push(
@@ -404,7 +523,9 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   );
   if (p.mode === "overtopping") {
     warnings.push(
-      `Zero-freeboard guard: seed notch Wb=${notchSeed.toFixed(2)} m, weir width factor starts at 0.25`,
+      intactOvertopping
+        ? `Intact overtopping stage enabled: starter notch waits for hydraulic erosion trigger`
+        : `Legacy overtopping seed notch enabled: Wb=${notchSeed.toFixed(2)} m`,
     );
   }
 
@@ -418,8 +539,12 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   while (t <= tMax + 1e-9) {
     const WL = p.baseElev + y;
     let Q = Math.max(p.spillwayQ, 0);
+    let Qovertopping = 0;
+    let Qstarter = 0;
+    let Qbreach = 0;
+    let streamPower = 0;
     let tau = 0;
-    let stage: BreachStage = collapsed ? "open" : "piping";
+    let stage: BreachStage = collapsed ? (starterActive ? "open" : "overtopping") : "piping";
     const R = Math.sqrt((pipeW * pipeH) / Math.PI);
 
     // ===== PIPING =========================================================
@@ -427,7 +552,9 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       const Hp = Math.max(WL - pipeInvert, 0);
       if (Hp > 0) {
         const area = Math.max(pipeW * pipeH, 1e-8);
-        Q += (p.CdOrifice ?? 0.6) * area * Math.sqrt(2 * G * Hp);
+        const qPipe = (p.CdOrifice ?? 0.6) * area * Math.sqrt(2 * G * Hp);
+        Q += qPipe;
+        Qbreach += qPipe;
         tau = pipeShear(pipeW, pipeH, Hp, pipeLen, pipeH < Hp * 0.95);
         const per = 2 * (pipeW + pipeH);
         const st = pipeNonEq({
@@ -507,7 +634,50 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       const hEff = h + wH;
       const hCr = Math.max(WL - p.crestElev, 0) + wH;
 
-      if (hEff > 1e-4 && WL + wH >= zb) {
+      // ===== INTACT CREST OVERTOPPING ====================================
+      if (!starterActive && p.mode === "overtopping") {
+        stage = "overtopping";
+        if (hCr > 1e-6) {
+          const crestFlowWidth = Math.max(p.crestLength, 0.5);
+          Qovertopping =
+            (p.Cw ?? 1.7) * crestFlowWidth * Math.pow(hCr, 1.5);
+          Q += Qovertopping;
+          const areaFlow = Math.max(crestFlowWidth * hCr, 1e-6);
+          const U = Qovertopping / areaFlow;
+          const Rh = Math.max(hCr, 0.02);
+          tau = (RHO * G * (p.manningN ?? 0.03) ** 2 * U * U) / Math.cbrt(Rh);
+          streamPower = tau * U;
+
+          const shearTrigger =
+            tau > tauShell && hCr >= Math.max(p.overtoppingTriggerDepth ?? 0.01, 0);
+          const powerTrigger = streamPower >= Math.max(p.streamPowerThreshold ?? 50, 0);
+          const trigger =
+            (p.erosionTriggerMode ?? "shear") === "shear_and_stream_power"
+              ? shearTrigger && powerTrigger
+              : shearTrigger;
+          erosionExposure = trigger ? erosionExposure + dt : 0;
+          if (trigger && tErosionInitiation == null) tErosionInitiation = t;
+
+          if (trigger && erosionExposure >= Math.max(p.erosionInitiationDuration ?? 10, 0)) {
+            starterActive = true;
+            tStarterNotch = t;
+            tErosionInitiation ??= t;
+            zb = clamp(
+              p.crestElev - starterDepth,
+              p.baseElev,
+              p.crestElev - 1e-4,
+            );
+            Wb = Math.max(notchSeed, 0.2);
+            weirWidthFactor = 0.25;
+            stage = "headcut";
+            warnings.push(
+              `Overtopping erosion initiated t=${(t / 3600).toFixed(4)} h; starter notch Wb=${Wb.toFixed(2)} m, depth=${starterDepth.toFixed(3)} m`,
+            );
+          }
+        }
+      }
+
+      if (starterActive && hEff > 1e-4 && WL + wH >= zb) {
         // (5) Grow weir width factor toward 1 as notch erodes / headcut advances
         if (weirWidthFactor < 1) {
           const rate =
@@ -517,7 +687,12 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
           weirWidthFactor = 1 - (1 - weirWidthFactor) * Math.exp(-rate * dt);
         }
         const Wavg = (Wb + Zb * h) * weirWidthFactor;
-        Q += (p.Cw ?? 1.7) * Math.max(Wavg, notchSeed * 0.5) * Math.pow(Math.max(h, 0), 1.5);
+        const qWeir =
+          (p.Cw ?? 1.7) * Math.max(Wavg, notchSeed * 0.5) * Math.pow(Math.max(h, 0), 1.5);
+        Q += qWeir;
+        if (trueBreachActive) Qbreach += qWeir;
+        else Qstarter += qWeir;
+        if (DEBUG_HEADCUT) debugRows.push(`${t.toFixed(2)},${dt.toFixed(3)},${WL.toFixed(3)},${h.toFixed(3)},${hEff.toFixed(3)},${hCr.toFixed(3)},${wH.toFixed(3)},${weirWidthFactor.toFixed(4)},${xHead.toFixed(3)},${Wb.toFixed(3)},${zb.toFixed(3)},${Q.toFixed(2)}`); // TEMP-DEBUG
 
         const Rh =
           (Math.max(Wavg, 0.3) * h) /
@@ -526,6 +701,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
         const nM = p.manningN ?? 0.03;
         tau =
           (RHO * G * nM * nM * U * U) / Math.pow(Math.max(Rh, 0.02), 1 / 3);
+        streamPower = tau * U;
 
         const hcDone = !hcOn || xHead >= C - 1e-6;
         const Lb = Math.max(C, 3);
@@ -671,6 +847,31 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
               }
             }
           }
+
+          // Geometry-based breach development index. The index is deliberately independent
+          // of Q so that a large starter/notch pulse cannot masquerade as a true breach peak.
+          const breachDepth = Math.max(p.crestElev - zb, 0);
+          const areaNow = Math.max(Wb * breachDepth, 0);
+          const areaRatio = areaNow / initialNotchArea;
+          const widthRatio = Wb / Math.max(notchSeed, 0.2);
+          const depthRatio = breachDepth / Math.max(Hb, 0.5);
+          const areaGate = Math.max(p.breachAreaRatioThreshold ?? 5, 1);
+          const widthGate = Math.max(p.breachWidthRatioThreshold ?? 2.5, 1);
+          const depthGate = Math.max(p.breachDepthRatioThreshold ?? 0.15, 0.01);
+          breachDevelopmentIndex = Math.max(
+            Math.min(areaRatio / areaGate, 1),
+            Math.min(widthRatio / widthGate, 1),
+            Math.min(depthRatio / depthGate, 1),
+          );
+          const significant =
+            areaRatio >= areaGate &&
+            widthRatio >= widthGate &&
+            depthRatio >= depthGate;
+          if (significant && !trueBreachActive) {
+            trueBreachActive = true;
+            tSignificantBreach = t;
+            warnings.push(`Significant breach established t=${(t / 3600).toFixed(4)} h`);
+          }
         }
       } else if (
         WL < p.crestElev - 0.02 &&
@@ -688,10 +889,14 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     V = Math.max(V + (Qin - Q) * dt, 0);
     y = y0 * Math.pow(V / V0, 1 / mS);
     if (y < 0.05 && tEmp == null) tEmp = t;
-    if (Q > Qpeak) {
-      Qpeak = Q;
-      tPeak = t;
-    }
+
+    if (Qovertopping > QovertoppingPeak) { QovertoppingPeak = Qovertopping; tOvertoppingPeak = t; }
+    if (Qstarter > QstarterPeak) { QstarterPeak = Qstarter; tStarterPeak = t; }
+    if (Qbreach > QbreachPeak) { QbreachPeak = Qbreach; tBreachPeak = t; }
+    if (Q > QtotalPeak) { QtotalPeak = Q; tTotalPeak = t; }
+    // Backward-compatible Qpeak remains the maximum total outflow.
+    Qpeak = QtotalPeak;
+    tPeak = tTotalPeak;
 
     if (t >= tNextRecord - 1e-9 || t >= tMax || step === 0) {
       series.push({
@@ -713,6 +918,13 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
         cover: collapsed ? undefined : lastCover,
         pipeInvertZ: pipeInvert,
         roofRisk: collapsed ? undefined : lastRisk,
+        Qovertopping,
+        Qstarter,
+        Qbreach,
+        Qtotal: Q,
+        breachDevelopmentIndex,
+        streamPower,
+        trueBreachActive,
       });
       tNextRecord = t + recordInterval;
     }
@@ -738,6 +950,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     }
   }
 
+  if (DEBUG_HEADCUT) console.log(debugRows.join("\n")); // TEMP-DEBUG
   const last = series[series.length - 1];
   return {
     series,
@@ -754,6 +967,24 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     engineId: "v2",
     materialClass: material,
     erodibilityClass: erod,
+    QovertoppingPeak,
+    tOvertoppingPeak,
+    QstarterPeak,
+    tStarterPeak,
+    QbreachPeak,
+    tBreachPeak,
+    QtotalPeak,
+    tTotalPeak,
+    tErosionInitiation,
+    tStarterNotch,
+    tSignificantBreach,
+    finalBreachDevelopmentIndex: breachDevelopmentIndex,
+    empiricalResults: buildEmpiricalResults(
+      p,
+      series,
+      last ? Math.max(p.crestElev - last.zb, 0) : 0,
+      zPhi,
+    ),
   };
 }
 
@@ -968,12 +1199,17 @@ export function applyAvalancheDisplacement(o: AvalancheDisplacementInputs): Aval
 
 export function resultToCsv(result: SimResult): string {
   const header =
-    "t_s,t_hr,Q_m3s,WL_m,zb_m,Wb_m,Wtop_m,R_m,xHeadcut_m,tau_Pa,V_m3,stage";
+    "t_s,t_hr,Q_m3s,Q_overtopping_m3s,Q_starter_m3s,Q_breach_m3s,BDI,streamPower_Wm2,WL_m,zb_m,Wb_m,Wtop_m,R_m,xHeadcut_m,tau_Pa,V_m3,stage";
   const rows = result.series.map((s) =>
     [
       s.t.toFixed(1),
       (s.t / 3600).toFixed(5),
       s.Q.toFixed(4),
+      (s.Qovertopping ?? 0).toFixed(4),
+      (s.Qstarter ?? 0).toFixed(4),
+      (s.Qbreach ?? 0).toFixed(4),
+      (s.breachDevelopmentIndex ?? 0).toFixed(4),
+      (s.streamPower ?? 0).toFixed(3),
       s.WL.toFixed(4),
       s.zb.toFixed(4),
       s.Wb.toFixed(4),

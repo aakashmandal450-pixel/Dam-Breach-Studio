@@ -1,6 +1,7 @@
 export type FailureMode = "overtopping" | "piping";
 export type DamStructure = "homogeneous" | "zoned" | "moraine" | "ice_cored_moraine";
-export type BreachStage = "filling" | "piping" | "headcut" | "open" | "empty";
+export type BreachStage = "filling" | "overtopping" | "piping" | "headcut" | "open" | "empty";
+export type ErosionTriggerMode = "shear" | "shear_and_stream_power";
 
 /** Matches ids in src/lib/lake/volume.ts */
 export type LakeVolumeFormulaId =
@@ -151,6 +152,27 @@ export interface StudioInputs {
   /** Per-step cap on gated deepening as a fraction of dam height Hb. Legacy 0.015 (default, unchanged). */
   headcutGateDeepenCap: number;
 
+  /** Enable the intact-dam overtopping stage before a starter incision is created. */
+  intactOvertoppingEnabled: boolean;
+  /** Hydraulic trigger used to start localized overtopping incision. */
+  erosionTriggerMode: ErosionTriggerMode;
+  /** Minimum overtopping head above the intact crest required for incision, before wave forcing. */
+  overtoppingTriggerDepth: number;
+  /** Minimum time that the erosion trigger must remain exceeded before starter incision begins. */
+  erosionInitiationDuration: number;
+  /** Optional stream-power threshold [W/m²] used when erosionTriggerMode = shear_and_stream_power. */
+  streamPowerThreshold: number;
+  /** Initial starter notch depth below the crest as a fraction of dam height. */
+  starterNotchDepthRatio: number;
+  /** Minimum initial starter notch depth [m]. */
+  starterNotchDepth: number;
+  /** Breach-development area ratio at which true breach peak logging begins. */
+  breachAreaRatioThreshold: number;
+  /** Breach-development width ratio at which true breach peak logging begins. */
+  breachWidthRatioThreshold: number;
+  /** Breach-development depth ratio at which true breach peak logging begins. */
+  breachDepthRatioThreshold: number;
+
   /**
    * Wave-overtopping transient forcing (opt-in) — the GLOF wave→breach chain. When enabled in
    * overtopping mode, a displacement/impulse wave (from the Impulse module's run-up result)
@@ -249,6 +271,17 @@ export interface SimStep {
   cover?: number;
   pipeInvertZ?: number;
   roofRisk?: number;
+  /** Discharge components used to keep intact overtopping/starter/breach peaks separate. */
+  Qovertopping?: number;
+  Qstarter?: number;
+  Qbreach?: number;
+  Qtotal?: number;
+  /** Dimensionless breach-development index (0 before starter incision). */
+  breachDevelopmentIndex?: number;
+  /** Hydraulic stream power per unit width [W/m²]. */
+  streamPower?: number;
+  /** True once the breach-development thresholds are satisfied. */
+  trueBreachActive?: boolean;
 }
 
 export interface SimResult {
@@ -267,6 +300,35 @@ export interface SimResult {
   engineId?: "v1" | "v2";
   materialClass?: "cohesive" | "noncohesive";
   erodibilityClass?: "HE" | "ME" | "LE";
+  /** Peak flow while the dam crest is still intact. */
+  QovertoppingPeak: number;
+  tOvertoppingPeak: number;
+  /** Peak flow during the starter-notch/developing-breach stage. */
+  QstarterPeak: number;
+  tStarterPeak: number;
+  /** Peak flow after the breach-development thresholds are satisfied. */
+  QbreachPeak: number;
+  tBreachPeak: number;
+  /** Maximum total outflow, including spillway/overtopping/breach components. */
+  QtotalPeak: number;
+  tTotalPeak: number;
+  /** Time when localized erosion first begins. */
+  tErosionInitiation: number | null;
+  /** Time when the starter notch is created. */
+  tStarterNotch: number | null;
+  /** Time when the breach-development thresholds are first satisfied. */
+  tSignificantBreach: number | null;
+  finalBreachDevelopmentIndex: number;
+  empiricalResults?: EmpiricalBreachResult[];
+}
+
+export interface EmpiricalBreachResult {
+  method: "von_thun_gillette" | "froehlich" | "macdonald";
+  predictedWidthM: number | null;
+  predictedDepthM: number | null;
+  formationTimeH: number | null;
+  peakDischargeM3s: number | null;
+  notes: string[];
 }
 
 export const DEFAULT_INPUTS: StudioInputs = {
@@ -325,6 +387,16 @@ export const DEFAULT_INPUTS: StudioInputs = {
   headcutEnergyCoeff: 0.5,
   headcutGateDeepenFraction: 0.25,
   headcutGateDeepenCap: 0.015,
+  intactOvertoppingEnabled: true,
+  erosionTriggerMode: "shear",
+  overtoppingTriggerDepth: 0.01,
+  erosionInitiationDuration: 10,
+  streamPowerThreshold: 50,
+  starterNotchDepthRatio: 0.01,
+  starterNotchDepth: 0.05,
+  breachAreaRatioThreshold: 5,
+  breachWidthRatioThreshold: 2.5,
+  breachDepthRatioThreshold: 0.15,
   // Wave-overtopping transient forcing — off by default (regression-safe)
   waveForcingEnabled: false,
   waveOvertopDepth: 0,
