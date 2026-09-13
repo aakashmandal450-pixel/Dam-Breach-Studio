@@ -1,8 +1,8 @@
-﻿/**
- * engine.ts â€” Dam Breach Studio core (V2 physics, complete replacement)
+/**
+ * engine.ts — Dam Breach Studio core (V2 physics, complete replacement)
  *
  * DLBreach-style A3: non-eq transport, Exner, phreatic pipe invert, HE/ME/LE,
- * adaptive Î”t, gradual roof collapse, zero-freeboard notch growth.
+ * adaptive Δt, gradual roof collapse, zero-freeboard notch growth.
  *
  * Also exports V1-compatible helpers used by Impulse panel and unit tests:
  *   applyAvalancheDisplacement, waveOvertopHead, energyHeadcutAdvance,
@@ -18,7 +18,7 @@ const G = 9.81;
 const RHO = 1000;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/** ASTM/ISO sandâ€“silt boundary (m). */
+/** ASTM/ISO sand–silt boundary (m). */
 const SILT_SAND_BOUNDARY_M = 6.2e-5; // 0.062 mm
 
 export type MaterialClass = "cohesive" | "noncohesive";
@@ -39,8 +39,8 @@ export function classifyMaterial(p: StudioInputs): MaterialClass {
 }
 
 /**
- * Screening erodibility class (Xu/Zhang / USBR style HEâ€“MEâ€“LE).
- * Fine sand + moderate I â†’ HE; high I â†’ LE; else ME.
+ * Screening erodibility class (Xu/Zhang / USBR style HE–ME–LE).
+ * Fine sand + moderate I → HE; high I → LE; else ME.
  * Used to scale detachment / capacity, not as a hidden Qpeak fudge.
  */
 export function classifyErodibility(p: StudioInputs): ErodibilityClass {
@@ -48,7 +48,7 @@ export function classifyErodibility(p: StudioInputs): ErodibilityClass {
   const D50 = p.grainD50_m ?? 0.03;
   if (I > 4.0) return "LE";
   if (I < 2.5) return "HE";
-  // Fine to medium sand (0.062 mm â€“ 2 mm) with moderate I â†’ HE (Apishapa-like)
+  // Fine to medium sand (0.062 mm – 2 mm) with moderate I → HE (Apishapa-like)
   if (D50 >= SILT_SAND_BOUNDARY_M && D50 < 0.002 && I <= 3.5) return "HE";
   if (I >= 3.8) return "LE";
   return "ME";
@@ -182,7 +182,7 @@ function openNonEq(
 }
 
 /**
- * Volume â†’ shape. Post-collapse uses lower fBed / higher bank share + widen factor.
+ * Volume → shape. Post-collapse uses lower fBed / higher bank share + widen factor.
  */
 function applyVol(o: {
   dA: number;
@@ -270,7 +270,7 @@ export function waveHead(
 export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const tStart = performance.now();
   const warnings: string[] = [];
-  // Adaptive Î”t bounds (user dt is the nominal / max step)
+  // Adaptive Δt bounds (user dt is the nominal / max step)
   const dtUser = Math.max(p.dt, 0.25);
   const dtMax = dtUser;
   const dtMin = Math.max(0.05, dtUser / 20);
@@ -279,7 +279,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const recordInterval = Math.max(dtUser, tMax / 600);
   let tNextRecord = 0;
   warnings.push(
-    `Adaptive Î”t enabled (min=${dtMin.toFixed(2)} s, max=${dtMax.toFixed(2)} s)`,
+    `Adaptive Δt enabled (min=${dtMin.toFixed(2)} s, max=${dtMax.toFixed(2)} s)`,
   );
 
   const Hb = Math.max(p.crestElev - p.baseElev, 0.5);
@@ -400,7 +400,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const series: SimStep[] = [];
 
   warnings.push(
-    `Pipe L=${pipeLen.toFixed(1)} m; HE factors pipeÃ—${ef.pipeRate}, openÃ—${ef.openRate}, widenÃ—${ef.widen}`,
+    `Pipe L=${pipeLen.toFixed(1)} m; HE factors pipe×${ef.pipeRate}, open×${ef.openRate}, widen×${ef.widen}`,
   );
   if (p.mode === "overtopping") {
     warnings.push(
@@ -510,11 +510,11 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       if (hEff > 1e-4 && WL + wH >= zb) {
         // (5) Grow weir width factor toward 1 as notch erodes / headcut advances
         if (weirWidthFactor < 1) {
-          const rate =
-            0.15 +
-            0.5 * (xHead / Math.max(C, 1)) +
-            (hCr > 0.05 ? 0.05 : 0); // [1/s]
-          weirWidthFactor = 1 - (1 - weirWidthFactor) * Math.exp(-rate * dt);
+          const grow =
+            0.15 * dt +
+            0.5 * (xHead / Math.max(C, 1)) * dt +
+            (hCr > 0.05 ? 0.05 * dt : 0);
+          weirWidthFactor = Math.min(1, weirWidthFactor + grow);
         }
         const Wavg = (Wb + Zb * h) * weirWidthFactor;
         Q += (p.Cw ?? 1.7) * Math.max(Wavg, notchSeed * 0.5) * Math.pow(Math.max(h, 0), 1.5);
@@ -675,7 +675,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       } else if (
         WL < p.crestElev - 0.02 &&
         p.mode === "overtopping" &&
-        step < 5
+        i < 5
       ) {
         stage = "filling";
       }
@@ -717,7 +717,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       tNextRecord = t + recordInterval;
     }
 
-    // Adaptive Î”t: refine near collapse, high roof risk, or rapid Q change
+    // Adaptive Δt: refine near collapse, high roof risk, or rapid Q change
     let dtTarget = dtMax;
     if (collapsing) dtTarget = Math.min(dtTarget, Math.max(dtMin, dtMax * 0.25));
     if (!collapsed && lastRisk > 0.6) dtTarget = Math.min(dtTarget, Math.max(dtMin, dtMax * 0.4));
@@ -765,23 +765,23 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
 // ---- Compatibility exports for tests & Impulse panel ----
 
 export interface TransportCapacityOpts {
-  /** Sediment grain density Ïs (kg/mÂ³). */
+  /** Sediment grain density ρs (kg/m³). */
   grainDensity: number;
   /** Median grain size D50 (m). */
   grainD50_m: number;
   /** Gradation ratio D90/D30 for the Smart (1984) factor. */
   grainD90D30Ratio: number;
-  /** Critical Shields parameter Î¸c. */
+  /** Critical Shields parameter θc. */
   criticalShields: number;
-  /** Meyer-Peterâ€“MÃ¼ller transport coefficient Kt. */
+  /** Meyer-Peter–Müller transport coefficient Kt. */
   mpmCoefficient: number;
-  /** Bed porosity p (0â€“1). */
+  /** Bed porosity p (0–1). */
   porosity: number;
   /** Erodible flow-path length Lreach (m) for the Exner conversion. */
   reachLength: number;
 }
 
-/** Dimensionless Shields stress Î¸ = Ï„ / ((sâˆ’1) Ï g D50). Exposed for verification. */
+/** Dimensionless Shields stress θ = τ / ((s−1) ρ g D50). Exposed for verification. */
 export function shieldsStress(tau: number, grainDensity: number, grainD50_m: number): number {
   const s_rel = Math.max(grainDensity, 1100) / RHO;
   const D50 = Math.max(grainD50_m, 1e-4);
@@ -789,16 +789,16 @@ export function shieldsStress(tau: number, grainDensity: number, grainD50_m: num
 }
 
 /**
- * Transport-capacity erosion rate [m/s] â€” Meyer-Peterâ€“MÃ¼ller bedload with the
+ * Transport-capacity erosion rate [m/s] — Meyer-Peter–Müller bedload with the
  * Smart (1984) gradation factor (D90/D30)^0.2, converted to a breach-invert
  * lowering rate through Exner continuity. Cohesionless / granular material only.
  *
- *   Î¸  = Ï„ / ((sâˆ’1) Ï g D50)
- *   Î¦  = Kt Â· (D90/D30)^0.2 Â· max(Î¸ âˆ’ Î¸c, 0)^1.5
- *   qs = Î¦ Â· âˆš((sâˆ’1) g D50Â³)                 [mÂ²/s per unit width]
- *   Îµ  = qs / ((1 âˆ’ p) Â· Lreach)             [m/s]
+ *   θ  = τ / ((s−1) ρ g D50)
+ *   Φ  = Kt · (D90/D30)^0.2 · max(θ − θc, 0)^1.5
+ *   qs = Φ · √((s−1) g D50³)                 [m²/s per unit width]
+ *   ε  = qs / ((1 − p) · Lreach)             [m/s]
  *
- * Steep-slope enhancement enters through the boundary shear Ï„ (Manning) rather
+ * Steep-slope enhancement enters through the boundary shear τ (Manning) rather
  * than an explicit Smart S^0.6 multiplier, to avoid double-counting slope.
  * Pure and side-effect free so it can be unit-verified against hand calculation.
  */
@@ -814,7 +814,7 @@ export function mpmSmartErosionRate(tau: number, o: TransportCapacityOpts): numb
   const excess = theta - thetaC;
   if (excess <= 0) return 0;
   const phi = Kt * gradFactor * Math.pow(excess, 1.5);
-  const qs = phi * Math.sqrt(Math.max(s_rel - 1, 0.1) * G * D50 * D50 * D50); // mÂ²/s
+  const qs = phi * Math.sqrt(Math.max(s_rel - 1, 0.1) * G * D50 * D50 * D50); // m²/s
   return qs / ((1 - poros) * Lreach); // m/s
 }
 
@@ -822,59 +822,59 @@ export function mpmSmartErosionRate(tau: number, o: TransportCapacityOpts): numb
  * Mechanistic breach-formation engine (physics v2).
  *
  * Hydraulics
- *   Open breach:  Q = Cw Â· Wavg Â· h^1.5     (averaged-width simplification of a
- *                 broad-crested trapezoidal weir â€” NOT the rigorous compound
+ *   Open breach:  Q = Cw · Wavg · h^1.5     (averaged-width simplification of a
+ *                 broad-crested trapezoidal weir — NOT the rigorous compound
  *                 trapezoidal-weir formula; adequate for screening, not a
  *                 substitute for a full compound-section rating.)
- *   Piping:       Q = Cd Â· Ï€ RÂ² âˆš(2 g H)     (orifice)
+ *   Piping:       Q = Cd · π R² √(2 g H)     (orifice)
  *
  * Erosion (excess-shear form, inspired by Wan & Fell's erodibility framework)
- *   Ce = 10^(âˆ’I)                            (erosion-rate index â†’ erodibility coefficient)
- *   Îµ  = (Ce / Ïd) Â· max(Ï„ âˆ’ Ï„c, 0)^n       [m/s]
- *   NOTE: kd = Ce/Ïd does not dimensionally reduce to Wan & Fell's own erosion-rate
- *   coefficient units, and this is not their literal published regression â€” treat
+ *   Ce = 10^(−I)                            (erosion-rate index → erodibility coefficient)
+ *   ε  = (Ce / ρd) · max(τ − τc, 0)^n       [m/s]
+ *   NOTE: kd = Ce/ρd does not dimensionally reduce to Wan & Fell's own erosion-rate
+ *   coefficient units, and this is not their literal published regression — treat
  *   as a screening-level erodibility relationship in the same spirit, not a citation
  *   of the exact Wan & Fell (2004) equation.
  *   Exponent n (erosionExponent / shellErosionExponent, default 1): same formula
- *   family, material-dependent exponent â€” n=1 cohesive/fine (unchanged default),
- *   nâ‰ˆ1.3 cohesionless sand/gravel (Chen & Anderson 1986), nâ‰ˆ1.5 MPM-style
+ *   family, material-dependent exponent — n=1 cohesive/fine (unchanged default),
+ *   n≈1.3 cohesionless sand/gravel (Chen & Anderson 1986), n≈1.5 MPM-style
  *   transport-capacity scaling (NWS BREACH lineage).
  *
  * Moraine bank mass-wasting (moraine / ice_cored_moraine only)
  *   Smooth excess-shear widening alone under-widens moraine breach channels.
  *   Tracks exposed unsupported bank height as the invert deepens; once it
- *   exceeds bankCollapseHeightFractionÂ·Hb, triggers a discrete Wb widening
+ *   exceeds bankCollapseHeightFraction·Hb, triggers a discrete Wb widening
  *   event (bankCollapseWidthFactor), then resets. Screening proxy for the
  *   fluvial + geotechnical bank-collapse coupling in Westoby et al. (2014,
- *   HR-BREACH), validated against Dig Tsho â€” not a limit-equilibrium solver.
+ *   HR-BREACH), validated against Dig Tsho — not a limit-equilibrium solver.
  *
  * Bed shear (open channel, Manning)
- *   Ï„ = Ï g nÂ² UÂ² / Rh^(1/3)
+ *   τ = ρ g n² U² / Rh^(1/3)
  *
  * Pipe wall shear (Bonelli-type driving pressure)
- *   Ï„ = Ï g R H / (2 L)
+ *   τ = ρ g R H / (2 L)
  *
  * Headcut (overtopping, Temple / WinDAM-style)
- *   Initiate when overtopping head â‰¥ h_init
- *   Face shear â‰ˆ Ï g h (hydrostatic on the vertical scarp)
- *   dx/dt = f_h Â· Îµ(Ï„_face)   through crest width C
+ *   Initiate when overtopping head ≥ h_init
+ *   Face shear ≈ ρ g h (hydrostatic on the vertical scarp)
+ *   dx/dt = f_h · ε(τ_face)   through crest width C
  *   Deepening is limited until the headcut breaches the upstream crest edge
  *
  * Geotechnics
  *   Residual side slope cannot be steeper than the friction angle:
- *   Zb â‰¥ cot(Ï†)
+ *   Zb ≥ cot(φ)
  *
  * Reservoir
  *   V(y) = V0 (y / y0)^m
- *   dV/dt = Qin âˆ’ Q
+ *   dV/dt = Qin − Q
  */
 
 /**
- * Transient crest head from a wave-overtopping pulse train (opt-in GLOF waveâ†’breach forcing).
+ * Transient crest head from a wave-overtopping pulse train (opt-in GLOF wave→breach forcing).
  * A displacement / impulse wave rides over the crest as a half-sine pulse of peak depth `d0`
- * and duration `tO`, optionally repeated `count` times spaced `period` apart. `period â‰¤ 0` â‡’
+ * and duration `tO`, optionally repeated `count` times spaced `period` apart. `period ≤ 0` ⇒
  * `period = tO` (back-to-back pulses). Returns 0 outside every pulse window, and 0 whenever
- * `d0 â‰¤ 0` or `tO â‰¤ 0`. Pure function of time so it can be hand-verified in isolation; the engine
+ * `d0 ≤ 0` or `tO ≤ 0`. Pure function of time so it can be hand-verified in isolation; the engine
  * adds this to the EROSION head only (never to reservoir storage).
  */
 export function waveOvertopHead(
@@ -887,7 +887,7 @@ export function waveOvertopHead(
   for (let k = 0; k < count; k++) {
     const ts = k * period;
     if (tSec >= ts && tSec <= ts + o.tO) {
-      // Half-sine envelope 0 â†’ d0 â†’ 0 across the overtopping duration of each pulse.
+      // Half-sine envelope 0 → d0 → 0 across the overtopping duration of each pulse.
       return o.d0 * Math.sin((Math.PI * (tSec - ts)) / o.tO);
     }
   }
@@ -895,9 +895,9 @@ export function waveOvertopHead(
 }
 
 /**
- * WinDAM / USDA-SITES energy-dissipation headcut migration: dX/dt = CÂ·(qÂ·H)^(1/3).
- * `qUnit` = unit overfall discharge [mÂ²/s], `Hdrop` = headcut drop height [m], `C`
- * (headcutEnergyCoeff) = material headcut erodibility. Returns the advance Î”X over one step `dt`
+ * WinDAM / USDA-SITES energy-dissipation headcut migration: dX/dt = C·(q·H)^(1/3).
+ * `qUnit` = unit overfall discharge [m²/s], `Hdrop` = headcut drop height [m], `C`
+ * (headcutEnergyCoeff) = material headcut erodibility. Returns the advance ΔX over one step `dt`
  * (never negative). Pure so the cube-root law can be hand-verified independently of the engine.
  */
 export function energyHeadcutAdvance(C: number, qUnit: number, Hdrop: number, dt: number): number {
@@ -906,25 +906,25 @@ export function energyHeadcutAdvance(C: number, qUnit: number, Hdrop: number, dt
 
 /** Inputs to the one-time avalanche displaced-volume step (Archimedes, at wave-forcing handoff). */
 export interface AvalancheDisplacementInputs {
-  /** Avalanche / ice-slide bulk volume [mÂ³] (the same slideVolume fed to the Impulse module). */
+  /** Avalanche / ice-slide bulk volume [m³] (the same slideVolume fed to the Impulse module). */
   slideVolume: number;
-  /** Fraction (0â€“1) of that bulk volume treated as submerged. Use StudioInputs.avalancheSubmergedFraction. */
+  /** Fraction (0–1) of that bulk volume treated as submerged. Use StudioInputs.avalancheSubmergedFraction. */
   submergedFraction: number;
-  /** Lake volume BEFORE displacement [mÂ³]. */
+  /** Lake volume BEFORE displacement [m³]. */
   volumeM3: number;
   /** Lake water-surface elevation BEFORE displacement [m]. */
   initialWL: number;
   baseElev: number;
-  /** Reservoir stage-storage exponent m in V(y) = V0Â·(y/y0)^m â€” same value the breach engine uses. */
+  /** Reservoir stage-storage exponent m in V(y) = V0·(y/y0)^m — same value the breach engine uses. */
   storageExponent: number;
 }
 
 export interface AvalancheDisplacementResult {
-  /** Submerged bulk volume added to the lake [mÂ³]. */
+  /** Submerged bulk volume added to the lake [m³]. */
   displacedVolumeM3: number;
-  /** Lake volume AFTER displacement [mÂ³] â€” feed into StudioInputs.volumeM3. */
+  /** Lake volume AFTER displacement [m³] — feed into StudioInputs.volumeM3. */
   newVolumeM3: number;
-  /** Lake water-surface elevation AFTER displacement [m] â€” feed into StudioInputs.initialWL. */
+  /** Lake water-surface elevation AFTER displacement [m] — feed into StudioInputs.initialWL. */
   newInitialWL: number;
   /** Rise in water-surface elevation caused by the displacement alone [m]. */
   deltaWL: number;
@@ -933,19 +933,19 @@ export interface AvalancheDisplacementResult {
 /**
  * ONE-TIME Archimedes displaced-volume step for an avalanche/ice slide entering a lake.
  *
- * Physically distinct from â€” and applied BEFORE â€” the transient wave-overtopping forcing
+ * Physically distinct from — and applied BEFORE — the transient wave-overtopping forcing
  * (waveForcingEnabled): the slide mass permanently occupies volume in the lake (like dropping a
- * rock in a full glass â€” the water level rises and STAYS risen), whereas the wave itself is a
+ * rock in a full glass — the water level rises and STAYS risen), whereas the wave itself is a
  * surface surge that must never touch reservoir volume/discharge (that stays erosion-only).
- * Conflating the two â€” as the legacy "pass to breach" handoff did by injecting the wave as fake
- * inflowM3s/inflowSeries â€” double-counts water that was never added to the lake and skips the
+ * Conflating the two — as the legacy "pass to breach" handoff did by injecting the wave as fake
+ * inflowM3s/inflowSeries — double-counts water that was never added to the lake and skips the
  * water that actually was.
  *
- *   Vdisplaced = slideVolume Â· submergedFraction
+ *   Vdisplaced = slideVolume · submergedFraction
  *   V_new      = V0 + Vdisplaced
- *   y_new      = y0 Â· (V_new / V0)^(1/m)         (inverting the SAME power-law stage-storage
- *                                                  curve V(y) = V0Â·(y/y0)^m used everywhere else
- *                                                  in the engine â€” no separate/ad hoc geometry)
+ *   y_new      = y0 · (V_new / V0)^(1/m)         (inverting the SAME power-law stage-storage
+ *                                                  curve V(y) = V0·(y/y0)^m used everywhere else
+ *                                                  in the engine — no separate/ad hoc geometry)
  *
  * Pure and side-effect free so it can be unit-verified independently of the breach engine.
  */
