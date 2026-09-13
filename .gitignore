@@ -48,3 +48,6 @@ coverage/
 # Optional: keep screenshots out of git unless you want them
 # screenshots/*.png
 # screenshots/*.json
+
+*.bak
+digtsho_debug*
