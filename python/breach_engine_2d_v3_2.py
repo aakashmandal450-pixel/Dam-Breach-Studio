@@ -1614,7 +1614,8 @@ class UltimateBreachEngine:
             hold_reservoir_level: Optional[float] = None,
             max_wall_seconds: Optional[float] = None,
             stop_on_balance_error_m3: Optional[float] = None,
-            monitor: Optional["InitiationMonitor"] = None):
+            monitor: Optional["InitiationMonitor"] = None,
+            stop_when_drained_s: Optional[float] = None, drained_volume_m3: float = 1000.0):
         """Run to absolute ``t_end``; optionally stop after a confirmed prism-outlet peak."""
         cfg, mesh = self.cfg, self.mesh
         if print_every <= 0:
@@ -1646,6 +1647,7 @@ class UltimateBreachEngine:
         self.run_status = "running"
         self.reservoir.hold_level = hold_reservoir_level
         wall0 = time.perf_counter()
+        drained_since: Optional[float] = None
         while self.time < t_end - 1e-12:
             q_in = Qin(self.time) if callable(Qin) else Qin
             _th = time.perf_counter()
@@ -1759,6 +1761,14 @@ class UltimateBreachEngine:
                         or abs(self.sediment_balance_error()) > tol):
                     self.stop_reason = "balance_error"
                     break
+            if stop_when_drained_s is not None and self.reservoir.hold_level is None:
+                if self.reservoir.volume <= drained_volume_m3:
+                    drained_since = self.time if drained_since is None else drained_since
+                    if self.time - drained_since >= stop_when_drained_s and morph_due:
+                        self.stop_reason = "reservoir_drained"
+                        break
+                else:
+                    drained_since = None
             if (stop_at_peak and self.peak_Q_prism_outlet > 0.0
                     and self.peak_decline_steps >= max(peak_confirm_steps, 1)
                     and self.last_morph_time > self.peak_time):

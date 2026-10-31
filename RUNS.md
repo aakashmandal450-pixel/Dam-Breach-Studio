@@ -49,3 +49,16 @@ Equifinality: kd 0.5 / n 0.035 and kd 1 / n 0.025 give near-identical peak, timi
 From V3.2.2 the Dig Tsho script defaults to `--geometry westoby2015 --erosion-shear grain`. Every run above used
 `ts18` with total shear; add `--geometry ts18 --erosion-shear total` to reproduce them. Widths in the summaries are
 now >=50% of max lowering; the initiation check uses the final channelization index.
+
+### Grid check and first Westoby-geometry runs (V3.2.2, 5 kPa, crest dip 0.5 m, outfall)
+
+| Run | Setup | Peak Q (m3/s) at t | Width (>=50%) | Deepest lowering | Lake lowering | Collapse m3 | Wall time |
+|---|---|---|---|---|---|---|---|
+| dt_dip_c5000_outfall_v321 | ts18, total shear, dy 5 m | 3,418 at 1,892 s | 90 m | 18.0 m | 15.8 m | 30,291 | 4 min |
+| ts18_c5000_dy2.5 | same, dy 2.5 m | 3,407 at 1,769 s | 88 m | 18.0 m | 15.8 m | 55,001 | 7.5 min |
+| W15_c5000_n0.025 | westoby2015, grain shear, n 0.025 | 3,511 at 4,020 s | 90 m | 39.8 m | 14.4 m | 1,075,323 | 82 min |
+| W15_c5000_n0.035 | same, n 0.035 (interrupted at 12,602 s, from checkpoint) | 3,656 at 4,396 s | - | - | 14.3 m | - | >2.5 h |
+| W15_c5000_n0.05 | not run | | | | | | |
+
+Grid: halving dy changes peak by -0.3 %, time to peak by -6.5 %, width by -2 m; the split between collapse and transport is not converged (+82 % collapse).
+Westoby geometry: the lake drains to the debris-top stage (25.8 m) by about 7,000 s; after that the runs only pass the 5 m3/s inflow. From V3.2.2+ the script stops 600 s after the lake is drained (--stop-drained-after).

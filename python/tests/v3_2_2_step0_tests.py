@@ -73,5 +73,17 @@ rb = eng.initiation_success(mon, crit_best, seeded=False)
 check("final basis fails a run that ended uniform", (not rf["success"]) and rf["channelization_at_lowering"] == 1.1)
 check("best basis (legacy) still reports met", rb["success"] and rb["channelization_at_lowering"] == 4.0)
 
+# 4. stop when the lake is drained (flat non-erodible channel, small lake)
+mesh = eng.create_prism_mesh(20.0, 6.0, 20, 6, np.zeros((20, 6)), 0.0, z_floor=0.0)
+c6 = eng.EngineConfig(transport=eng.TransportFormula.HANSON, downstream_boundary="outfall",
+                      lateral_erosion_enabled=False, headcut_enabled=False, bank_collapse_enabled=False)
+res6 = eng.Reservoir({0.0: 0.0, 0.5: 400.0, 1.0: 1200.0}, 0.5)
+e6 = eng.UltimateBreachEngine(mesh, res6, eng.MaterialProps(kd=0.0), c6)
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    e6.run(t_end=5000.0, Qin=0.0, verbose=False, stop_when_drained_s=60.0, drained_volume_m3=20.0)
+check("run stops 60 s after the lake is drained", e6.stop_reason == "reservoir_drained" and e6.time < 5000.0,
+      f"stopped at t={e6.time:.0f} s ({e6.stop_reason}), lake {res6.volume:.2f} m3")
+
 print(f"\n{total - fails}/{total} V3.2.2 Step 0 checks passed")
 sys.exit(1 if fails else 0)

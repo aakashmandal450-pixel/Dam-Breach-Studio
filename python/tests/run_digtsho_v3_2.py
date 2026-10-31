@@ -95,6 +95,8 @@ def parse() -> argparse.Namespace:
     p.add_argument("--storage-exp", type=float, default=None, help="override stage-volume exponent")
     p.add_argument("--erosion-shear", choices=("total", "grain"), default="grain",
                    help="shear that drives erosion: grain (skin friction, default from V3.2.2) or total (V3.2.1)")
+    p.add_argument("--stop-drained-after", type=float, default=600.0,
+                   help="stop this many seconds after the lake holds < 1000 m3 (negative = never; default 600)")
     p.add_argument("--floor", type=float, default=0.0, help="non-erodible floor height above the foundation [m]")
     p.add_argument("--manning-n", type=float, default=0.035, help="Manning roughness for hydraulics and bed shear (sensitivity)")
     p.add_argument("--kd-scale", type=float, default=1.0, help="multiplier on the preset erodibility kd (Hanson preset only; kd is uncalibrated)")
@@ -244,7 +246,8 @@ def main() -> int:
                    stop_at_peak=stop, peak_confirm_steps=200,
                    checkpoint_path=str(ckpt), checkpoint_interval_s=args.checkpoint_interval,
                    wave_boundary=wave, hold_reservoir_level=hold, max_wall_seconds=args.wall_seconds,
-                   monitor=monitor)
+                   monitor=monitor,
+                   stop_when_drained_s=(None if args.stop_drained_after < 0 else args.stop_drained_after))
 
     if args.stop_at_peak and wave_end + args.peak_settle < args.t_end:
         go(wave_end + args.peak_settle, False)
