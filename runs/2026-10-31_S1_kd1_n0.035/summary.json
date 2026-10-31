@@ -1,0 +1,101 @@
+{
+  "run_status": "completed",
+  "t_reached_s": 14400.0,
+  "wall_seconds": 480.6722159385681,
+  "wave": {
+    "P": 2.2245028927781796,
+    "aM": 2.2764476830365434,
+    "HM": 4.28909374476193,
+    "TM": 51.64179608209219,
+    "ac1": 2.2764476830365434,
+    "at1": 2.0126460617253863,
+    "ac2": 1.789048329618182,
+    "c1": 13.398434105258573,
+    "c2": 9.753152127165947,
+    "t_crest1_s": 89.56270490810773,
+    "t_crest2_s": 123.03714577132243,
+    "near_field": false
+  },
+  "peak_outlet_all": [
+    3417.5503247363795,
+    1891.792164516332
+  ],
+  "wave_window_end_s": 174.6789418534146,
+  "post_wave_start_s": 234.6789418534146,
+  "peak_outlet_during_wave_window": [
+    2941.3266348207408,
+    101.90897897833575
+  ],
+  "peak_outlet_after_wave_window": [
+    3417.5503247363795,
+    1891.792164516332
+  ],
+  "final_channelization_index": 2.2234847468856604,
+  "t_first_lowering_s": 97.79785780703047,
+  "t_first_tau_exceed_s": 2.041699142785984,
+  "outflow_volume_m3": 5714655.757722779,
+  "max_lowering_m": 17.967830189587865,
+  "breach": {
+    "depth_m": 7.4718282180096285,
+    "width_m": 220.0,
+    "area_m2": 1643.8022079621182,
+    "BDI": 0.5564629439251474
+  },
+  "initiation": {
+    "success": true,
+    "checks": {
+      "lowering": true,
+      "channelization": true,
+      "bdi": true,
+      "unseeded": true
+    },
+    "max_lowering_m": 17.978031533188297,
+    "channelization_at_lowering": 4.394600939073693,
+    "BDI": 0.5559482277954261,
+    "seeded": false
+  },
+  "diagnostics": {
+    "run_status": "completed",
+    "stop_reason": null,
+    "time_s": 14400.0,
+    "steps": 174267,
+    "morph_updates": 6965,
+    "sediment_sources_m3": {
+      "lateral": 28703.812267136003,
+      "headcut": 10749.74435250678,
+      "collapse": 30290.51364836275,
+      "toe_scour": 0.0,
+      "transport_net": 71209.1138146816
+    },
+    "chen_cap_applications": 0,
+    "chen_cap_limited_cells": 0,
+    "detachment_cap_limited_cells": 0,
+    "speed_clip_events": 0,
+    "speed_clip_cells": 0,
+    "speed_clip_max_uncapped_ms": 0.0,
+    "water_balance_err_m3": -2.329761628061533e-07,
+    "reservoir_balance_err_m3": 6.51925802230835e-08,
+    "sediment_balance_err_m3": -8.731149137020111e-11,
+    "reservoir_hold_added_m3": 0.0,
+    "reservoir_curve_overflow_m3": 0.0,
+    "reservoir_clipped_m3": 2.7292037146636026e-12,
+    "reservoir_empty": true,
+    "inflow_limit_events": 93790,
+    "timing_s": {
+      "hydro_s": 279.8790315906517,
+      "morph_s": 18.49874570214888,
+      "wall_s": 480.6720532000181
+    }
+  },
+  "published_context_only": {
+    "wave_height_m": [
+      4.4,
+      5.0
+    ],
+    "peak_discharge_m3s": [
+      1375.0,
+      2000.0,
+      1600.0
+    ]
+  }
+}

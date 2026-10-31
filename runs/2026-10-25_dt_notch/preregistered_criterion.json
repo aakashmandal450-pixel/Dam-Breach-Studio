@@ -1,0 +1,38 @@
+{
+  "registered_at": "2026-10-25T14:44:39",
+  "criterion": {
+    "min_lowering_m": 1.0,
+    "min_channelization": 1.5,
+    "min_bdi": 0.0,
+    "t_max_s": 3600.0,
+    "require_unseeded": true
+  },
+  "seeded_run": true,
+  "args": {
+    "material": "hanson_ts",
+    "cohesion": 0.0,
+    "dx": 2.5,
+    "dy": 5.0,
+    "apron": 40.0,
+    "t_end": 7200.0,
+    "no_wave": false,
+    "no_displacement": false,
+    "notch": 1.0,
+    "spatial_order": 1,
+    "ls_mode": "fixed",
+    "morph_accel": 1.0,
+    "no_headcut": false,
+    "hold_level": false,
+    "stop_at_peak": false,
+    "peak_settle": 60.0,
+    "wall_seconds": null,
+    "checkpoint_interval": 300.0,
+    "resume": null,
+    "print_every": 30.0,
+    "history_stride": 20,
+    "out": "dt_notch",
+    "crit_lowering": 1.0,
+    "crit_channelization": 1.5,
+    "crit_time": 3600.0
+  }
+}
