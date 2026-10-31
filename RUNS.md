@@ -58,7 +58,11 @@ now >=50% of max lowering; the initiation check uses the final channelization in
 | ts18_c5000_dy2.5 | same, dy 2.5 m | 3,407 at 1,769 s | 88 m | 18.0 m | 15.8 m | 55,001 | 7.5 min |
 | W15_c5000_n0.025 | westoby2015, grain shear, n 0.025 | 3,511 at 4,020 s | 90 m | 39.8 m | 14.4 m | 1,075,323 | 82 min |
 | W15_c5000_n0.035 | same, n 0.035 (interrupted at 12,602 s, from checkpoint) | 3,656 at 4,396 s | - | - | 14.3 m | - | >2.5 h |
-| W15_c5000_n0.05 | not run | | | | | | |
+| W15_c5000_n0.035_v2 | rerun with drained-stop | 3,656 at 4,396 s | 90 m | 39.9 m | 14.3 m | 919,406 | 12 min |
+| W15_c5000_n0.05 | n 0.05, drained-stop | 3,452 at 6,143 s | 90 m | 39.9 m | 14.3 m | 889,744 | 15 min |
 
 Grid: halving dy changes peak by -0.3 %, time to peak by -6.5 %, width by -2 m; the split between collapse and transport is not converged (+82 % collapse).
 Westoby geometry: the lake drains to the debris-top stage (25.8 m) by about 7,000 s; after that the runs only pass the 5 m3/s inflow. From V3.2.2+ the script stops 600 s after the lake is drained (--stop-drained-after).
+
+Roughness with grain shear (Westoby geometry, 5 kPa): peak 3,511 / 3,656 / 3,452 m3/s for n 0.025 / 0.035 / 0.05 (within +/-3 %), time to peak 67 / 73 / 102 min.
+The wave-window overtopping peak falls with n (4,570 / 2,848 / 1,411 m3/s). The rerun at n 0.035 reproduces the interrupted run's peak exactly.
