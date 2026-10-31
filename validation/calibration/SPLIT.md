@@ -26,3 +26,12 @@ This rule may not be changed after the first calibration run. A change before th
 
 ## Acceptance limits (from the plan, to confirm before stage 4)
 Peak within x1.5, time to peak within x2, final top width within +/-50 %, lake drawdown within +/-25 %, each passing in at least 2 of 3 cases; water and sediment balance below 1e-6 of volume moved in every case.
+
+## split-2 amendments (2026-10-31, after reading the sources, BEFORE any calibration run)
+Reason: the sources showed two situations the split-1 rules did not cover. No engine result on any case has been seen.
+- Exclusion 4: embankments whose source specifies separate zones with different materials (core/shell, clay cover)
+  are excluded, because the engine has one uniform material. Cases the source itself models as homogeneous stay in.
+- Rule 3 interpretation: missing PRIMARY data (dam height, reservoir volume or stage-volume) -> exclude. Missing
+  SECONDARY dimensions (crest width, a slope) may be taken from a figure or assumed, flagged as assumed in the case
+  file, and covered by a sensitivity run. This matches how the DLBreach report treats its "a" (assumed) values.
+- Duplicates across groups are kept once, in the most specific group (USDA-ARS E1S1 in G1; IMPACT field tests in G4).
