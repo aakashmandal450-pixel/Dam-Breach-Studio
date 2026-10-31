@@ -6,7 +6,7 @@ Tiers are assigned only by the rule in `SPLIT.md`, never by looking at how the e
 | ID | Group | Case(s) | Scale, material, mode | Measured | Source | Access | Status |
 |---|---|---|---|---|---|---|---|
 | G1 | Lab, cohesive, JET | USDA-ARS Stillwater overtopping tests, 7 embankments 1.5-2.3 m, 3 soils (2 SM silty sand, 1 CL lean clay) | Large lab, homogeneous cohesive, overtopping | JET kd and tau_c, headcut migration, widening, outflow | Hanson, Cook & Hunt (2005), Trans. ASAE 48(5):1783-1794, doi:10.13031/2013.20012 | Paywalled paper; ask for data or use library access | To obtain |
-| G2 | Large lab, zoned/rockfill, JET | Reclamation dam breach test facility, 3 tests 2015-2017 | Large lab, zoned embankment, overtopping | JET kd, kd back-estimated from photos, discharge | Reclamation DSO-2017-02 (usbr.gov, public) | Public PDF | To download |
+| G2 | Large lab, zoned/rockfill, JET | Reclamation dam breach test facility, 3 tests 2015-2017 (1 homogeneous internal erosion, 1 zoned overtopping, 1 zoned internal erosion) | Large lab | JET kd, kd back-estimated from photos, discharge | Wahl, PFHA 2019 presentation (sources/), NRC ML19156A480 | Public | Obtained; all three excluded (EXCLUDED.md) |
 | G3 | Lab and field, mixed | DLBreach test set: 50 dam + 4 levee/barrier cases | Lab and field; non-cohesive, cohesive, composite; overtopping and piping | Geometry, soil, peak, breach size (varies) | Wu (2016) DLBreach report + test-case zip, webspace.clarkson.edu/~wwu/DLBreach.html | Public | To download (shell is blocked; browser download) |
 | G4 | Field, 4-6 m | IMPACT field tests, Norway (5 tests) | Field, homogeneous and composite, overtopping and piping | Breach growth, flow, soil data | FLOODsite report T04-08-04 (corrected data sets released with it) | Public; documented data issues, use corrected sets | To download |
 | G5 | Historic failures | Wahl (1998) database, 108 embankment failures (Table A1) | Field, mixed | Height, volume, peak, breach width, time (no erodibility) | Reclamation DSO-98-004 | Public PDF | To download; screening use only |
@@ -15,3 +15,5 @@ Tiers are assigned only by the rule in `SPLIT.md`, never by looking at how the e
 
 Engine fit notes: the 2-D prism engine handles overtopping only (no piping), so piping cases in G3/G4 are excluded.
 G1 and G2 are the only groups with measured erodibility; they are the core of calibration.
+
+Update 2026-10-31: sources obtained; see EXCLUDED.md and ASSIGNMENT.md. DSO-2017-02 file in sources/ is an unrelated UK document with the same number.
