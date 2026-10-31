@@ -53,14 +53,14 @@ LAKE_BED = 0.0          # m above the dam foundation (z = 0)
 # Geometry sets. 'ts18' = the TypeScript chain values used by every run up to V3.2.1.
 # 'westoby2015' = Westoby et al. (2015) Table 1 (SfM DTM): crest 4356 m, foundation 4316 m (z = 0),
 # crest 250 x 30 m, distal face 1:3.1, proximal face 1:15.2, released volume about 7.3e6 m3.
-# LAKE_BED = 24 m (4340 m) is ASSUMED: the lower end of the stage axis of their hypsometry (Fig. 2, read
-# approximately) and the observed final lake level (16 +/- 2 m lowering). It caps lake lowering at 16 m by
+# LAKE_BED = 24 m (4340 m) is the lower end of their hypsometry (Fig. 2, digitized in
+# validation/calibration/digtsho_westoby2015_fig2_digitized.csv); about 0.3e6 m3 lies below 4340 m and is not modelled. It caps lake lowering at 16 m by
 # construction; read Fig. 2 and set --lake-bed / --lake-volume / --storage-exp when better values are known.
 GEOMETRIES = {
     "ts18": dict(H_DAM=18.0, LAKE_BED=0.0, Z_UP=1.8, Z_DOWN=2.5, CREST_WIDTH=25.0, CREST_LENGTH=220.0,
                  LAKE_VOLUME=5.5e6, STORAGE_EXP=1.8),
     "westoby2015": dict(H_DAM=40.0, LAKE_BED=24.0, Z_UP=15.2, Z_DOWN=3.1, CREST_WIDTH=30.0, CREST_LENGTH=250.0,
-                        LAKE_VOLUME=7.3e6, STORAGE_EXP=1.8),
+                        LAKE_VOLUME=6.9e6, STORAGE_EXP=1.3),   # Fig. 2 read by eye: 6.9e6 m3 between 4340 and 4356 m, exponent about 1.3
 }
 
 
