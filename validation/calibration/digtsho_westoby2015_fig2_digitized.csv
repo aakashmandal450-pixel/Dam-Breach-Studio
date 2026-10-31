@@ -1,0 +1,8 @@
+# Dig Tsho lake hypsometry, read by eye from Westoby et al. (2015) Fig. 2 (approximate, +/- about 0.2e6 m3 and 0.3e5 m2).
+# The curve starts at 4340 m with about 0.3e6 m3 already stored, so the basin continues below 4340 m.
+stage_m_asl,z_above_foundation_m,volume_m3,area_m2
+4340,24,3.0e5,1.5e5
+4345,29,1.9e6,3.8e5
+4350,34,4.0e6,5.0e5
+4355,39,6.7e6,6.0e5
+4356,40,7.2e6,6.1e5
