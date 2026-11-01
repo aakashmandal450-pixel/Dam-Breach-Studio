@@ -208,6 +208,7 @@ class EngineConfig:
     erosion_shear: str = "total"          # "total" (v3.2.1) or "grain": erosion driven by skin-friction shear
     grain_manning_n: Optional[float] = None  # n' for grain shear; None -> Strickler D50^(1/6)/21.1 (D50 in m)
     breach_width_fraction: float = 0.5    # breach width counts columns lowered >= this fraction of the max (0 = legacy)
+    transport_capacity_factor: float = 1.0  # calibration multiplier on capacity-law transport (Wu, MPM, van Rijn)
     eps: float = 1e-12
 
 
@@ -856,16 +857,17 @@ class SedimentTransport:
         th = self.shields(tau)
         thc = self.critical_shields_field()
         f = self.cfg.transport
+        k = max(float(self.cfg.transport_capacity_factor), 0.0)
         if f == TransportFormula.MPM:
-            return 8.0 * np.maximum(th - thc, 0.0) ** 1.5 * scale
+            return k * 8.0 * np.maximum(th - thc, 0.0) ** 1.5 * scale
         if f == TransportFormula.WU:
             # Wu, Wang & Jia (2000) bed load, single fraction, n'/n = 1
-            return 0.0053 * np.maximum(th / thc - 1.0, 0.0) ** 2.2 * scale
+            return k * 0.0053 * np.maximum(th / thc - 1.0, 0.0) ** 2.2 * scale
         if f == TransportFormula.VAN_RIJN:
             # van Rijn (1984) bed load
             Dstar = D * ((s - 1.0) * g / 1.0e-6**2) ** (1.0 / 3.0)
             T = np.maximum(th / thc - 1.0, 0.0)
-            return 0.053 * np.sqrt((s - 1.0) * g) * D**1.5 * T**2.1 / Dstar**0.3
+            return k * 0.053 * np.sqrt((s - 1.0) * g) * D**1.5 * T**2.1 / Dstar**0.3
         raise ValueError("capacity() called for a detachment-type formula")
 
     def detachment_rate(self, tau: np.ndarray) -> np.ndarray:
