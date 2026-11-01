@@ -1,0 +1,43 @@
+{
+ "id": "SouthFork",
+ "tier": "calibration",
+ "group": "G3",
+ "kind": "field",
+ "source": "Wu 2016 Tables 6.1-6.2 #10 (Singh 1996; Wahl 1998). Zoned earth/rockfill modelled homogeneous as in the source. Crest length 284 m (Wahl 1998)",
+ "H": 21.9,
+ "crest_w": 6.0,
+ "zu": 2.0,
+ "zd": 1.5,
+ "section_width": 284.0,
+ "stub_up": 10.95,
+ "apron": 43.8,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 0.4,
+  "bottom_width": 3.0,
+  "side_hv": 1.0
+ },
+ "reservoir": {
+  "type": "power",
+  "V_full": 19000000.0,
+  "H_full": 21.9,
+  "exp": 2.0,
+  "_note": "storage only -> exponent 2"
+ },
+ "initial_level": 21.9,
+ "inflow": 0.0,
+ "t_end": 43200.0,
+ "material": {
+  "class": "noncohesive",
+  "d50_mm": 14.0,
+  "d90_mm": 35.0,
+  "porosity": 0.22,
+  "cohesion_kPa": 0.0,
+  "tan_phi": 0.72
+ },
+ "manning_n": 0.041,
+ "obs": {
+  "Qp": 8500,
+  "B": 128
+ }
+}

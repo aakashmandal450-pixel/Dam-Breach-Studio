@@ -1,0 +1,43 @@
+{
+ "id": "Castlewood",
+ "tier": "calibration",
+ "group": "G3",
+ "kind": "field",
+ "source": "Wu 2016 Tables 6.1-6.2 #7 (Wahl 1998). Earth/rockfill with masonry wall, modelled homogeneous as in the source. Initial breach 0.4 x 2.0 m assumed by DLBreach; section width 12 H",
+ "H": 21.34,
+ "crest_w": 4.9,
+ "zu": 3.0,
+ "zd": 1.0,
+ "section_width": 256.1,
+ "stub_up": 10.67,
+ "apron": 42.68,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 0.4,
+  "bottom_width": 2.0,
+  "side_hv": 1.0
+ },
+ "reservoir": {
+  "type": "power",
+  "V_full": 4230000.0,
+  "H_full": 21.34,
+  "exp": 4.08,
+  "_note": "exponent = A H / V from storage and surface area"
+ },
+ "initial_level": 21.34,
+ "inflow": 0.0,
+ "t_end": 43200.0,
+ "material": {
+  "class": "noncohesive",
+  "d50_mm": 100.0,
+  "d90_mm": 250.0,
+  "porosity": 0.22,
+  "cohesion_kPa": 15.5,
+  "tan_phi": 0.9
+ },
+ "manning_n": 0.057,
+ "obs": {
+  "Qp": 3570,
+  "B": 54.9
+ }
+}
