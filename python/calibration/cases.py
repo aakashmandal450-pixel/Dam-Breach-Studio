@@ -133,7 +133,8 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
 
 
 def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = None, verbose: bool = False,
-        grid_divisor: Optional[float] = None, max_wall_seconds: Optional[float] = None, chunk_s: float = 120.0) -> Dict:
+        grid_divisor: Optional[float] = None, max_wall_seconds: Optional[float] = None, chunk_s: float = 120.0,
+        progress: bool = False) -> Dict:
     """Run a case. Times reported are physical (morphological) seconds.
 
     case['accel'] = A (> 1): morphology runs A times faster than the flow until breach initiation is detected
@@ -168,13 +169,24 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                 step = min(chunk_s, t_phys_end - phys(eng.time))
             eng.run(eng.time + step, Qin=q_in, verbose=verbose, print_every=600.0,
                     stop_when_drained_s=600.0)
+            if progress:
+                hh = eng.history[-1] if eng.history else {}
+                lw = float(np.max(z0 - mesh.z_b))
+                print(f"    t = {phys(eng.time):9.0f} s of {t_phys_end:.0f} s  ({100 * phys(eng.time) / t_phys_end:5.1f} %)   "
+                      f"Q out = {hh.get('Q_prism_outlet', 0.0):9.4g} m3/s   lake level = {res.level:8.3f} m   "
+                      f"max lowering = {lw:7.3f} m   wall {time.perf_counter() - wall0:7.0f} s"
+                      + ("   [accelerated initiation]" if A > 1.0 and t_switch_h is None else ""), flush=True)
             if eng.stop_reason is not None:
+                if progress:
+                    print(f"    stopped: {eng.stop_reason}", flush=True)
                 break
             if A > 1.0 and t_switch_h is None:
                 low_notch = np.max((z0 - mesh.z_b)[crest, :]) if crest.any() else 0.0
                 if low_notch > 0.25 * dn:
                     t_switch_h = eng.time
                     eng.cfg.morph_accel = 1.0
+                    if progress:
+                        print(f"    breach initiation detected at t = {t_switch_h * A:.0f} s -> acceleration off", flush=True)
             if max_wall_seconds is not None and time.perf_counter() - wall0 > max_wall_seconds:
                 break
     hist = eng.history
