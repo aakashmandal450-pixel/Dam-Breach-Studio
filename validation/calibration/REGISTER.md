@@ -25,3 +25,11 @@ fewer than two observations, and 4 are already in G3 (Castlewood, Goose Creek, L
 Only 3 remain: Euclides da Cunha and Salles Oliveira (Brazil, 1977 cascade; both overtopped by a flood whose inflow
 is not given, Salles by the Euclides failure) and Lake Barcroft (no peak; inflow not given). None states soil type
 beyond "earthfill", so no erodibility class can be assigned. Decision: G5 stays screening-only; split unchanged.
+
+## New candidate sources (2026-11-01, before any calibration run; any additions go in as split-3)
+| ID | Source | What it is | Fit for the engine | Status |
+|---|---|---|---|---|
+| G8 | Walsh (2019) MASc thesis, Queen's University; Barlow et al. (2024) Coastal Eng. 189:104471 (CC BY-NC-ND) | Lab overtopping breaches of model dams in fine sand (d50 0.12 mm): one series varying upstream slope (water-retaining dams), one with a tailings beach (Tables 2.1, 3.1) | Frontal overtopping, non-cohesive, flume reservoir: fits. Peak flows mostly in figures | In sources/; extract test table and peaks |
+| G9 | Chao, Hung & Chen (2025), Zenodo 10.5281/zenodo.17828278 (CC BY 4.0) | Field-scale overtopping dam-breach experiments, Taiwan: DEMs, discharge, water level, velocity (archives CP_1/2, NCP_1/2) | Frontal overtopping: likely fits; material and erodibility unknown | README files not yet downloaded |
+| G10 | Rifai et al. (2019) Sci. Data, Zenodo 10.5281/zenodo.1489908 (CC BY-NC-ND) | 54 fluvial dike-breach tests, sand d50 1 and 1.67 mm | Flow runs along the dike in a river channel; needs a channel-side boundary the engine does not have | Not usable now (tree.txt and reader kept) |
+| ref | CEATI DSO-2017-02 (2017) | SIMBA and HR BREACH evaluated on USDA-1 (= E1S1), USDA-2, three IMPACT Norway field tests, Oros, Banqiao | No new cases beyond ours; useful for observed values (Table 2) and how much kd had to be adjusted per case | In sources/ |
