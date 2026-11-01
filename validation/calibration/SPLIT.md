@@ -35,3 +35,11 @@ Reason: the sources showed two situations the split-1 rules did not cover. No en
   SECONDARY dimensions (crest width, a slope) may be taken from a figure or assumed, flagged as assumed in the case
   file, and covered by a sensitivity run. This matches how the DLBreach report treats its "a" (assumed) values.
 - Duplicates across groups are kept once, in the most specific group (USDA-ARS E1S1 in G1; IMPACT field tests in G4).
+
+## split-3 (2026-11-01, BEFORE any calibration run): new groups G8 (Walsh 2019) and G9 (Taiwan field tests)
+Rules for the new groups, written before any engine run on them:
+| Group | Rule |
+|---|---|
+| G8 Walsh (2019) Queen's tests | Two series, kept separate. Slope series S1-S6 and beach series W1-W5, each sorted by test ID: odd positions -> calibration, even -> validation. The two USGS tests (Walder et al. 2015) listed in Walsh's Table 2.1 are excluded under rule 3 (no reservoir data in our sources). |
+| G9 Taiwan (Chao, Hung & Chen 2025) | Within each archive family (CP, NCP): run _1 -> calibration, _2 -> validation. Applied only after the exclusions pass on the archive contents. Dam material (at least grain size) counts as PRIMARY for these non-cohesive tests; without it the group is excluded. |
+Observation sources for G8: peak discharge from Walsh Tables 2.1 and 3.1; time to peak and breach width over time from Walsh Figs 2.5-2.7 and 3.x (read from figures, flagged as such).
