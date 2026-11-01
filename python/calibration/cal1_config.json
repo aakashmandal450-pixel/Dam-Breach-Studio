@@ -8,7 +8,7 @@
   },
   "material_rules": {
     "cohesive": {"transport": "hanson", "erosion_shear": "total", "n_exp": 1.0,
-                 "cohesion": "qu/2 when unconfined strength qu is reported (G1); else source value",
+                 "cohesion": "c = qu / (2 tan(45 deg + phi/2)) (Mohr-Coulomb, unconfined compression) when qu is reported (G1); else source value",
                  "material_class": "cohesive"},
     "noncohesive": {"transport": "wu", "erosion_shear": "grain", "material_class": "noncohesive",
                     "cohesion": "source value (0 if not given)"}
