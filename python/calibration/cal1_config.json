@@ -1,0 +1,31 @@
+{
+  "_note": "cal-1 model choices, frozen before the first calibration run (2026-11-01). Only the three factors under 'factors' are calibrated.",
+  "engine": "breach_engine_2d_v3_2.py (V3.2.2 + transport_capacity_factor)",
+  "factors": {
+    "f_kd": {"meaning": "multiplier on jet-test kd (cohesive, Hanson law)", "default": 1.0, "search_log10": [-2.0, 1.0]},
+    "C_h": {"meaning": "multiplier on headcut_C = 0.05 (energy method)", "default": 1.0, "search_log10": [-1.5, 1.0]},
+    "f_t": {"meaning": "transport_capacity_factor (non-cohesive, Wu law)", "default": 1.0, "search_log10": [-1.5, 1.0]}
+  },
+  "material_rules": {
+    "cohesive": {"transport": "hanson", "erosion_shear": "total", "n_exp": 1.0,
+                 "cohesion": "qu/2 when unconfined strength qu is reported (G1); else source value",
+                 "material_class": "cohesive"},
+    "noncohesive": {"transport": "wu", "erosion_shear": "grain", "material_class": "noncohesive",
+                    "cohesion": "source value (0 if not given)"}
+  },
+  "hydraulics": {"friction_model": "manning",
+                 "manning_n": "case source value; lab cases without one: max(0.016, Strickler D50^(1/6)/21.1)",
+                 "spatial_order": 1, "CFL": 0.4},
+  "morphology": {"dt_morpho_target_s": "H/20 (s, min 0.25)", "headcut_method": "energy",
+                 "bank_stability": "criticalDepth (Culmann), fs trigger/target 1",
+                 "lateral_model": "critical_shear", "adaptation_length_mode": "fixed"},
+  "grid": {"dx_dy": "H/8 for lab cases, H/6 for field cases",
+           "transverse_width": "lab: test-section or flume width; field: crest length if given, else 12 H"},
+  "boundaries": {"upstream": "0-D reservoir from the case stage-volume or area-height data",
+                 "downstream": "outfall (free overfall); closed flumes: wall with the flume length downstream"},
+  "start": "reservoir at the notch invert (overtopping starts at t = 0) unless the source gives the level at breach",
+  "end": "stop 600 s after the lake is drained, or at the case t_end; steady-inflow no-breach cases: morph_accel 10 over the test duration",
+  "outputs": {"Qp": "peak Q_prism_outlet", "Tp": "time of that peak from t = 0",
+              "B": "final breach width, crest rows, columns lowered >= 50 % of max",
+              "breached": "notch invert lowered by > 50 % of the notch depth"}
+}

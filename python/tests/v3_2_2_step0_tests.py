@@ -85,5 +85,13 @@ with warnings.catch_warnings():
 check("run stops 60 s after the lake is drained", e6.stop_reason == "reservoir_drained" and e6.time < 5000.0,
       f"stopped at t={e6.time:.0f} s ({e6.stop_reason}), lake {res6.volume:.2f} m3")
 
+# 5. transport capacity factor scales capacity laws linearly
+for f in (eng.TransportFormula.WU, eng.TransportFormula.MPM, eng.TransportFormula.VAN_RIJN):
+    c1 = eng.EngineConfig(transport=f); c2 = eng.EngineConfig(transport=f, transport_capacity_factor=2.5)
+    m = eng.MaterialProps(D50=0.001)
+    tau = np.array([5.0, 20.0])
+    q1 = eng.SedimentTransport(c1, m).capacity(tau); q2 = eng.SedimentTransport(c2, m).capacity(tau)
+    check(f"capacity factor scales {f.value}", np.allclose(q2, 2.5 * q1) and q1[1] > 0)
+
 print(f"\n{total - fails}/{total} V3.2.2 Step 0 checks passed")
 sys.exit(1 if fails else 0)
