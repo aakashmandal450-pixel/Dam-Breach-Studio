@@ -90,7 +90,11 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
     m = case["material"]
     d50 = m.get("d50_mm", 0.1) / 1000.0
     if m["class"] == "cohesive":
-        cohesion = (m["qu_kPa"] / 2.0 if "qu_kPa" in m else m.get("cohesion_kPa", 0.0)) * 1000.0
+        phi_r = math.atan(m.get("tan_phi", 0.55))
+        if "qu_kPa" in m:   # unconfined compression: qu = 2 c tan(45 + phi/2)
+            cohesion = m["qu_kPa"] * 1000.0 / (2.0 * math.tan(math.pi / 4 + phi_r / 2))
+        else:
+            cohesion = m.get("cohesion_kPa", 0.0) * 1000.0
         mat = E.MaterialProps(material_class="cohesive", D50=d50, D90=max(4 * d50, d50), porosity=m.get("porosity", 0.35),
                               cohesion=cohesion, phi=math.degrees(math.atan(m.get("tan_phi", 0.55))),
                               tau_c=m["tauc_Pa"], kd=m["kd_cm3Ns"] * 1e-6 * f["f_kd"], n_exp=1.0)
