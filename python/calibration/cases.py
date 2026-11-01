@@ -75,7 +75,10 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
     s0, apron = case.get("stub_up", 0.5 * H), case.get("apron", 2.0 * H)
     lx = s0 + up + Wc + dn + apron
     nx = int(math.ceil(lx / dx)); lx = nx * dx
-    ny = max(int(round(case["section_width"] / dy)), 4); ly = ny * dy
+    ny = max(int(round(case["section_width"] / dy)), 5)
+    if ny % 2 == 0:          # odd cell count: one cell is centred on the notch (cal-1 notch rule)
+        ny += 1
+    dy = case["section_width"] / ny; ly = ny * dy
     x = (np.arange(nx) + 0.5) * dx
     y = (np.arange(ny) + 0.5) * dy
     xc0 = s0 + up
@@ -87,12 +90,18 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
     zb = np.repeat(z1[:, None], ny, axis=1)
     n = case["notch"]
     yc = 0.5 * ly
+    notch_widened = False
     if n["shape"] == "trapezoid":
         zn = (H - n["depth"]) + np.maximum(np.abs(y - yc) - 0.5 * n["bottom_width"], 0.0) / n["side_hv"]
     elif n["shape"] == "v":
         zn = (H - n["depth"]) + np.abs(y - yc) * (2.0 * n["depth"] / n["top_width"])  # V-notch
     else:
         raise ValueError(n["shape"])
+    jc = ny // 2
+    if zn[jc] > H - n["depth"] + 1e-9 or (n["shape"] == "trapezoid" and n["bottom_width"] < dy) or n["shape"] == "v":
+        # notch narrower than a cell: keep its depth, give the centred cell the invert (cal-1 notch rule, flagged)
+        zn[jc] = H - n["depth"]
+        notch_widened = n["shape"] == "v" or n.get("bottom_width", 0.0) < dy
     zb = np.minimum(zb, np.minimum(zn[None, :], H))
     invert = H - n["depth"]
     curve = _stage_volume(case["reservoir"], H)
@@ -127,8 +136,9 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
                          dt_morpho_target=max(H / 20.0, 0.25), morph_accel=case.get("morph_accel", 1.0),
                          headcut_method="energy", headcut_C=HEADCUT_C0 * f["C_h"],
                          transport_capacity_factor=f["f_t"],
+                         adaptation_length_mode="depth_scaled", adaptation_depth_factor=5.0,
                          downstream_boundary=case.get("downstream", "outfall"))
-    meta = dict(dx=dx, nx=nx, ny=ny, lx=lx, ly=ly, invert=invert, xc0=xc0, notch_y=yc, factors=f, manning_n=n_man)
+    meta = dict(notch_widened=notch_widened, dx=dx, nx=nx, ny=ny, lx=lx, ly=ly, invert=invert, xc0=xc0, notch_y=yc, factors=f, manning_n=n_man)
     return mesh, res, mat, cfg, meta
 
 
