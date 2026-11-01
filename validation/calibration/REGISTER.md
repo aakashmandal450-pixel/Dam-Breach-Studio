@@ -17,3 +17,11 @@ Engine fit notes: the 2-D prism engine handles overtopping only (no piping), so 
 G1 and G2 are the only groups with measured erodibility; they are the core of calibration.
 
 Update 2026-10-31: sources obtained; see EXCLUDED.md and ASSIGNMENT.md. DSO-2017-02 file in sources/ is an unrelated UK document with the same number.
+
+## G5 screening result (2026-11-01): option to use Wahl (1998) as a calibration tier
+Table A1 parsed to `wahl1998_tableA1.csv` (108 cases, parser `parse_wahl1998.py`). 41 are overtopping failures.
+Applying the split rules: 23 lack dam height or reservoir volume, 13 are zoned or have core walls/facings, several have
+fewer than two observations, and 4 are already in G3 (Castlewood, Goose Creek, Laurel Run, Johnstown/South Fork).
+Only 3 remain: Euclides da Cunha and Salles Oliveira (Brazil, 1977 cascade; both overtopped by a flood whose inflow
+is not given, Salles by the Euclides failure) and Lake Barcroft (no peak; inflow not given). None states soil type
+beyond "earthfill", so no erodibility class can be assigned. Decision: G5 stays screening-only; split unchanged.
