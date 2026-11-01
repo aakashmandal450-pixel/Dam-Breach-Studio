@@ -65,7 +65,8 @@ def _stage_volume(res: Dict, H: float) -> Dict[float, float]:
     raise ValueError(f"unknown reservoir type {res['type']}")
 
 
-def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[float] = None):
+def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[float] = None,
+          overrides: Optional[Dict] = None):
     """Return (mesh, reservoir, material, config, meta) for a case and factor set."""
     f = dict(DEFAULT_FACTORS, **(factors or {}))
     H, Wc, zu, zd = case["H"], case["crest_w"], case["zu"], case["zd"]
@@ -138,20 +139,22 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
                          transport_capacity_factor=f["f_t"],
                          adaptation_length_mode="depth_scaled", adaptation_depth_factor=5.0,
                          downstream_boundary=case.get("downstream", "outfall"))
+    for k, v in (overrides or {}).items():   # diagnostics only; calibration runs use cal-1 as built
+        setattr(cfg, k, v)
     meta = dict(notch_widened=notch_widened, dx=dx, nx=nx, ny=ny, lx=lx, ly=ly, invert=invert, xc0=xc0, notch_y=yc, factors=f, manning_n=n_man)
     return mesh, res, mat, cfg, meta
 
 
 def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = None, verbose: bool = False,
         grid_divisor: Optional[float] = None, max_wall_seconds: Optional[float] = None, chunk_s: float = 120.0,
-        progress: bool = False) -> Dict:
+        progress: bool = False, overrides: Optional[Dict] = None) -> Dict:
     """Run a case. Times reported are physical (morphological) seconds.
 
     case['accel'] = A (> 1): morphology runs A times faster than the flow until breach initiation is detected
     in the model (notch invert lowered by 25 % of the notch depth), then at 1. This is the cal-1 rule for
     steady-inflow lab tests whose initiation lasts hours. Initiation is detected from the model, never from data.
     """
-    mesh, res, mat, cfg, meta = build(case, factors, grid_divisor)
+    mesh, res, mat, cfg, meta = build(case, factors, grid_divisor, overrides)
     z0 = mesh.z_b.copy()
     A = float(case.get("accel", 1.0))
     cfg.morph_accel = A
