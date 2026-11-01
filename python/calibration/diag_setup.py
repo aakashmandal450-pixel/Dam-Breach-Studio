@@ -22,17 +22,21 @@ checks = [
     ("Castlewood default 3 h", "Castlewood", {}, 10800.0, None),
 ]
 out = []
-for name, cid, fac, t_end, grid in checks:
+T0 = time.time()
+for i, (name, cid, fac, t_end, grid) in enumerate(checks, 1):
     c = C.load_case(cid)
-    t0 = time.time()
-    r = C.run(c, fac, t_end=t_end, grid_divisor=grid)
+    mesh, res, mat, cfg, meta = C.build(c, fac, grid)
+    print(f"\n=== check {i}/{len(checks)}: {name}  (grid {meta['nx']} x {meta['ny']}, cell {meta['dx']:.3f} m, "
+          f"simulating {t_end or c['t_end']:.0f} s)   started at {time.strftime('%H:%M:%S')}", flush=True)
+    chunk = 30.0 if c["kind"] == "lab" and (t_end or c["t_end"]) <= 1200 else 300.0
+    r = C.run(c, fac, t_end=t_end, grid_divisor=grid, chunk_s=chunk, progress=True)
     r["check"] = name
     keep = {k: r[k] for k in ("check", "Qp", "Tp_h", "B", "breached", "max_lowering_m", "t_end_phys_s",
                               "t_switch_phys_s", "stop_reason", "steps", "wall_s", "grid", "balances")}
     keep["obs"] = c["obs"]
     out.append(keep)
-    print(f"{name:24s} Qp={r['Qp']:.4g} (obs {c['obs'].get('Qp')})  Tp={r['Tp_h']*60:.1f} min  B={r['B']:.2f} m  "
+    print(f"--> RESULT {name}: Qp={r['Qp']:.4g} (obs {c['obs'].get('Qp')})  Tp={r['Tp_h']*60:.1f} min  B={r['B']:.2f} m  "
           f"max lowering={r['max_lowering_m']:.3f} m  breached={r['breached']}  wall={r['wall_s']/60:.1f} min", flush=True)
 p = HERE.parent.parent / "runs" / "diag_setup.json"
 p.write_text(json.dumps(out, indent=1, default=str))
-print("written", p)
+print(f"\nall checks done in {(time.time() - T0) / 60:.1f} min; written {p}")
