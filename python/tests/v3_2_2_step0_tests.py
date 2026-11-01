@@ -93,5 +93,18 @@ for f in (eng.TransportFormula.WU, eng.TransportFormula.MPM, eng.TransportFormul
     q1 = eng.SedimentTransport(c1, m).capacity(tau); q2 = eng.SedimentTransport(c2, m).capacity(tau)
     check(f"capacity factor scales {f.value}", np.allclose(q2, 2.5 * q1) and q1[1] > 0)
 
+# 6. suspended load (Wu, Wang & Jia 2000) is optional and additive
+cb = eng.EngineConfig(transport=eng.TransportFormula.WU)
+cs = eng.EngineConfig(transport=eng.TransportFormula.WU, suspended_load="wu2000")
+m = eng.MaterialProps(D50=0.00012)
+tau = np.array([0.01, 1.0, 5.0]); U = np.array([0.5, 0.5, 1.0])
+tb, ts = eng.SedimentTransport(cb, m), eng.SedimentTransport(cs, m)
+qb, qs = tb.capacity(tau, U), ts.capacity(tau, U)
+ws = ts.settling_velocity()
+check("settling velocity of 0.12 mm sand is about 1 cm/s", 0.005 < ws < 0.015, f"w_s = {ws * 100:.2f} cm/s")
+check("suspended load off by default", np.allclose(qb, tb._bed_capacity(tau)))
+check("suspended load adds a positive amount above threshold", qs[0] == qb[0] == 0.0 and np.all(qs[1:] > qb[1:]),
+      f"bed {qb[1:]} vs total {qs[1:]}")
+
 print(f"\n{total - fails}/{total} V3.2.2 Step 0 checks passed")
 sys.exit(1 if fails else 0)

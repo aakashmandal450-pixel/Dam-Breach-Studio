@@ -209,6 +209,8 @@ class EngineConfig:
     grain_manning_n: Optional[float] = None  # n' for grain shear; None -> Strickler D50^(1/6)/21.1 (D50 in m)
     breach_width_fraction: float = 0.5    # breach width counts columns lowered >= this fraction of the max (0 = legacy)
     transport_capacity_factor: float = 1.0  # calibration multiplier on capacity-law transport (Wu, MPM, van Rijn)
+    suspended_load: str = "none"          # "none" (bed load only) or "wu2000": add Wu, Wang & Jia (2000) suspended load
+    kinematic_viscosity: float = 1.0e-6   # [m2/s], for the settling velocity
     eps: float = 1e-12
 
 
@@ -851,7 +853,29 @@ class SedimentTransport:
     def shields(self, tau: np.ndarray) -> np.ndarray:
         return tau / ((self.s - 1.0) * self.mat.rho_w * self.cfg.g * self.mat.D50 + 1e-12)
 
-    def capacity(self, tau: np.ndarray) -> np.ndarray:
+    def settling_velocity(self) -> float:
+        """Soulsby (1997) settling velocity of the D50 grain [m/s]."""
+        nu, D, s, g = self.cfg.kinematic_viscosity, self.mat.D50, self.s, self.cfg.g
+        dstar = D * ((s - 1.0) * g / nu ** 2) ** (1.0 / 3.0)
+        return float(nu / D * (np.sqrt(10.36 ** 2 + 1.049 * dstar ** 3) - 10.36))
+
+    def suspended_capacity(self, tau: np.ndarray, speed: np.ndarray) -> np.ndarray:
+        """Wu, Wang & Jia (2000) suspended load: phi_s = 2.62e-5 [(tau/tau_c - 1) U / w_s]^1.74 [m2/s solids]."""
+        g, D, s = self.cfg.g, self.mat.D50, self.s
+        tau_c = self.critical_shields_field() * (s - 1.0) * self.mat.rho_w * g * D
+        x = np.maximum(tau / np.maximum(tau_c, 1e-12) - 1.0, 0.0) * np.asarray(speed) / max(self.settling_velocity(), 1e-9)
+        k = max(float(self.cfg.transport_capacity_factor), 0.0)
+        return k * 2.62e-5 * x ** 1.74 * np.sqrt((s - 1.0) * g * D ** 3)
+
+    def capacity(self, tau: np.ndarray, speed: Optional[np.ndarray] = None) -> np.ndarray:
+        q = self._bed_capacity(tau)
+        if self.cfg.suspended_load == "wu2000" and speed is not None:
+            q = q + self.suspended_capacity(tau, speed)
+        elif self.cfg.suspended_load not in ("none", "wu2000"):
+            raise ValueError("suspended_load must be 'none' or 'wu2000'")
+        return q
+
+    def _bed_capacity(self, tau: np.ndarray) -> np.ndarray:
         g, D, s = self.cfg.g, self.mat.D50, self.s
         scale = np.sqrt((s - 1.0) * g * D**3)
         th = self.shields(tau)
@@ -1227,7 +1251,7 @@ class Morphology:
                        self.mat.material_class in cfg.chen_cap_materials)
         chen_cap = self.chen.rate(tau) if chen_active else None
         E_det = None if capacity_mode else self.transport.detachment_rate(tau)
-        q_star0 = self.transport.capacity(tau) if capacity_mode else None
+        q_star0 = self.transport.capacity(tau, speed) if capacity_mode else None
 
         remaining, nsub = dt_total, 0
         while remaining > 1e-12 and nsub < 5000:
