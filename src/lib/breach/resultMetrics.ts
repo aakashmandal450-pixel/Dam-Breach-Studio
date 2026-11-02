@@ -37,9 +37,10 @@ export function timeFailureStarts(series: SimStep[]): number | null {
   return null;
 }
 
-/** Breach discharge only, with the constant spillway component removed. */
+/** Flow through the current eroded opening; supports older results without a Qbreach field. */
 export function breachDischarge(step: SimStep, spillwayQ: number): number {
-  return Math.max(step.Q - spillwayQ, 0);
+  if (step.Qbreach != null) return Math.max(step.Qbreach, 0);
+  return Math.max(step.Q - spillwayQ - (step.Qovertopping ?? 0), 0);
 }
 
 /** Head across the breach opening (pool level above the breach invert). */
@@ -77,8 +78,14 @@ export function computeBreachSummary(result: SimResult, inputs: StudioInputs): B
   const volReleased = first && last ? Math.max(0, first.V - last.V) : 0;
   const tauMax = series.reduce((m, s) => Math.max(m, s.tau), 0);
 
-  const peakStep =
-    series.reduce<SimStep | null>((best, s) => (best === null || s.Q > best.Q ? s : best), null) ?? null;
+  const peakBreachStep =
+    series.reduce<SimStep | null>(
+      (best, s) =>
+        best === null || breachDischarge(s, inputs.spillwayQ) > breachDischarge(best, inputs.spillwayQ)
+          ? s
+          : best,
+      null,
+    ) ?? null;
 
   return {
     Qpeak: result.Qpeak,
@@ -99,8 +106,8 @@ export function computeBreachSummary(result: SimResult, inputs: StudioInputs): B
     maxTau_Pa: tauMax,
     finalWL_m: last?.WL ?? 0,
     finalZb_m: last?.zb ?? 0,
-    peakSideSlope: peakStep ? breachSideSlope(peakStep) : null,
-    peakVelocity_ms: peakStep ? breachVelocity(peakStep, inputs.spillwayQ) : null,
+    peakSideSlope: peakBreachStep ? breachSideSlope(peakBreachStep) : null,
+    peakVelocity_ms: peakBreachStep ? breachVelocity(peakBreachStep, inputs.spillwayQ) : null,
   };
 }
 
@@ -120,6 +127,7 @@ export type ColumnKey =
   | "depth"
   | "head"
   | "Qbreach"
+  | "Qwave"
   | "Qspillway"
   | "velocity"
   | "sideSlope";
@@ -135,6 +143,7 @@ export function seriesColumns(kind: ExportKind): { key: ColumnKey; header: strin
       ...t,
       { key: "Q", header: "Q total", unit: "m³/s" },
       { key: "Qbreach", header: "Q breach", unit: "m³/s" },
+      { key: "Qwave", header: "Q wave excess", unit: "m³/s" },
       { key: "Qspillway", header: "Q spillway", unit: "m³/s" },
       { key: "stage", header: "stage", unit: "—" },
     ];
@@ -184,6 +193,7 @@ export function seriesColumns(kind: ExportKind): { key: ColumnKey; header: strin
     ...t,
     { key: "Q", header: "Q total", unit: "m³/s" },
     { key: "Qbreach", header: "Q breach", unit: "m³/s" },
+    { key: "Qwave", header: "Q wave excess", unit: "m³/s" },
     { key: "Qspillway", header: "Q spillway", unit: "m³/s" },
     { key: "WL", header: "WL", unit: "m" },
     { key: "zb", header: "zb", unit: "m" },
@@ -205,6 +215,7 @@ export function cellValue(s: SimStep, key: string, spillwayQ = 0): string | numb
   if (key === "depth" || key === "head") return Number(breachHead(s).toFixed(4));
   if (key === "xHeadcut") return Number((s.xHeadcut ?? 0).toFixed(4));
   if (key === "Qbreach") return Number(breachDischarge(s, spillwayQ).toFixed(4));
+  if (key === "Qwave") return Number((s.QwaveExcess ?? 0).toFixed(4));
   if (key === "Qspillway") return Number(Math.max(spillwayQ, 0).toFixed(4));
   if (key === "velocity") {
     const v = breachVelocity(s, spillwayQ);

@@ -102,10 +102,9 @@ function passToBreach(
   inputs.volumeM3 = displacement.newVolumeM3;
   inputs.initialWL = displacement.newInitialWL;
 
-  // ── Step 2: transient wave forcing, EROSION-ONLY (waveForcingEnabled) ───────────────
-  // Replaces the legacy fake-inflow hack entirely. The wave is a surge, not new water, so
-  // it must never touch volumeM3/inflowM3s/inflowSeries — only the erosion hydraulics via
-  // the validated Improvement #2 mechanism.
+  // ── Step 2: transient wave forcing (waveForcingEnabled) ─────────────────────────────
+  // Replaces the legacy fake-inflow hack. The pulse is not added to stored lake volume;
+  // the breach engine debits any computed crest/opening outflow once from the reservoir.
   if (runup.overtops) {
     // Use the run-up module's own crest-overtopping depth d0 — NOT run-up R (a different
     // physical quantity: R is the vertical climb up a slope, which can legitimately be tens
@@ -116,14 +115,20 @@ function passToBreach(
     inputs.waveForcingEnabled = true;
     inputs.waveOvertopDepth = d0;
     inputs.waveOvertopDuration = Math.max(runup.tO, 1);
-    // EXPERIMENT (workstream b): test whether a repeated wave train — rather than
-    // a single pulse — sustains erosion long enough to develop a larger Qpeak.
-    // count=3, period=T (the wave's own period, r2.TM/r3.TM already passed in as
-    // the `T` parameter) is a physically-motivated proxy for a seiche continuing
-    // to slosh over the crest after the initial impulse, not an arbitrary tuning
-    // knob. Was count=1, period=0 (single pulse, legacy/validated baseline).
-    inputs.waveOvertopCount = 3;
-    inputs.waveOvertopPeriod = T;
+    // EXPERIMENT (workstream b, REVERTED): tested whether a repeated wave train —
+    // rather than a single pulse — sustains erosion long enough to develop a larger
+    // Qpeak. count=3, period=T (the wave's own period, r2.TM/r3.TM already passed in
+    // as the `T` parameter) was a physically-motivated proxy for a seiche continuing
+    // to slosh over the crest after the initial impulse. NEGATIVE FINDING: on the
+    // gCap-dt-fixed engine this is actively harmful (-9.4% Qpeak vs single-pulse),
+    // and tSignificantBreach fails to register (null) — the wave train saturates one
+    // geometric breach-development ratio (width) without satisfying the
+    // area+width+depth AND-gate simultaneously. Reverted to the validated
+    // single-pulse baseline below; keep this comment rather than deleting it so the
+    // negative result stays documented (see project principles: negative findings
+    // are recorded, not discarded).
+    inputs.waveOvertopCount = 1;
+    inputs.waveOvertopPeriod = 0;
   }
 
   return { inputs, runup, displacement };
@@ -211,7 +216,7 @@ function main() {
   console.log(`\n  --- Step 1: Avalanche displaced-volume bump (one-time, Archimedes) ---`);
   console.log(`  Displaced volume    = ${chain2.displacement.displacedVolumeM3.toFixed(0)} m³`);
   console.log(`  Lake level rise     = +${chain2.displacement.deltaWL.toFixed(3)} m (${dam.initialWL.toFixed(2)} → ${chain2.displacement.newInitialWL.toFixed(3)} m)`);
-  console.log(`\n  --- Step 2: Transient wave forcing (erosion-only) ---`);
+  console.log(`\n  --- Step 2: Transient wave forcing (head + outflow) ---`);
   console.log(`  Run-up R            = ${chain2.runup.R.toFixed(2)} m`);
   console.log(`  Freeboard f         = ${freeboard.toFixed(2)} m`);
   console.log(`  Overtops?           = ${chain2.runup.overtops ? "YES" : "NO"}`);
@@ -219,11 +224,13 @@ function main() {
   console.log(`  waveOvertopDuration = ${chain2.inputs.waveOvertopDuration.toFixed(1)} s`);
   console.log(`  Wave height error vs published ${PUBLISHED_WAVE_H} m: ${pctError(r2.HM, PUBLISHED_WAVE_H)}`);
 
-  console.log("\n  --- Breach after Pass-to-A3 (2D wave) ---");
+  console.log("\n  --- Screening breach run after wave handoff (2D) ---");
+  console.log("  Results are uncalibrated model outputs; numerical proximity is not validation.");
   const br2 = runBreachSimulation(chain2.inputs);
   console.log(`  Simulated Qpeak     = ${br2.Qpeak.toFixed(1)} m³/s`);
+  console.log(`  Qbreach peak        = ${br2.QbreachPeak.toFixed(1)} m³/s at ${(br2.tBreachPeak / 3600).toFixed(2)} h`);
   console.log(`  Observed Qpeak      = ${PUBLISHED_QPEAK} m³/s (range ${PUBLISHED_QPEAK_RANGE[0]}–${PUBLISHED_QPEAK_RANGE[1]})`);
-  console.log(`  Error               = ${pctError(br2.Qpeak, PUBLISHED_QPEAK)}`);
+  console.log(`  Numeric difference  = ${pctError(br2.Qpeak, PUBLISHED_QPEAK)} (not a validation metric)`);
   console.log(`  t_peak              = ${(br2.tPeak / 3600).toFixed(2)} h`);
   console.log(`  Final Wb / depth    = ${br2.finalWb.toFixed(1)} m / ${br2.finalDepth.toFixed(1)} m`);
   if (br2.warnings.length) console.log(`  Engine warnings: ${br2.warnings.join("; ")}`);
@@ -286,7 +293,7 @@ function main() {
   console.log(`\n  --- Step 1: Avalanche displaced-volume bump (one-time, Archimedes) ---`);
   console.log(`  Displaced volume    = ${chain3.displacement.displacedVolumeM3.toFixed(0)} m³`);
   console.log(`  Lake level rise     = +${chain3.displacement.deltaWL.toFixed(3)} m (${dam.initialWL.toFixed(2)} → ${chain3.displacement.newInitialWL.toFixed(3)} m)`);
-  console.log(`\n  --- Step 2: Transient wave forcing (erosion-only) ---`);
+  console.log(`\n  --- Step 2: Transient wave forcing (head + outflow) ---`);
   console.log(`  Run-up R            = ${chain3.runup.R.toFixed(2)} m`);
   console.log(`  Freeboard f         = ${freeboard.toFixed(2)} m`);
   console.log(`  Overtops?           = ${chain3.runup.overtops ? "YES" : "NO"}`);
@@ -294,39 +301,45 @@ function main() {
   console.log(`  waveOvertopDuration = ${chain3.inputs.waveOvertopDuration.toFixed(1)} s`);
   console.log(`  Wave height error vs published ${PUBLISHED_WAVE_H} m: ${pctError(r3.HM, PUBLISHED_WAVE_H)}`);
 
-  console.log("\n  --- Breach after Pass-to-A3 (3D wave) ---");
+  console.log("\n  --- Screening breach run after wave handoff (3D) ---");
+  console.log("  Results are uncalibrated model outputs; numerical proximity is not validation.");
   const br3 = runBreachSimulation(chain3.inputs);
   console.log(`  Simulated Qpeak     = ${br3.Qpeak.toFixed(1)} m³/s`);
+  console.log(`  Qbreach peak        = ${br3.QbreachPeak.toFixed(1)} m³/s at ${(br3.tBreachPeak / 3600).toFixed(2)} h`);
   console.log(`  Observed Qpeak      = ${PUBLISHED_QPEAK} m³/s (range ${PUBLISHED_QPEAK_RANGE[0]}–${PUBLISHED_QPEAK_RANGE[1]})`);
-  console.log(`  Error               = ${pctError(br3.Qpeak, PUBLISHED_QPEAK)}`);
+  console.log(`  Numeric difference  = ${pctError(br3.Qpeak, PUBLISHED_QPEAK)} (not a validation metric)`);
   console.log(`  t_peak              = ${(br3.tPeak / 3600).toFixed(2)} h`);
   console.log(`  Final Wb / depth    = ${br3.finalWb.toFixed(1)} m / ${br3.finalDepth.toFixed(1)} m`);
   if (br3.warnings.length) console.log(`  Engine warnings: ${br3.warnings.join("; ")}`);
 
   // ── Summary table ───────────────────────────────────────────────────────
   console.log("\n========================================================");
-  console.log(" SUMMARY  (simulated vs published)");
+  console.log(" SUMMARY  (screening output; not a validation result)");
   console.log("========================================================");
-  console.log("                  |  Simulated     |  Published      |  Error");
+  console.log("                  |  Model output  | Reference context | Numeric delta only");
   console.log("------------------+----------------+-----------------+--------");
   console.log(
     `  2D wave HM       |  ${r2.HM.toFixed(2).padStart(8)} m    |  ~5 (4.4–9) m    |  ${pctError(r2.HM, PUBLISHED_WAVE_H)}`,
   );
   console.log(
-    `  2D breach Qpeak  |  ${br2.Qpeak.toFixed(0).padStart(8)} m3/s |  1600 (1375–2000)|  ${pctError(br2.Qpeak, PUBLISHED_QPEAK)}`,
+    `  2D total Qpeak   |  ${br2.Qpeak.toFixed(0).padStart(8)} m3/s |  1600 (1375–2000)|  ${pctError(br2.Qpeak, PUBLISHED_QPEAK)}`,
   );
   console.log(
     `  3D wave HM       |  ${r3.HM.toFixed(2).padStart(8)} m    |  ~5 (4.4–9) m    |  ${pctError(r3.HM, PUBLISHED_WAVE_H)}`,
   );
   console.log(
-    `  3D breach Qpeak  |  ${br3.Qpeak.toFixed(0).padStart(8)} m3/s |  1600 (1375–2000)|  ${pctError(br3.Qpeak, PUBLISHED_QPEAK)}`,
+    `  3D total Qpeak   |  ${br3.Qpeak.toFixed(0).padStart(8)} m3/s |  1600 (1375–2000)|  ${pctError(br3.Qpeak, PUBLISHED_QPEAK)}`,
   );
+  console.log(`  2D Qbreach peak   |  ${br2.QbreachPeak.toFixed(1)} m³/s`);
+  console.log(`  3D Qbreach peak   |  ${br3.QbreachPeak.toFixed(1)} m³/s`);
   console.log();
   console.log("Notes:");
+  console.log("  - Published values are context only; agreement is not claimed from this run.");
+  console.log("  - The numerical delta is descriptive and must not be read as model validation.");
   console.log("  - Fall height / Vs and slide thickness are screening values (not published).");
   console.log("  - Freeboard set to 0 (lake full to rim). Wave drives overtopping pulse into breach.");
   console.log("  - Lake bed bathymetry is still a single depth h=18 m (variable depth deferred).");
-  console.log("  - Erodibility I=2.6 is a screening value for moraine till.");
+  console.log("  - Erosion index I=1.17 and D50=30 mm are screening inputs; material calibration is pending.");
   console.log();
 }
 
