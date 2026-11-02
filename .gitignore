@@ -51,3 +51,10 @@ coverage/
 
 *.bak
 digtsho_debug*
+
+# Python engine run outputs (large binaries)
+runs/**/run.npz
+python/tmp/
+__pycache__/
+runs/**/*.npz
+runs/**/history_thinned.csv
