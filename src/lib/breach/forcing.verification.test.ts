@@ -152,10 +152,8 @@ describe("engine integration — wave→breach forcing (opt-in, regression-safe)
   it("does NOT breach with the wave off, but DOES with it on (wave is the trigger)", () => {
     const off = runBreachSimulation({ ...rimFull, waveForcingEnabled: false });
     const on = runBreachSimulation({ ...rimFull, waveForcingEnabled: true });
-    // Wave off: no standing head + no inflow ⇒ the invert never advances past its ~2 cm initial
-    // notch, so discharge stays a negligible trickle (~0.02 m³/s, shown as "0.0" in the app) and
-    // the breach does not initiate. Wave on: the transient crest head cuts the invert below still
-    // water and the pool self-drains — a peak five orders of magnitude larger.
+    // Wave off: no standing head + no inflow ⇒ negligible initial-notch discharge. Wave on: the
+    // transient crest head cuts the invert below still water and the pool self-drains.
     assert.ok(off.Qpeak < 1, `expected no breach without the wave, got Qpeak=${off.Qpeak}`);
     assert.ok(off.finalDepth < 0.5, `expected the invert to stay at the initial notch, got ${off.finalDepth}`);
     assert.ok(on.Qpeak > 100 && Number.isFinite(on.Qpeak), `wave-on Qpeak=${on.Qpeak}`);
@@ -194,6 +192,121 @@ describe("engine integration — wave→breach forcing (opt-in, regression-safe)
     assert.equal(pipeWave.Qpeak, pipe.Qpeak, "wave leaked into a piping run");
   });
 
+  it("engine uses the exported back-to-back spacing when wave period is zero", () => {
+    const run = runBreachSimulation({
+      ...DEFAULT_INPUTS,
+      mode: "overtopping",
+      initialWL: DEFAULT_INPUTS.crestElev,
+      waveForcingEnabled: true,
+      waveOvertopDepth: 0.8,
+      waveOvertopDuration: 40,
+      waveOvertopCount: 2,
+      waveOvertopPeriod: 0,
+      intactOvertoppingEnabled: false,
+      headcutEnabled: false,
+      tauC: 1e9,
+      shellTauC: 1e9,
+      inflowM3s: 0,
+      spillwayQ: 0,
+      tMaxHours: 0.05,
+    });
+    assert.ok(
+      run.series.some((step) => step.t >= 55 && step.t <= 65 && (step.QwaveExcess ?? 0) > 0),
+      "expected the second back-to-back pulse to be active near t=60 s",
+    );
+    assert.ok(
+      run.series.some((step) => step.t >= 95 && step.t <= 105 && (step.QwaveExcess ?? 0) === 0),
+      "second pulse should have ended by t=100 s",
+    );
+  });
+
+  it("accounts wave-driven opening discharge once and reports its excess over standing head", () => {
+    const base = {
+      ...DEFAULT_INPUTS,
+      mode: "overtopping" as const,
+      initialWL: DEFAULT_INPUTS.crestElev + 0.2,
+      waveForcingEnabled: true,
+      waveOvertopDepth: 0.8,
+      waveOvertopDuration: 30,
+      waveOvertopCount: 1,
+      waveOvertopPeriod: 60,
+      intactOvertoppingEnabled: false,
+      tauC: 1e9,
+      shellTauC: 1e9,
+      erosionInitiationDuration: 1e9,
+      inflowM3s: 0,
+      spillwayQ: 0,
+      tMaxHours: 0.03,
+    };
+    const withWave = runBreachSimulation(base);
+    const withoutWave = runBreachSimulation({ ...base, waveForcingEnabled: false });
+    assert.ok(
+      withWave.series.some((step) => (step.QwaveExcess ?? 0) > 0),
+      "wave-driven flow should be exposed as a diagnostic subset",
+    );
+    assert.ok(
+      (withWave.series.at(-1)?.V ?? 0) < (withoutWave.series.at(-1)?.V ?? 0),
+      "wave-driven outflow was not debited from reservoir storage",
+    );
+  });
+
+  it("counts current opening flow as breach discharge before maturity or crest breakthrough", () => {
+    const developing = runBreachSimulation({
+      ...DEFAULT_INPUTS,
+      mode: "overtopping",
+      initialWL: DEFAULT_INPUTS.crestElev + 0.5,
+      intactOvertoppingEnabled: false,
+      headcutEnabled: false,
+      breachAreaRatioThreshold: 1e6,
+      breachWidthRatioThreshold: 1e6,
+      breachDepthRatioThreshold: 1e6,
+      tMaxHours: 0.1,
+    });
+    const openStep = developing.series.find((s) => (s.Qbreach ?? 0) > 0);
+    assert.ok(openStep, "expected nonzero flow through the current opening");
+    assert.equal(openStep.trueBreachActive, false, "fixture should remain geometrically immature");
+    assert.equal(openStep.xHeadcut, 0, "headcut is disabled in this fixture");
+    assert.equal(openStep.Qstarter, openStep.Qbreach, "starter flow should be an overlapping diagnostic subset");
+  });
+
+  it("geometry maturity does not wait for longitudinal headcut breakthrough", () => {
+    const geometryMature = runBreachSimulation({
+      ...DEFAULT_INPUTS,
+      mode: "overtopping",
+      initialWL: DEFAULT_INPUTS.crestElev + 0.5,
+      intactOvertoppingEnabled: false,
+      headcutEnabled: false,
+      breachAreaRatioThreshold: 1,
+      breachWidthRatioThreshold: 1,
+      breachDepthRatioThreshold: 0.01,
+      tMaxHours: 0.1,
+    });
+    assert.equal(geometryMature.tHeadcutBreach, null, "headcut is disabled");
+    assert.ok(
+      geometryMature.series.some((s) => s.trueBreachActive && (s.xHeadcut ?? 0) < DEFAULT_INPUTS.crestWidth),
+      "geometry should mature independently of a full-crest headcut traverse",
+    );
+  });
+
+  it("intact overtopping removes water from reservoir storage", () => {
+    const intact = runBreachSimulation({
+      ...DEFAULT_INPUTS,
+      mode: "overtopping",
+      initialWL: DEFAULT_INPUTS.crestElev + 0.5,
+      tauC: 1e9,
+      shellTauC: 1e9,
+      erosionInitiationDuration: 1e9,
+      inflowM3s: 0,
+      spillwayQ: 0,
+      tMaxHours: 0.1,
+    });
+    assert.ok((intact.series[0]?.Qovertopping ?? 0) > 0, "fixture should overtop the intact crest");
+    assert.ok(
+      (intact.series.at(-1)?.V ?? 0) < (intact.series[0]?.V ?? 0),
+      "intact crest outflow did not reduce reservoir storage",
+    );
+  });
+
   it("emits engine warnings when wave forcing and the energy law are active", () => {
     const on = runBreachSimulation({ ...rimFull, waveForcingEnabled: true });
     assert.ok(
@@ -221,11 +334,21 @@ describe("engine integration — headcut law is selectable & defaults to hydrost
     assert.equal(dflt.tPeak, hydro.tPeak, "default != explicit hydrostatic tPeak");
   });
 
-  it("the energy law runs and generally diverges from the hydrostatic law", () => {
+  it("the energy law changes headcut migration when overtopping is already controlling Qpeak", () => {
     const hydro = runBreachSimulation({ ...over, headcutLaw: "hydrostatic" });
     const energy = runBreachSimulation({ ...over, headcutLaw: "energy", headcutEnergyCoeff: 1.0 });
     assert.ok(energy.Qpeak > 0 && Number.isFinite(energy.Qpeak), `energy Qpeak=${energy.Qpeak}`);
-    assert.notEqual(energy.Qpeak, hydro.Qpeak, "laws gave identical Qpeak (energy law not wired?)");
+    assert.notEqual(
+      energy.tHeadcutBreach,
+      hydro.tHeadcutBreach,
+      "laws gave identical headcut breakthrough time",
+    );
+    assert.ok(
+      energy.tHeadcutBreach != null &&
+        hydro.tHeadcutBreach != null &&
+        energy.tHeadcutBreach < hydro.tHeadcutBreach,
+      "the energy law should advance the headcut faster for this coefficient",
+    );
   });
 });
 

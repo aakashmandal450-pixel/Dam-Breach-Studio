@@ -415,14 +415,15 @@ export function ParamForm() {
               </p>
             </div>
             <Num id="headcutGateDeepenFraction" label="Gate fraction" symbol="gf" unit="—" hint="Fraction of the excess-shear rate allowed to lower the invert while the headcut is still inside the crest. Legacy 0.25. Range 0.05–1." k="headcutGateDeepenFraction" step={0.05} />
-            <Num id="headcutGateDeepenCap" label="Gate cap" symbol="—" unit="×Hb" hint="Per-step cap on gated deepening as a fraction of dam height Hb. Legacy 0.015. Range 0.005–0.1." k="headcutGateDeepenCap" step={0.005} />
+            <Num id="headcutGateDeepenCap" label="Gate cap" symbol="—" unit="×Hb / 2 s" hint="Cap per 2 s reference interval, scaled by adaptive timestep. Default 0.015. Range 0.005–0.1." k="headcutGateDeepenCap" step={0.005} />
             {inputs.mode === "overtopping" && (
               <>
                 <div className="sm:col-span-2 mt-1 border-t border-border pt-2">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Wave-overtopping forcing (GLOF trigger)</p>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
                     Injects a transient displacement-wave overtopping pulse (peak depth d₀ over duration tO, from
-                    Impulse → run-up) as erosive head only — not reservoir volume. Lets a lake sitting at/near its
+                    Impulse → run-up) as transient head. The wave adds no stored volume; computed wave-driven
+                    discharge is counted once in the reservoir balance. Lets a lake sitting at/near its
                     rim (little or no freeboard) initiate a breach the standing head alone cannot. Off = legacy.
                     See Theory → Wave forcing.
                   </p>
