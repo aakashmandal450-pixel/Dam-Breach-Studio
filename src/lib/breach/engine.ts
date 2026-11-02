@@ -1,8 +1,8 @@
-﻿/**
- * engine.ts â€” Dam Breach Studio core (V2 physics, complete replacement)
+/**
+ * engine.ts — Dam Breach Studio core (V2 physics, complete replacement)
  *
  * DLBreach-style A3: non-eq transport, Exner, phreatic pipe invert, HE/ME/LE,
- * adaptive Î”t, gradual roof collapse, zero-freeboard notch growth.
+ * adaptive Δt, gradual roof collapse, zero-freeboard notch growth.
  *
  * Also exports V1-compatible helpers used by Impulse panel and unit tests:
  *   applyAvalancheDisplacement, waveOvertopHead, energyHeadcutAdvance,
@@ -18,7 +18,7 @@ const G = 9.81;
 const RHO = 1000;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/** ASTM/ISO sandâ€“silt boundary (m). */
+/** ASTM/ISO sand–silt boundary (m). */
 const SILT_SAND_BOUNDARY_M = 6.2e-5; // 0.062 mm
 
 export type MaterialClass = "cohesive" | "noncohesive";
@@ -39,8 +39,8 @@ export function classifyMaterial(p: StudioInputs): MaterialClass {
 }
 
 /**
- * Screening erodibility class (Xu/Zhang / USBR style HEâ€“MEâ€“LE).
- * Fine sand + moderate I â†’ HE; high I â†’ LE; else ME.
+ * Screening erodibility class (Xu/Zhang / USBR style HE–ME–LE).
+ * Fine sand + moderate I → HE; high I → LE; else ME.
  * Used to scale detachment / capacity, not as a hidden Qpeak fudge.
  */
 export function classifyErodibility(p: StudioInputs): ErodibilityClass {
@@ -48,7 +48,7 @@ export function classifyErodibility(p: StudioInputs): ErodibilityClass {
   const D50 = p.grainD50_m ?? 0.03;
   if (I > 4.0) return "LE";
   if (I < 2.5) return "HE";
-  // Fine to medium sand (0.062 mm â€“ 2 mm) with moderate I â†’ HE (Apishapa-like)
+  // Fine to medium sand (0.062 mm – 2 mm) with moderate I → HE (Apishapa-like)
   if (D50 >= SILT_SAND_BOUNDARY_M && D50 < 0.002 && I <= 3.5) return "HE";
   if (I >= 3.8) return "LE";
   return "ME";
@@ -133,32 +133,18 @@ function pipeNonEq(opts: {
   o: NOpts;
   pipeRate: number;
 }) {
-  const { tau, U, area, perimeter, pipeLength, dt, material, kd, tauC, n, o, pipeRate } = opts;
-  const poros = clamp(o.porosity, 0.2, 0.55);
-  const Ls = Math.max(o.adaptationLength, 0.5 * pipeLength, 5);
+  const { tau, U, area, perimeter, pipeLength, dt, kd, tauC, n, pipeRate } = opts;
+  const poros = clamp(opts.o.porosity, 0.2, 0.55);
   const epsShear = excessShear(kd, tau, tauC, n) * pipeRate;
-  const qtStar = bedLoadCapacity(tau, o);
-  const CtStar =
-    U > 1e-4 && area > 1e-6
-      ? clamp((qtStar * Math.max(perimeter * 0.5, 0.1)) / (U * area), 0, 0.35)
-      : 0;
   let Ct = opts.Ct;
   Ct += clamp((Math.max(U, 0.05) * dt) / Math.max(pipeLength, 1), 0, 1) * (0 - Ct);
-  Ct += clamp((Math.max(U, 0.05) * dt) / Ls, 0, 0.5) * (CtStar - Ct);
-  const deficit = Math.max(CtStar - Ct, 0);
-  const epsCap =
-    deficit > 0 && perimeter > 1e-6
-      ? (deficit * area * Math.max(U, 0.05)) /
-        (perimeter * Math.max(pipeLength, 1) * (1 - poros))
-      : 0;
-  let epsWall =
-    material === "cohesive"
-      ? epsShear
-      : 0.55 * epsShear + 0.45 * Math.min(epsShear * 1.2, Math.max(epsCap * pipeRate, epsShear * 0.2));
+  // Pipe-wall detachment remains excess-shear. Transport-capacity grain inputs
+  // select the open-breach closure only and must not silently affect the pipe.
+  const epsWall = epsShear;
   if (perimeter > 1e-6 && area > 1e-6 && epsWall > 0) {
     Ct = clamp(Ct + ((epsWall * perimeter * dt) / area) * (1 - poros), 0, 0.4);
   }
-  return { CtNew: Ct, epsWall, CtStar };
+  return { CtNew: Ct, epsWall, CtStar: 0 };
 }
 
 function openNonEq(
@@ -182,7 +168,7 @@ function openNonEq(
 }
 
 /**
- * Volume â†’ shape. Post-collapse uses lower fBed / higher bank share + widen factor.
+ * Volume → shape. Post-collapse uses lower fBed / higher bank share + widen factor.
  */
 function applyVol(o: {
   dA: number;
@@ -252,19 +238,32 @@ function roof(o: {
   return { fails, risk, cover };
 }
 
-export function waveHead(
-  t: number,
-  o: { d0: number; tO: number; count: number; period: number },
-) {
-  if (o.d0 <= 0 || o.tO <= 0) return 0;
-  const period = o.period > 0 ? o.period : o.tO * 2;
-  for (let k = 0; k < o.count; k++) {
-    const t0 = k * period;
-    if (t >= t0 && t <= t0 + o.tO) {
-      return o.d0 * Math.sin((Math.PI * (t - t0)) / o.tO);
-    }
-  }
-  return 0;
+/** Apply a morphology cap calibrated per 2 s reference interval, independent of adaptive dt. */
+export function capErosionAreaPerStep(
+  requestedArea: number,
+  fractionPerReferenceStep: number,
+  damHeight: number,
+  width: number,
+  dt: number,
+): number {
+  const referenceDt = 2; // DEFAULT_INPUTS.dt; preserves the legacy default-step cap.
+  const cap =
+    Math.max(fractionPerReferenceStep, 0) *
+    Math.max(damHeight, 0) *
+    Math.max(width, 0.5) *
+    Math.max(dt, 0) / referenceDt;
+  return Math.min(Math.max(requestedArea, 0), cap);
+}
+
+/** Accumulate actual invert lowering and consume it once when the collapse threshold is reached. */
+export function updateBankCollapseExposure(
+  currentExposure: number,
+  invertLowering: number,
+  triggerHeight: number,
+): { exposure: number; collapseHeight: number } {
+  const total = Math.max(currentExposure, 0) + Math.max(invertLowering, 0);
+  if (total >= triggerHeight) return { exposure: 0, collapseHeight: total };
+  return { exposure: total, collapseHeight: 0 };
 }
 
 
@@ -362,10 +361,10 @@ function buildEmpiricalResults(
 export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const tStart = performance.now();
   const warnings: string[] = [];
-  const DEBUG_HEADCUT = process.env.DBS_DEBUG_HEADCUT === "1"; // TEMP-DEBUG
+  const DEBUG_HEADCUT = (globalThis as any)?.process?.env?.DBS_DEBUG_HEADCUT === "1"; // TEMP-DEBUG
   const debugRows: string[] = []; // TEMP-DEBUG
-  if (DEBUG_HEADCUT) debugRows.push("t,dt,WL,h,hEff,hCr,wH,weirWidthFactor,xHead,Wb,zb,Q"); // TEMP-DEBUG
-  // Adaptive Î”t bounds (user dt is the nominal / max step)
+  if (DEBUG_HEADCUT) debugRows.push("t,dt,WL,h,hEff,hCr,wH,xHead,Wb,zb,Q"); // TEMP-DEBUG
+  // Adaptive Δt bounds (user dt is the nominal / max step)
   const dtUser = Math.max(p.dt, 0.25);
   const dtMax = dtUser;
   const dtMin = Math.max(0.05, dtUser / 20);
@@ -374,7 +373,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const recordInterval = Math.max(dtUser, tMax / 600);
   let tNextRecord = 0;
   warnings.push(
-    `Adaptive Î”t enabled (min=${dtMin.toFixed(2)} s, max=${dtMax.toFixed(2)} s)`,
+    `Adaptive Δt enabled (min=${dtMin.toFixed(2)} s, max=${dtMax.toFixed(2)} s)`,
   );
 
   const Hb = Math.max(p.crestElev - p.baseElev, 0.5);
@@ -389,6 +388,18 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     `V2 material: ${material}; erodibility: ${erod} ` +
       `(D50=${(D50report * 1000).toFixed(2)} mm, I=${p.erosionIndexI ?? 3})`,
   );
+  const erosionModel = p.erosionModel ?? "excess_shear";
+  const kdM = p.kdMode ?? "index";
+  if (erosionModel === "transport_capacity") {
+    warnings.push(
+      material === "noncohesive"
+        ? "Open-breach erosion closure: transport-capacity (MPM/Smart with Exner); pipe and headcut remain excess-shear."
+        : "Transport-capacity requested for cohesive material; open-breach falls back to excess-shear.",
+    );
+  }
+  if (kdM === "hanson") {
+    warnings.push("Hanson & Simon JET erodibility selected; erosion exponent n is fixed at 1.");
+  }
 
   // Overtopping now has an explicit intact-dam stage. The starter notch is created only
   // after the hydraulic erosion trigger is exceeded (unless the legacy guard is disabled).
@@ -407,8 +418,6 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     : p.crestElev;
   let Wb = p.mode === "piping" ? 0 : starterActive ? notchSeed : 0;
   let Zb = zPhi;
-  // Active weir width grows from seed toward geometric Wb during developing breach.
-  let weirWidthFactor = p.mode === "overtopping" && starterActive ? 0.25 : 1;
   let erosionExposure = 0;
   let tErosionInitiation: number | null = null;
   let tStarterNotch: number | null = starterActive && p.mode === "overtopping" ? 0 : null;
@@ -416,6 +425,26 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const initialNotchArea = Math.max(notchSeed * Math.max(starterDepth, 0.01), 1e-4);
   let breachDevelopmentIndex = 0;
   let trueBreachActive = false;
+  const updateBreachDevelopment = (time: number) => {
+    const depth = Math.max(p.crestElev - zb, 0);
+    const areaRatio = (Wb * depth) / initialNotchArea;
+    const widthRatio = Wb / Math.max(notchSeed, 0.2);
+    const depthRatio = depth / Math.max(Hb, 0.5);
+    const areaGate = Math.max(p.breachAreaRatioThreshold ?? 5, 1);
+    const widthGate = Math.max(p.breachWidthRatioThreshold ?? 2.5, 1);
+    const depthGate = Math.max(p.breachDepthRatioThreshold ?? 0.15, 0.01);
+    const areaProgress = clamp(areaRatio / areaGate, 0, 1);
+    const widthProgress = clamp(widthRatio / widthGate, 0, 1);
+    const depthProgress = clamp(depthRatio / depthGate, 0, 1);
+    // A geometric mean prevents one oversized dimension from saturating BDI.
+    breachDevelopmentIndex = Math.cbrt(areaProgress * widthProgress * depthProgress);
+    const mature = areaProgress >= 1 && widthProgress >= 1 && depthProgress >= 1;
+    if (mature && !trueBreachActive) {
+      trueBreachActive = true;
+      tSignificantBreach = time;
+      warnings.push(`Mature breach geometry established t=${(time / 3600).toFixed(4)} h`);
+    }
+  };
 
   const pipeInvert = estimatePipeInvertPhreatic(p, Hb);
   warnings.push(`Pipe invert FORCED phreatic: ${pipeInvert.toFixed(2)} m`);
@@ -442,6 +471,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const CDUR = erod === "HE" ? 60 : erod === "LE" ? 120 : 90;
 
   let xHead = 0;
+  let unsupportedBankExposure = 0;
   let headOn = false;
   const hcOn = p.headcutEnabled ?? true;
   const hcLaw = p.headcutLaw ?? "hydrostatic";
@@ -450,6 +480,13 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const gCap = p.headcutGateDeepenCap ?? 0.015;
   const hInit = p.headcutInitDepth ?? 0.04;
   const fH = p.headcutAdvanceFactor ?? 6;
+  // Breach-process corrections: transient waves can initiate erosion but must not
+  // excavate an entire moraine crest in one pulse. Reservoir-driven flow controls
+  // sustained breach development after initiation.
+  const isMoraine = p.damStructure === "moraine" || p.damStructure === "ice_cored_moraine";
+  const waveHeadcutFactor = isMoraine ? 0.04 : 0.12;
+  const headcutRetardation = isMoraine ? 0.22 : erod === "HE" ? 0.55 : 0.75;
+  const maxHeadcutRate = Math.max(0.002, Hb / (isMoraine ? 6 * 3600 : 2 * 3600));
   let openCt = 0;
 
   const adapt0 = Math.max(C * 2.5, 10) * ef.adaptScale;
@@ -470,16 +507,14 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     nOpts.grainDensity,
     nOpts.criticalShields,
   );
-  const tauCore =
-    material === "noncohesive" ? Math.min(tauU, tauSh) : tauU;
-  const tauShell =
-    material === "noncohesive"
-      ? Math.min(p.shellTauC ?? tauU, tauSh)
-      : (p.shellTauC ?? tauU);
+  const usesTransportCapacity = erosionModel === "transport_capacity" && material === "noncohesive";
+  const tauCore = usesTransportCapacity ? Math.min(tauU, tauSh) : tauU;
+  const tauShell = usesTransportCapacity
+    ? Math.min(p.shellTauC ?? tauU, tauSh)
+    : (p.shellTauC ?? tauU);
 
-  const kdM = p.kdMode ?? "index";
   const kdC = kdForMode(kdM, p.erosionIndexI, tauCore, p.rhoD, p.kdDirect ?? 0.5);
-  const nC = p.erosionExponent ?? 1;
+  const nC = kdM === "hanson" ? 1 : (p.erosionExponent ?? 1);
   const kdS = kdForMode(
     kdM,
     p.shellErosionIndexI ?? p.erosionIndexI,
@@ -487,7 +522,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     p.rhoD,
     p.kdDirect ?? 0.5,
   );
-  const nS = p.shellErosionExponent ?? 1;
+  const nS = kdM === "hanson" ? 1 : (p.shellErosionExponent ?? 1);
 
   let y = Math.max(p.initialWL - p.baseElev, 0.05);
   const y0 = y;
@@ -495,7 +530,17 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const mS = clamp(p.storageExponent ?? 2, 1.2, 3.5);
   let V = V0;
 
-  const waveA = !!(p.waveForcingEnabled && (p.waveOvertopDepth ?? 0) > 0);
+  const waveA = !!(
+    p.mode === "overtopping" &&
+    p.waveForcingEnabled &&
+    (p.waveOvertopDepth ?? 0) > 0
+  );
+  if (waveA && p.mode === "overtopping") {
+    warnings.push("Wave-overtopping forcing ON: wave head adds no stored volume; wave-driven crest and opening outflow are debited once from reservoir storage.");
+  }
+  if (hcLaw === "energy" && hcOn) {
+    warnings.push(`Energy headcut law active (coefficient C=${hcC}); hydrostatic face shear still controls deepening.`);
+  }
   const waveO = {
     d0: p.waveOvertopDepth ?? 0,
     tO: p.waveOvertopDuration ?? 0,
@@ -519,8 +564,9 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
   const series: SimStep[] = [];
 
   warnings.push(
-    `Pipe L=${pipeLen.toFixed(1)} m; HE factors pipeÃ—${ef.pipeRate}, openÃ—${ef.openRate}, widenÃ—${ef.widen}`,
+    `Pipe L=${pipeLen.toFixed(1)} m; HE factors pipe×${ef.pipeRate}, open×${ef.openRate}, widen×${ef.widen}`,
   );
+  warnings.push(`Breach corrections: wave-triggered initiation, retarded headcut, reservoir-driven storage release`);
   if (p.mode === "overtopping") {
     warnings.push(
       intactOvertopping
@@ -540,6 +586,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
     const WL = p.baseElev + y;
     let Q = Math.max(p.spillwayQ, 0);
     let Qovertopping = 0;
+    let QwaveExcess = 0;
     let Qstarter = 0;
     let Qbreach = 0;
     let streamPower = 0;
@@ -605,7 +652,6 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
           openCt = pipeCt;
           Wb = Math.max(pipeW * 0.6, 0.5);
           zb = clamp(pipeInvert, p.baseElev, p.crestElev - 0.3);
-          weirWidthFactor = 1;
           stage = "open";
           warnings.push(`Roof failure t=${(t / 3600).toFixed(3)}h`);
         }
@@ -629,75 +675,88 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
 
     // ===== OPEN / OVERTOPPING =============================================
     if (collapsed) {
-      const wH = waveA ? waveHead(t, waveO) : 0;
+      const wH = waveA ? waveOvertopHead(t, waveO) : 0;
       const h = Math.max(WL - zb, 0);
       const hEff = h + wH;
       const hCr = Math.max(WL - p.crestElev, 0) + wH;
 
-      // ===== INTACT CREST OVERTOPPING ====================================
-      if (!starterActive && p.mode === "overtopping") {
-        stage = "overtopping";
+      // ===== CREST OVERTOPPING ============================================
+      if (p.mode === "overtopping") {
+        if (!starterActive) stage = "overtopping";
         if (hCr > 1e-6) {
           const crestFlowWidth = Math.max(p.crestLength, 0.5);
+          const openingTopWidth = starterActive
+            ? clamp(Wb + 2 * Zb * hCr, 0, crestFlowWidth)
+            : 0;
+          const remainingCrestWidth = Math.max(crestFlowWidth - openingTopWidth, 0);
           Qovertopping =
-            (p.Cw ?? 1.7) * crestFlowWidth * Math.pow(hCr, 1.5);
+            (p.Cw ?? 1.7) * remainingCrestWidth * Math.pow(hCr, 1.5);
           Q += Qovertopping;
-          const areaFlow = Math.max(crestFlowWidth * hCr, 1e-6);
-          const U = Qovertopping / areaFlow;
-          const Rh = Math.max(hCr, 0.02);
-          tau = (RHO * G * (p.manningN ?? 0.03) ** 2 * U * U) / Math.cbrt(Rh);
-          streamPower = tau * U;
+          if (!starterActive) {
+            const areaFlow = Math.max(crestFlowWidth * hCr, 1e-6);
+            const U = Qovertopping / areaFlow;
+            const Rh = Math.max(hCr, 0.02);
+            tau = (RHO * G * (p.manningN ?? 0.03) ** 2 * U * U) / Math.cbrt(Rh);
+            streamPower = tau * U;
 
-          const shearTrigger =
-            tau > tauShell && hCr >= Math.max(p.overtoppingTriggerDepth ?? 0.01, 0);
-          const powerTrigger = streamPower >= Math.max(p.streamPowerThreshold ?? 50, 0);
-          const trigger =
-            (p.erosionTriggerMode ?? "shear") === "shear_and_stream_power"
-              ? shearTrigger && powerTrigger
-              : shearTrigger;
-          erosionExposure = trigger ? erosionExposure + dt : 0;
-          if (trigger && tErosionInitiation == null) tErosionInitiation = t;
+            const shearTrigger =
+              tau > tauShell && hCr >= Math.max(p.overtoppingTriggerDepth ?? 0.01, 0);
+            const powerTrigger = streamPower >= Math.max(p.streamPowerThreshold ?? 50, 0);
+            const trigger =
+              (p.erosionTriggerMode ?? "shear") === "shear_and_stream_power"
+                ? shearTrigger && powerTrigger
+                : shearTrigger;
+            erosionExposure = trigger ? erosionExposure + dt : 0;
+            if (trigger && tErosionInitiation == null) tErosionInitiation = t;
 
-          if (trigger && erosionExposure >= Math.max(p.erosionInitiationDuration ?? 10, 0)) {
-            starterActive = true;
-            tStarterNotch = t;
-            tErosionInitiation ??= t;
-            zb = clamp(
-              p.crestElev - starterDepth,
-              p.baseElev,
-              p.crestElev - 1e-4,
-            );
-            Wb = Math.max(notchSeed, 0.2);
-            weirWidthFactor = 0.25;
-            stage = "headcut";
-            warnings.push(
-              `Overtopping erosion initiated t=${(t / 3600).toFixed(4)} h; starter notch Wb=${Wb.toFixed(2)} m, depth=${starterDepth.toFixed(3)} m`,
-            );
+            if (trigger && erosionExposure >= Math.max(p.erosionInitiationDuration ?? 10, 0)) {
+              const fullCrestQ = Qovertopping;
+              starterActive = true;
+              tStarterNotch = t;
+              tErosionInitiation ??= t;
+              zb = clamp(
+                p.crestElev - starterDepth,
+                p.baseElev,
+                p.crestElev - 1e-4,
+              );
+              Wb = Math.max(notchSeed, 0.2);
+              const openedWidth = clamp(Wb + 2 * Zb * hCr, 0, crestFlowWidth);
+              Qovertopping =
+                (p.Cw ?? 1.7) *
+                Math.max(crestFlowWidth - openedWidth, 0) *
+                Math.pow(hCr, 1.5);
+              Q += Qovertopping - fullCrestQ;
+              stage = "headcut";
+              warnings.push(
+                `Overtopping erosion initiated t=${(t / 3600).toFixed(4)} h; starter notch Wb=${Wb.toFixed(2)} m, depth=${starterDepth.toFixed(3)} m`,
+              );
+            }
           }
         }
       }
 
       if (starterActive && hEff > 1e-4 && WL + wH >= zb) {
-        // (5) Grow weir width factor toward 1 as notch erodes / headcut advances
-        if (weirWidthFactor < 1) {
-          const rate =
-            0.15 +
-            0.5 * (xHead / Math.max(C, 1)) +
-            (hCr > 0.05 ? 0.05 : 0); // [1/s]
-          weirWidthFactor = 1 - (1 - weirWidthFactor) * Math.exp(-rate * dt);
-        }
-        const Wavg = (Wb + Zb * h) * weirWidthFactor;
+        // xHead is longitudinal progress through the crest; Wb is the current
+        // lateral breach width. Neither dimension is used as an arbitrary flow cap.
+        const Wavg = Wb + Zb * hEff;
         const qWeir =
-          (p.Cw ?? 1.7) * Math.max(Wavg, notchSeed * 0.5) * Math.pow(Math.max(h, 0), 1.5);
+          (p.Cw ?? 1.7) * Math.max(Wavg, notchSeed * 0.5) * Math.pow(Math.max(hEff, 0), 1.5);
+        const qWeirStanding =
+          (p.Cw ?? 1.7) *
+          Math.max(Wb + Zb * h, notchSeed * 0.5) *
+          Math.pow(Math.max(h, 0), 1.5);
+        QwaveExcess += Math.max(qWeir - qWeirStanding, 0);
         Q += qWeir;
-        if (trueBreachActive) Qbreach += qWeir;
-        else Qstarter += qWeir;
-        if (DEBUG_HEADCUT) debugRows.push(`${t.toFixed(2)},${dt.toFixed(3)},${WL.toFixed(3)},${h.toFixed(3)},${hEff.toFixed(3)},${hCr.toFixed(3)},${wH.toFixed(3)},${weirWidthFactor.toFixed(4)},${xHead.toFixed(3)},${Wb.toFixed(3)},${zb.toFixed(3)},${Q.toFixed(2)}`); // TEMP-DEBUG
+        Qbreach += qWeir;
+        // Keep the early-stage component as an overlapping diagnostic, not a
+        // second discharge to add to Qbreach or reservoir storage.
+        if (!trueBreachActive) Qstarter += qWeir;
+        if (DEBUG_HEADCUT) debugRows.push(`${t.toFixed(2)},${dt.toFixed(3)},${WL.toFixed(3)},${h.toFixed(3)},${hEff.toFixed(3)},${hCr.toFixed(3)},${wH.toFixed(3)},${xHead.toFixed(3)},${Wb.toFixed(3)},${zb.toFixed(3)},${Q.toFixed(2)}`); // TEMP-DEBUG
 
         const Rh =
-          (Math.max(Wavg, 0.3) * h) /
-          Math.max(Wb + 2 * h * Math.sqrt(1 + Zb * Zb), 0.1);
-        const U = h > 1e-4 ? Q / Math.max(Wavg * h, 1e-6) : 0;
+          (Math.max(Wavg, 0.3) * hEff) /
+          Math.max(Wb + 2 * hEff * Math.sqrt(1 + Zb * Zb), 0.1);
+        const U = hEff > 1e-4 ? qWeir / Math.max(Wavg * hEff, 1e-6) : 0;
         const nM = p.manningN ?? 0.03;
         tau =
           (RHO * G * nM * nM * U * U) / Math.pow(Math.max(Rh, 0.02), 1 / 3);
@@ -712,14 +771,18 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
           if (!headOn && h > 0.02 && p.mode === "overtopping") headOn = true;
           if (headOn || hCr >= hInit) {
             headOn = true;
-            const hF = Math.max(hCr, hEff * 0.35);
+            // Limit transient wave contribution to scarp migration. The full wave
+            // depth remains available for initiation hydraulics, but only a fraction
+            // contributes to sustained headcut advance.
+            const reservoirHead = Math.max(WL - Math.max(zb, p.baseElev), 0);
+            const waveDrivenHead = Math.max(hCr - Math.max(WL - p.crestElev, 0), 0);
+            const hF = Math.max(reservoirHead * 0.35, waveDrivenHead * waveHeadcutFactor);
             const tF =
               RHO *
               G *
               hF *
               (1 +
-                0.25 *
-                  Math.min(1.2, Math.sqrt(Math.max(hCr, 0) / Math.max(C, 0.5))));
+                0.15 * Math.min(1, Math.sqrt(Math.max(reservoirHead, 0) / Math.max(Hb, 0.5))));
             tau = Math.max(tau, tF);
             let dx: number;
             if (hcLaw === "energy") {
@@ -735,39 +798,32 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
                 ) *
                 dt *
                 ef.openRate;
+              // The energy law already carries its material rate through C. Applying
+              // the legacy hydrostatic rate ceiling here made both selectable laws
+              // advance at the same capped speed, hiding the selected closure.
             } else {
               dx =
                 fH *
                 excessShear(kdS, tF, tauShell, nS) *
                 dt *
                 ef.openRate;
+              dx = Math.min(dx, maxHeadcutRate * dt);
             }
-            xHead = Math.min(C, xHead + dx);
+            // Material/process retardation and a physical timescale cap prevent
+            // the hydrostatic headcut from crossing a 20–30 m crest in one pulse.
+            dx *= headcutRetardation;
+            xHead = Math.min(C, xHead + Math.max(dx, 0));
 
-            let dA = 0;
-            if (material === "noncohesive") {
-              const st = openNonEq(
-                openCt,
-                tau,
-                U,
-                hEff,
-                Lb,
-                dt,
-                nOpts,
-                ef.openRate,
-              );
-              openCt = st.CtNew;
-              lastCtStar = st.CtStar;
-              dA = ((st.qt * dt) / (1 - poros)) * gFrac;
-            } else {
-              dA =
-                excessShear(kdS, tau, tauShell, nS) *
-                ef.openRate *
-                gFrac *
-                Math.max(Wb, 0.5) *
-                dt;
-            }
-            dA = Math.min(dA, gCap * Hb * Math.max(Wb, 0.5));
+            // The headcut face remains detachment-limited even when the open
+            // breach bed is configured for transport-capacity erosion.
+            let dA =
+              excessShear(kdS, tau, tauShell, nS) *
+              ef.openRate *
+              gFrac *
+              Math.max(Wb, 0.5) *
+              dt;
+            dA = capErosionAreaPerStep(dA, gCap, Hb, Wb, dt);
+            const zbBeforeErosion = zb;
             const sh = applyVol({
               dA,
               Wb,
@@ -780,14 +836,25 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
               widen: ef.widen,
             });
             zb = Math.max(sh.zb, p.crestElev - 0.35 * Hb);
+            if (isMoraine && (p.bankCollapseEnabled ?? true)) {
+              unsupportedBankExposure = updateBankCollapseExposure(
+                unsupportedBankExposure,
+                zbBeforeErosion - zb,
+                Number.POSITIVE_INFINITY,
+              ).exposure;
+            }
             Wb = sh.Wb;
             Zb = Math.max(Zb, zPhi * 0.5);
+            // Geometry-based maturity is evaluated during headcut travel too;
+            // crest breakthrough remains an independent longitudinal milestone.
+            updateBreachDevelopment(t);
           }
           stage = "headcut";
         } else {
           if (tHc == null && hcOn) tHc = t;
           let dA = 0;
-          if (material === "noncohesive") {
+          const zbBeforeErosion = zb;
+          if (usesTransportCapacity) {
             const st = openNonEq(
               openCt,
               tau,
@@ -808,7 +875,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
               Math.max(Wb, 0.5) *
               dt;
           }
-          dA = Math.min(dA, 0.05 * Hb * Math.max(Wb, 0.5));
+          dA = capErosionAreaPerStep(dA, 0.05, Hb, Wb, dt);
           // (3) Stronger post-collapse widening: less bed share, more banks
           const sh = applyVol({
             dA,
@@ -833,45 +900,28 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
               p.damStructure === "ice_cored_moraine") &&
             (p.bankCollapseEnabled ?? true)
           ) {
-            const prev = series.length ? series[series.length - 1].zb : zb;
-            const drop = Math.max(0, prev - zb);
-            if (drop > 0) {
-              const trig =
-                Math.max(p.bankCollapseHeightFraction ?? 0.12, 0.02) * Hb;
-              if (drop >= trig * 0.25) {
-                const wf = Math.max(p.bankCollapseWidthFactor ?? 1.5, 0.5);
-                Wb = Math.min(
-                  Wb + 2 * drop * wf * ef.widen,
-                  p.crestLength * 1.05,
-                );
-              }
+            const triggerHeight =
+              Math.max(p.bankCollapseHeightFraction ?? 0.12, 0.02) * Hb;
+            const exposureState = updateBankCollapseExposure(
+              unsupportedBankExposure,
+              zbBeforeErosion - zb,
+              triggerHeight,
+            );
+            unsupportedBankExposure = exposureState.exposure;
+            if (exposureState.collapseHeight > 0) {
+              const collapseHeight = exposureState.collapseHeight;
+              const wf = Math.max(p.bankCollapseWidthFactor ?? 1.5, 0.5);
+              Wb = Math.min(
+                Wb + 2 * collapseHeight * wf * ef.widen,
+                p.crestLength * 1.05,
+              );
+              warnings.push(
+                `Moraine bank-collapse screening event t=${(t / 3600).toFixed(4)} h; accumulated exposure=${collapseHeight.toFixed(3)} m`,
+              );
             }
           }
 
-          // Geometry-based breach development index. The index is deliberately independent
-          // of Q so that a large starter/notch pulse cannot masquerade as a true breach peak.
-          const breachDepth = Math.max(p.crestElev - zb, 0);
-          const areaNow = Math.max(Wb * breachDepth, 0);
-          const areaRatio = areaNow / initialNotchArea;
-          const widthRatio = Wb / Math.max(notchSeed, 0.2);
-          const depthRatio = breachDepth / Math.max(Hb, 0.5);
-          const areaGate = Math.max(p.breachAreaRatioThreshold ?? 5, 1);
-          const widthGate = Math.max(p.breachWidthRatioThreshold ?? 2.5, 1);
-          const depthGate = Math.max(p.breachDepthRatioThreshold ?? 0.15, 0.01);
-          breachDevelopmentIndex = Math.max(
-            Math.min(areaRatio / areaGate, 1),
-            Math.min(widthRatio / widthGate, 1),
-            Math.min(depthRatio / depthGate, 1),
-          );
-          const significant =
-            areaRatio >= areaGate &&
-            widthRatio >= widthGate &&
-            depthRatio >= depthGate;
-          if (significant && !trueBreachActive) {
-            trueBreachActive = true;
-            tSignificantBreach = t;
-            warnings.push(`Significant breach established t=${(t / 3600).toFixed(4)} h`);
-          }
+          updateBreachDevelopment(t);
         }
       } else if (
         WL < p.crestElev - 0.02 &&
@@ -886,7 +936,22 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       p.inflowSeriesEnabled && p.inflowSeries?.length
         ? interpolateInflow(p.inflowSeries, t)
         : (p.inflowM3s ?? 0);
-    V = Math.max(V + (Qin - Q) * dt, 0);
+    // Qstarter is an early-stage subset of Qbreach. Count actual routes once:
+    // spillway + remaining intact crest + current breach opening.
+    if (waveA && p.mode === "overtopping") {
+      const standingHead = Math.max(WL - p.crestElev, 0);
+      const crestFlowWidth = Math.max(p.crestLength, 0.5);
+      const standingOpeningWidth = starterActive
+        ? clamp(Wb + 2 * Zb * standingHead, 0, crestFlowWidth)
+        : 0;
+      const standingCrestFlow =
+        (p.Cw ?? 1.7) *
+        Math.max(crestFlowWidth - standingOpeningWidth, 0) *
+        Math.pow(standingHead, 1.5);
+      QwaveExcess += Math.max(Qovertopping - standingCrestFlow, 0);
+    }
+    const Qstorage = Math.max(p.spillwayQ, 0) + Qovertopping + Qbreach;
+    V = Math.max(V + (Qin - Qstorage) * dt, 0);
     y = y0 * Math.pow(V / V0, 1 / mS);
     if (y < 0.05 && tEmp == null) tEmp = t;
 
@@ -919,6 +984,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
         pipeInvertZ: pipeInvert,
         roofRisk: collapsed ? undefined : lastRisk,
         Qovertopping,
+        QwaveExcess,
         Qstarter,
         Qbreach,
         Qtotal: Q,
@@ -929,7 +995,7 @@ export function runBreachSimulationV2(p: StudioInputs): SimResult {
       tNextRecord = t + recordInterval;
     }
 
-    // Adaptive Î”t: refine near collapse, high roof risk, or rapid Q change
+    // Adaptive Δt: refine near collapse, high roof risk, or rapid Q change
     let dtTarget = dtMax;
     if (collapsing) dtTarget = Math.min(dtTarget, Math.max(dtMin, dtMax * 0.25));
     if (!collapsed && lastRisk > 0.6) dtTarget = Math.min(dtTarget, Math.max(dtMin, dtMax * 0.4));
@@ -996,23 +1062,23 @@ export function runBreachSimulation(p: StudioInputs): SimResult {
 // ---- Compatibility exports for tests & Impulse panel ----
 
 export interface TransportCapacityOpts {
-  /** Sediment grain density Ïs (kg/mÂ³). */
+  /** Sediment grain density ρs (kg/m³). */
   grainDensity: number;
   /** Median grain size D50 (m). */
   grainD50_m: number;
   /** Gradation ratio D90/D30 for the Smart (1984) factor. */
   grainD90D30Ratio: number;
-  /** Critical Shields parameter Î¸c. */
+  /** Critical Shields parameter θc. */
   criticalShields: number;
-  /** Meyer-Peterâ€“MÃ¼ller transport coefficient Kt. */
+  /** Meyer-Peter–Müller transport coefficient Kt. */
   mpmCoefficient: number;
-  /** Bed porosity p (0â€“1). */
+  /** Bed porosity p (0–1). */
   porosity: number;
   /** Erodible flow-path length Lreach (m) for the Exner conversion. */
   reachLength: number;
 }
 
-/** Dimensionless Shields stress Î¸ = Ï„ / ((sâˆ’1) Ï g D50). Exposed for verification. */
+/** Dimensionless Shields stress θ = τ / ((s−1) ρ g D50). Exposed for verification. */
 export function shieldsStress(tau: number, grainDensity: number, grainD50_m: number): number {
   const s_rel = Math.max(grainDensity, 1100) / RHO;
   const D50 = Math.max(grainD50_m, 1e-4);
@@ -1020,16 +1086,16 @@ export function shieldsStress(tau: number, grainDensity: number, grainD50_m: num
 }
 
 /**
- * Transport-capacity erosion rate [m/s] â€” Meyer-Peterâ€“MÃ¼ller bedload with the
+ * Transport-capacity erosion rate [m/s] — Meyer-Peter–Müller bedload with the
  * Smart (1984) gradation factor (D90/D30)^0.2, converted to a breach-invert
  * lowering rate through Exner continuity. Cohesionless / granular material only.
  *
- *   Î¸  = Ï„ / ((sâˆ’1) Ï g D50)
- *   Î¦  = Kt Â· (D90/D30)^0.2 Â· max(Î¸ âˆ’ Î¸c, 0)^1.5
- *   qs = Î¦ Â· âˆš((sâˆ’1) g D50Â³)                 [mÂ²/s per unit width]
- *   Îµ  = qs / ((1 âˆ’ p) Â· Lreach)             [m/s]
+ *   θ  = τ / ((s−1) ρ g D50)
+ *   Φ  = Kt · (D90/D30)^0.2 · max(θ − θc, 0)^1.5
+ *   qs = Φ · √((s−1) g D50³)                 [m²/s per unit width]
+ *   ε  = qs / ((1 − p) · Lreach)             [m/s]
  *
- * Steep-slope enhancement enters through the boundary shear Ï„ (Manning) rather
+ * Steep-slope enhancement enters through the boundary shear τ (Manning) rather
  * than an explicit Smart S^0.6 multiplier, to avoid double-counting slope.
  * Pure and side-effect free so it can be unit-verified against hand calculation.
  */
@@ -1045,7 +1111,7 @@ export function mpmSmartErosionRate(tau: number, o: TransportCapacityOpts): numb
   const excess = theta - thetaC;
   if (excess <= 0) return 0;
   const phi = Kt * gradFactor * Math.pow(excess, 1.5);
-  const qs = phi * Math.sqrt(Math.max(s_rel - 1, 0.1) * G * D50 * D50 * D50); // mÂ²/s
+  const qs = phi * Math.sqrt(Math.max(s_rel - 1, 0.1) * G * D50 * D50 * D50); // m²/s
   return qs / ((1 - poros) * Lreach); // m/s
 }
 
@@ -1053,60 +1119,61 @@ export function mpmSmartErosionRate(tau: number, o: TransportCapacityOpts): numb
  * Mechanistic breach-formation engine (physics v2).
  *
  * Hydraulics
- *   Open breach:  Q = Cw Â· Wavg Â· h^1.5     (averaged-width simplification of a
- *                 broad-crested trapezoidal weir â€” NOT the rigorous compound
+ *   Open breach:  Q = Cw · Wavg · h^1.5     (averaged-width simplification of a
+ *                 broad-crested trapezoidal weir — NOT the rigorous compound
  *                 trapezoidal-weir formula; adequate for screening, not a
  *                 substitute for a full compound-section rating.)
- *   Piping:       Q = Cd Â· Ï€ RÂ² âˆš(2 g H)     (orifice)
+ *   Piping:       Q = Cd · π R² √(2 g H)     (orifice)
  *
  * Erosion (excess-shear form, inspired by Wan & Fell's erodibility framework)
- *   Ce = 10^(âˆ’I)                            (erosion-rate index â†’ erodibility coefficient)
- *   Îµ  = (Ce / Ïd) Â· max(Ï„ âˆ’ Ï„c, 0)^n       [m/s]
- *   NOTE: kd = Ce/Ïd does not dimensionally reduce to Wan & Fell's own erosion-rate
- *   coefficient units, and this is not their literal published regression â€” treat
+ *   Ce = 10^(−I)                            (erosion-rate index → erodibility coefficient)
+ *   ε  = (Ce / ρd) · max(τ − τc, 0)^n       [m/s]
+ *   NOTE: kd = Ce/ρd does not dimensionally reduce to Wan & Fell's own erosion-rate
+ *   coefficient units, and this is not their literal published regression — treat
  *   as a screening-level erodibility relationship in the same spirit, not a citation
  *   of the exact Wan & Fell (2004) equation.
  *   Exponent n (erosionExponent / shellErosionExponent, default 1): same formula
- *   family, material-dependent exponent â€” n=1 cohesive/fine (unchanged default),
- *   nâ‰ˆ1.3 cohesionless sand/gravel (Chen & Anderson 1986), nâ‰ˆ1.5 MPM-style
+ *   family, material-dependent exponent — n=1 cohesive/fine (unchanged default),
+ *   n≈1.3 cohesionless sand/gravel (Chen & Anderson 1986), n≈1.5 MPM-style
  *   transport-capacity scaling (NWS BREACH lineage).
  *
  * Moraine bank mass-wasting (moraine / ice_cored_moraine only)
  *   Smooth excess-shear widening alone under-widens moraine breach channels.
- *   Tracks exposed unsupported bank height as the invert deepens; once it
- *   exceeds bankCollapseHeightFractionÂ·Hb, triggers a discrete Wb widening
- *   event (bankCollapseWidthFactor), then resets. Screening proxy for the
+ *   Accumulates invert lowering since the prior event; once it reaches
+ *   bankCollapseHeightFraction·Hb, triggers a discrete Wb widening event
+ *   (bankCollapseWidthFactor), then resets. Screening proxy for the
  *   fluvial + geotechnical bank-collapse coupling in Westoby et al. (2014,
- *   HR-BREACH), validated against Dig Tsho â€” not a limit-equilibrium solver.
+ *   HR-BREACH), validated against Dig Tsho — not a limit-equilibrium solver.
  *
  * Bed shear (open channel, Manning)
- *   Ï„ = Ï g nÂ² UÂ² / Rh^(1/3)
+ *   τ = ρ g n² U² / Rh^(1/3)
  *
  * Pipe wall shear (Bonelli-type driving pressure)
- *   Ï„ = Ï g R H / (2 L)
+ *   τ = ρ g R H / (2 L)
  *
  * Headcut (overtopping, Temple / WinDAM-style)
- *   Initiate when overtopping head â‰¥ h_init
- *   Face shear â‰ˆ Ï g h (hydrostatic on the vertical scarp)
- *   dx/dt = f_h Â· Îµ(Ï„_face)   through crest width C
+ *   Initiate when overtopping head ≥ h_init
+ *   Face shear ≈ ρ g h (hydrostatic on the vertical scarp)
+ *   dx/dt = f_h · ε(τ_face)   through crest width C
  *   Deepening is limited until the headcut breaches the upstream crest edge
  *
  * Geotechnics
  *   Residual side slope cannot be steeper than the friction angle:
- *   Zb â‰¥ cot(Ï†)
+ *   Zb ≥ cot(φ)
  *
  * Reservoir
  *   V(y) = V0 (y / y0)^m
- *   dV/dt = Qin âˆ’ Q
+ *   dV/dt = Qin − Q
  */
 
 /**
- * Transient crest head from a wave-overtopping pulse train (opt-in GLOF waveâ†’breach forcing).
+ * Transient crest head from a wave-overtopping pulse train (opt-in GLOF wave→breach forcing).
  * A displacement / impulse wave rides over the crest as a half-sine pulse of peak depth `d0`
- * and duration `tO`, optionally repeated `count` times spaced `period` apart. `period â‰¤ 0` â‡’
+ * and duration `tO`, optionally repeated `count` times spaced `period` apart. `period ≤ 0` ⇒
  * `period = tO` (back-to-back pulses). Returns 0 outside every pulse window, and 0 whenever
- * `d0 â‰¤ 0` or `tO â‰¤ 0`. Pure function of time so it can be hand-verified in isolation; the engine
- * adds this to the EROSION head only (never to reservoir storage).
+ * `d0 ≤ 0` or `tO ≤ 0`. Pure function of time so it can be hand-verified in isolation; the engine
+ * adds this to the transient hydraulic head. It adds no storage volume itself; outflow generated
+ * by the pulse is debited once from reservoir storage.
  */
 export function waveOvertopHead(
   tSec: number,
@@ -1118,7 +1185,7 @@ export function waveOvertopHead(
   for (let k = 0; k < count; k++) {
     const ts = k * period;
     if (tSec >= ts && tSec <= ts + o.tO) {
-      // Half-sine envelope 0 â†’ d0 â†’ 0 across the overtopping duration of each pulse.
+      // Half-sine envelope 0 → d0 → 0 across the overtopping duration of each pulse.
       return o.d0 * Math.sin((Math.PI * (tSec - ts)) / o.tO);
     }
   }
@@ -1126,9 +1193,9 @@ export function waveOvertopHead(
 }
 
 /**
- * WinDAM / USDA-SITES energy-dissipation headcut migration: dX/dt = CÂ·(qÂ·H)^(1/3).
- * `qUnit` = unit overfall discharge [mÂ²/s], `Hdrop` = headcut drop height [m], `C`
- * (headcutEnergyCoeff) = material headcut erodibility. Returns the advance Î”X over one step `dt`
+ * WinDAM / USDA-SITES energy-dissipation headcut migration: dX/dt = C·(q·H)^(1/3).
+ * `qUnit` = unit overfall discharge [m²/s], `Hdrop` = headcut drop height [m], `C`
+ * (headcutEnergyCoeff) = material headcut erodibility. Returns the advance ΔX over one step `dt`
  * (never negative). Pure so the cube-root law can be hand-verified independently of the engine.
  */
 export function energyHeadcutAdvance(C: number, qUnit: number, Hdrop: number, dt: number): number {
@@ -1137,25 +1204,25 @@ export function energyHeadcutAdvance(C: number, qUnit: number, Hdrop: number, dt
 
 /** Inputs to the one-time avalanche displaced-volume step (Archimedes, at wave-forcing handoff). */
 export interface AvalancheDisplacementInputs {
-  /** Avalanche / ice-slide bulk volume [mÂ³] (the same slideVolume fed to the Impulse module). */
+  /** Avalanche / ice-slide bulk volume [m³] (the same slideVolume fed to the Impulse module). */
   slideVolume: number;
-  /** Fraction (0â€“1) of that bulk volume treated as submerged. Use StudioInputs.avalancheSubmergedFraction. */
+  /** Fraction (0–1) of that bulk volume treated as submerged. Use StudioInputs.avalancheSubmergedFraction. */
   submergedFraction: number;
-  /** Lake volume BEFORE displacement [mÂ³]. */
+  /** Lake volume BEFORE displacement [m³]. */
   volumeM3: number;
   /** Lake water-surface elevation BEFORE displacement [m]. */
   initialWL: number;
   baseElev: number;
-  /** Reservoir stage-storage exponent m in V(y) = V0Â·(y/y0)^m â€” same value the breach engine uses. */
+  /** Reservoir stage-storage exponent m in V(y) = V0·(y/y0)^m — same value the breach engine uses. */
   storageExponent: number;
 }
 
 export interface AvalancheDisplacementResult {
-  /** Submerged bulk volume added to the lake [mÂ³]. */
+  /** Submerged bulk volume added to the lake [m³]. */
   displacedVolumeM3: number;
-  /** Lake volume AFTER displacement [mÂ³] â€” feed into StudioInputs.volumeM3. */
+  /** Lake volume AFTER displacement [m³] — feed into StudioInputs.volumeM3. */
   newVolumeM3: number;
-  /** Lake water-surface elevation AFTER displacement [m] â€” feed into StudioInputs.initialWL. */
+  /** Lake water-surface elevation AFTER displacement [m] — feed into StudioInputs.initialWL. */
   newInitialWL: number;
   /** Rise in water-surface elevation caused by the displacement alone [m]. */
   deltaWL: number;
@@ -1164,19 +1231,19 @@ export interface AvalancheDisplacementResult {
 /**
  * ONE-TIME Archimedes displaced-volume step for an avalanche/ice slide entering a lake.
  *
- * Physically distinct from â€” and applied BEFORE â€” the transient wave-overtopping forcing
+ * Physically distinct from — and applied BEFORE — the transient wave-overtopping forcing
  * (waveForcingEnabled): the slide mass permanently occupies volume in the lake (like dropping a
- * rock in a full glass â€” the water level rises and STAYS risen), whereas the wave itself is a
- * surface surge that must never touch reservoir volume/discharge (that stays erosion-only).
- * Conflating the two â€” as the legacy "pass to breach" handoff did by injecting the wave as fake
- * inflowM3s/inflowSeries â€” double-counts water that was never added to the lake and skips the
+ * rock in a full glass — the water level rises and STAYS risen). The transient wave adds no
+ * storage volume, while any computed wave-driven discharge is debited once as outflow.
+ * Conflating the two — as the legacy "pass to breach" handoff did by injecting the wave as fake
+ * inflowM3s/inflowSeries — double-counts water that was never added to the lake and skips the
  * water that actually was.
  *
- *   Vdisplaced = slideVolume Â· submergedFraction
+ *   Vdisplaced = slideVolume · submergedFraction
  *   V_new      = V0 + Vdisplaced
- *   y_new      = y0 Â· (V_new / V0)^(1/m)         (inverting the SAME power-law stage-storage
- *                                                  curve V(y) = V0Â·(y/y0)^m used everywhere else
- *                                                  in the engine â€” no separate/ad hoc geometry)
+ *   y_new      = y0 · (V_new / V0)^(1/m)         (inverting the SAME power-law stage-storage
+ *                                                  curve V(y) = V0·(y/y0)^m used everywhere else
+ *                                                  in the engine — no separate/ad hoc geometry)
  *
  * Pure and side-effect free so it can be unit-verified independently of the breach engine.
  */
@@ -1199,13 +1266,14 @@ export function applyAvalancheDisplacement(o: AvalancheDisplacementInputs): Aval
 
 export function resultToCsv(result: SimResult): string {
   const header =
-    "t_s,t_hr,Q_m3s,Q_overtopping_m3s,Q_starter_m3s,Q_breach_m3s,BDI,streamPower_Wm2,WL_m,zb_m,Wb_m,Wtop_m,R_m,xHeadcut_m,tau_Pa,V_m3,stage";
+    "t_s,t_hr,Q_m3s,Q_overtopping_m3s,Q_wave_excess_m3s,Q_pre_maturity_subset_m3s,Q_breach_opening_m3s,BDI,streamPower_Wm2,WL_m,zb_m,Wb_m,Wtop_m,R_m,xHeadcut_m,tau_Pa,V_m3,stage";
   const rows = result.series.map((s) =>
     [
       s.t.toFixed(1),
       (s.t / 3600).toFixed(5),
       s.Q.toFixed(4),
       (s.Qovertopping ?? 0).toFixed(4),
+      (s.QwaveExcess ?? 0).toFixed(4),
       (s.Qstarter ?? 0).toFixed(4),
       (s.Qbreach ?? 0).toFixed(4),
       (s.breachDevelopmentIndex ?? 0).toFixed(4),

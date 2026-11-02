@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { downloadChartHtml, downloadResultExcel } from "@/lib/breach/exportExcel";
 import {
+  breachDischarge,
   cellValue,
   computeBreachSummary,
   seriesColumns,
@@ -71,7 +72,7 @@ export function ResultsView({
     () =>
       result.series.map((s) => {
         const depth = Math.max(s.WL - s.zb, 0);
-        const Qbreach = Math.max(s.Q - spillwayQ, 0);
+        const Qbreach = breachDischarge(s, spillwayQ);
         const avgWidth = (s.Wb + s.Wtop) / 2;
         const area = avgWidth * depth;
         return {
@@ -258,6 +259,12 @@ export function ResultsView({
                   {inputs.headcutEnabled && inputs.mode === "overtopping" ? "on" : "off / N/A"}
                 </strong>
                 {" · "}fh = {inputs.headcutAdvanceFactor} · hinit = {inputs.headcutInitDepth} m
+              </p>
+              <p>
+                At selected time: headcut advance = {formatNumber(step?.xHeadcut ?? 0, 2)} / {formatNumber(inputs.crestWidth, 2)} m along crest; lateral base width = {formatNumber(step?.Wb ?? 0, 2)} m.
+              </p>
+              <p>
+                Opening flow: {formatNumber(step ? breachDischarge(step, spillwayQ) : 0, 2)} m³/s · geometry status: {step?.trueBreachActive ? "mature" : "developing"}.
               </p>
               <p>
                 Breakthrough (xh = C):{" "}

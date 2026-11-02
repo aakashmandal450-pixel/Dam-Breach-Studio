@@ -16,6 +16,8 @@ import {
   kdForMode,
   mpmSmartErosionRate,
   shieldsStress,
+  capErosionAreaPerStep,
+  updateBankCollapseExposure,
   runBreachSimulation,
   type TransportCapacityOpts,
 } from "./engine.ts";
@@ -23,6 +25,30 @@ import { DEFAULT_INPUTS, type StudioInputs } from "./types.ts";
 
 const G = 9.81;
 const RHO = 1000;
+
+describe("timestep-scaled erosion caps and bank-collapse exposure", () => {
+  it("scales the gated and open breach caps linearly with dt", () => {
+    const atOneSecond = capErosionAreaPerStep(1e9, 0.015, 20, 4, 1);
+    const atTwoSeconds = capErosionAreaPerStep(1e9, 0.015, 20, 4, 2);
+    assertClose(atTwoSeconds, 2 * atOneSecond, 1e-12, "cap(dt=2)/cap(dt=1)");
+    assertClose(atTwoSeconds, 0.015 * 20 * 4, 1e-12, "legacy 2-second reference cap");
+    const openAtTwoSeconds = capErosionAreaPerStep(1e9, 0.05, 20, 4, 2);
+    assertClose(openAtTwoSeconds, 0.05 * 20 * 4, 1e-12, "open-breach cap");
+  });
+
+  it("accumulates lowering to the trigger, then resets so the same drop cannot retrigger", () => {
+    const threshold = 1.2;
+    let state = updateBankCollapseExposure(0, 0.3, threshold);
+    assert.equal(state.collapseHeight, 0);
+    state = updateBankCollapseExposure(state.exposure, 0.4, threshold);
+    assert.equal(state.collapseHeight, 0);
+    state = updateBankCollapseExposure(state.exposure, 0.5, threshold);
+    assertClose(state.collapseHeight, threshold, 1e-12, "collapse exposure");
+    assert.equal(state.exposure, 0, "exposure did not reset after collapse");
+    state = updateBankCollapseExposure(state.exposure, 0.3, threshold);
+    assert.equal(state.collapseHeight, 0, "collapse immediately retriggered after reset");
+  });
+});
 
 function assertClose(actual: number, expected: number, relTol: number, label: string): void {
   const diff = Math.abs(actual - expected);
@@ -171,7 +197,16 @@ describe("engine integration — defaults preserved, closure wired", () => {
 
   it("hanson kd mode runs and pins n=1 (piping case)", () => {
     const r = runBreachSimulation({ ...DEFAULT_INPUTS, mode: "piping", kdMode: "hanson" });
+    const changedExponent = runBreachSimulation({
+      ...DEFAULT_INPUTS,
+      mode: "piping",
+      kdMode: "hanson",
+      erosionExponent: 2.5,
+      shellErosionExponent: 2.5,
+    });
     assert.ok(Number.isFinite(r.Qpeak) && r.Qpeak > 0, `hanson Qpeak = ${r.Qpeak}`);
+    assert.equal(changedExponent.Qpeak, r.Qpeak, "Hanson mode did not pin the core exponent to n=1");
+    assert.equal(changedExponent.tPeak, r.tPeak, "Hanson mode did not pin the shell exponent to n=1");
     assert.ok(
       r.warnings.some((w) => w.includes("Hanson")),
       "expected a Hanson kd engine warning",
