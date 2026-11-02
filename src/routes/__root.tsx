@@ -1,6 +1,4 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
-import { AuthProvider } from "@/lib/auth/provider";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "../styles.css?url";
 
@@ -15,15 +13,15 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Mechanistic dam-breach formation studio: physically based erosion, hydrographs, and installable desktop use.",
+          "Process-based dam breach and GLOF hazard-screening model: breach growth, erosion and outflow hydrographs.",
       },
       { name: "theme-color", content: "#245460" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -38,12 +36,9 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body>
-        <PreviewHostBridge />
-        <AuthProvider>
-          <TooltipProvider delayDuration={200}>
-            <Outlet />
-          </TooltipProvider>
-        </AuthProvider>
+        <TooltipProvider delayDuration={200}>
+          <Outlet />
+        </TooltipProvider>
         <Scripts />
       </body>
     </html>
