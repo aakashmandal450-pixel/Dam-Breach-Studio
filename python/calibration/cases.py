@@ -126,11 +126,13 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
                               tau_c=m["tauc_Pa"], n_exp=1.0,
                               kd=m["kd_cm3Ns"] * 1e-6 * (f["f_kd"] if m.get("kd_status", "").startswith("measured") else 1.0))
         transport, shear = E.TransportFormula.HANSON, "total"
+        suspended = "none"
     else:
         mat = E.MaterialProps(material_class="noncohesive", D50=d50, D90=m.get("d90_mm", 2.5 * m.get("d50_mm", 0.1)) / 1000.0,
                               porosity=m.get("porosity", 0.35), cohesion=m.get("cohesion_kPa", 0.0) * 1000.0,
                               phi=math.degrees(math.atan(m.get("tan_phi", 0.7))), tau_c=m.get("tauc_Pa", 1.0))
         transport, shear = E.TransportFormula.WU, "grain"
+        suspended = "wu2000"
     n_man = case.get("manning_n") or max(0.016, d50 ** (1 / 6) / 21.1)
     cfg = E.EngineConfig(transport=transport, bank_stability=E.BankStabilityMethod.CRITICAL_DEPTH,
                          friction_model="manning", manning_n=n_man, erosion_shear=shear,
@@ -138,6 +140,7 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
                          headcut_method="energy", headcut_C=HEADCUT_C0 * f["C_h"],
                          transport_capacity_factor=f["f_t"],
                          adaptation_length_mode="depth_scaled", adaptation_depth_factor=5.0,
+                         suspended_load=suspended,
                          downstream_boundary=case.get("downstream", "outfall"))
     for k, v in (overrides or {}).items():   # diagnostics only; calibration runs use cal-1 as built
         setattr(cfg, k, v)
