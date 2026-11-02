@@ -1,206 +1,139 @@
 # Dam Breach Studio
 
-**Mechanistic earthen-dam breach formation dashboard** — not a regression-only peak-flow calculator.
+A process-based model of how earthen and moraine dams breach, from the trigger (piping, overtopping, or an ice/rock avalanche into the lake) to the outflow hydrograph.
 
-Dam Breach Studio couples reservoir continuity, orifice/weir hydraulics, and excess-shear erosion (Wan & Fell erosion-rate index) so you can watch a breach grow in time, inspect a labeled cross-section, and export a hydrograph. The design is in the same *family* of simplified physical models as NWS BREACH, DLBreach, and WinDAM — transparent equations, not a black box.
+Most glacial-lake (GLOF) hazard studies prescribe the breach: a final width, depth and formation time taken from regressions built on engineered dams. Dam Breach Studio computes breach growth instead, from reservoir continuity, breach hydraulics, sediment erosion and slope stability. Every coefficient is traced to a primary source.
 
-> **Scope today:** breach *formation* (geometry + outflow hydrograph). Downstream flood routing (FLDWAVE / HEC-RAS style) is out of scope for this module.
+> **Status (November 2026):** research code under active development. TypeScript verification suite: **67 / 67 passing**, including 25 impulse-wave checks against the VAW reference workbook. Python 2-D engine: **4 / 4 test suites passing** (conservation, restart, reservoir positivity and feature checks). Calibration follows a pre-registered protocol, and historical validation is reported with its known problems (see [Validation](#validation)).
 
----
-
-## Features
-
-| Area | What you get |
-|------|----------------|
-| **Failure modes** | Overtopping and piping → roof collapse → open channel |
-| **Hydraulics** | Broad-crested trapezoidal weir; orifice flow for piping |
-| **Erosion** | \(C_e = 10^{-I}\); volume rate from excess shear |
-| **Reservoir** | Falling head via power-function stage–storage |
-| **UI** | Parameter forms with hints, schematic, playback, charts |
-| **Theory** | Equations, parameter catalogue, typical \(I\) ranges, limitations |
-| **Share** | Export / import project JSON; export hydrograph CSV |
-| **Desktop** | Installable from Chrome/Edge as a site app (PWA-style) |
+**Technical report:** a full description of the equations, numerics, verification and validation is available on request. *(Replace with a link to the published PDF.)*
 
 ---
 
-## Requirements
+## What it does
 
-- **Node.js** 20+ (22 recommended)
-- **npm** 10+
-- Modern browser (Chrome or Edge recommended for “Install app”)
+| Process | Implementation | Source |
+|---|---|---|
+| Reservoir storage | Power-law stage–storage, `dV/dt = Qin − Qout` | — |
+| Breach outflow | Broad-crested weir (open breach), orifice (pipe) | Fread (1988) lineage |
+| Cohesive erosion | Excess shear `ε = kd (τ − τc)^n`, kd from erosion index I, Hanson JET, or direct input | Wan & Fell (2004); Hanson & Simon (2001); Chen & Anderson (1986) |
+| Granular erosion | Meyer-Peter–Müller bed load with Smart gradation factor, Exner bed update, non-equilibrium adaptation | MPM (1948); Smart (1984) |
+| Piping | Pipe enlargement, gradual roof collapse into an open breach | DLBreach / BREACH style |
+| Headcut (overtopping) | Hydrostatic face-shear law or energy law `dX/dt = C (qH)^(1/3)` | Temple & Hanson (WinDAM/SITES) |
+| Moraine banks | Discrete bank mass-wasting (1-D); Culmann factor-of-safety collapse (2-D) | Westoby et al. (2014) |
+| Impulse waves | VAW 2-D and 3-D procedures (leading crest, trough, second crest) | Heller et al. (2009), VAW workbook |
+| Avalanche into lake | One-time Archimedes displacement, kept separate from the transient wave so no water is counted twice | — |
+| Comparison | Von Thun & Gillette, Froehlich, MacDonald–Langridge-Monopolis regressions printed alongside each run | — |
 
----
+## Two engines
+
+**1-D engine: TypeScript, runs in the browser** (`src/lib/breach/engine.ts`, ~1,300 lines). The lake is treated as one storage and the breach as an evolving trapezoid. Time steps are adaptive and refine automatically during roof collapse and rapid discharge change. This engine powers the web dashboard.
+
+**2-D engine: Python / NumPy** (`python/breach_engine_2d_v3_2.py`, ~2,000 lines). Finite-volume shallow-water equations on a dam "prism", using an HLL Riemann solver, Audusse hydrostatic reconstruction (well-balanced) and optional MUSCL/minmod second order. The hydraulics are coupled to multi-law sediment transport (Wu, MPM, van Rijn, Partheniades, Hanson), Exner bed updating, lateral erosion, headcut migration and Culmann bank collapse. Breach location and shape come out of the solution instead of being set as inputs. Optional Wu, Wang & Jia (2000) suspended load uses Soulsby settling velocity. Every run reports water, reservoir and solids mass-balance errors, a breakdown of eroded volume by source, and limiter activity. Restart checkpoints are written atomically. Changes are logged in [`python/V3_2_CHANGELOG.md`](python/V3_2_CHANGELOG.md).
 
 ## Quick start
+
+Requires Node.js 20+ (22 recommended).
 
 ```bash
 git clone https://github.com/aakashmandal450-pixel/Dam-Breach-Studio.git
 cd Dam-Breach-Studio
 npm install
-npm run dev
+npm run dev            # dashboard at http://localhost:8080
 ```
 
-Then open the URL printed in the terminal (by default the dev server binds to port **8080**).
+Run the checks:
 
-### Other scripts
+```bash
+npm run test:verify                                            # verification suite
+npm run validate:case -- validation/cases/teton-1976.json      # historical case
+npm run validate:case -- validation/cases/dig-tsho-1985-wave.json
+```
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Local development server |
-| `npm run build` | Production build |
-| `npm run typecheck` | TypeScript check |
-| `npm run preview` | Serve a production build locally |
+2-D engine (Python 3.10+, NumPy):
 
----
+```bash
+cd python
+python breach_engine_2d_v3_2.py                 # small synthetic-dam demo
+python tests/v3_engine_regression.py            # conservation, restart, wave, headcut, formulas
+python tests/v3_2_feature_tests.py              # 16 feature checks
+python tests/v3_2_1_reservoir_tests.py          # 6 reservoir positivity checks
+python tests/v3_2_2_step0_tests.py              # 18 step-0 checks
+```
 
-## How to use the dashboard
+On Windows, `python/run_v3_tests.ps1` runs all four suites and writes a log.
 
-1. Open **Simulate**.
-2. Choose a **preset** (moderately erodible overtopping, piping, resistant clay, rapid silt) or edit inputs.
-3. Set **failure mode**: Overtopping or Piping.
-4. Pay special attention to **erosion-rate index \(I\)** and **\(\tau_c\)** — they dominate growth rate.
-5. Click **Run formation**.
-6. Use the **playback slider** on the cross-section; inspect **Peak Q**, times, final geometry, and charts.
-7. **Export project** (JSON of all inputs) or **Export hydrograph CSV** for routing tools.
+## Verification
 
-**Theory** — full equation list, symbol table, and limitations.  
-**Install & share** — how colleagues can install the app and exchange project files.
+Verification asks whether the code computes what the reference tools compute. Tests sit next to the code as `*.verification.test.ts` and run with `npm run test:verify`.
 
----
+| Module | Checked against | Result |
+|---|---|---|
+| `impulse/gen2d.ts` | VAW workbook, 2-D sheet (19 quantities) | 19 / 19 |
+| `impulse/gen3d.ts` | VAW workbook, 3-D sheet at γ = 20° | 6 / 6 |
+| Erosion closures and engine integration | Hand calculations, an independent re-implementation, closure wiring | all pass |
+| Wave forcing and headcut laws | Hand values, scaling laws, guards, regression safety | all pass |
+| **Total** (`npm run test:verify`) | | **67 / 67** |
+| Python 2-D engine | Water/solids conservation, restart equivalence, lake at rest, wave-boundary mass accounting, transport formulas | 4 / 4 suites |
 
-## Engine overview (mechanistic core)
+The VAW fixtures are not hand-typed. `validation/tools/extract_vaw_fixture.py` writes inputs into the reference workbook, recalculates it headlessly in LibreOffice and reads back the sheet's own results. Two coefficient errors in the earlier impulse-wave code were caught this way: an undocumented porosity factor in slide mass, and the wrong far-field decay exponent. Details are in [`validation/README.md`](validation/README.md).
 
-Implementation lives in `src/lib/breach/engine.ts`.
+## Validation
 
-### Reservoir continuity
+Validation asks whether the model reproduces real events. Every case file separates **sourced** inputs, each with its citation, from **placeholder** inputs, which are listed explicitly.
 
-\[
-\frac{dV}{dt} = Q_{\mathrm{in}} - Q_{\mathrm{out}}
-\]
+**1-D engine, historical cases** (`npm run validate:case`):
 
-Storage is a power function calibrated at the initial pool:
+| Case | Mode | Observed Qpeak | Simulated | Error | Notes |
+|---|---|---|---|---|---|
+| Teton Dam, Idaho, 1976 | Piping | 65,100 m³/s | 55,603 m³/s | −14.6% | Time to peak is +192% too slow; traced to 17 placeholder erodibility and pipe inputs |
+| Dig Tsho, Nepal, 1985 (wave-forced) | Wave-triggered moraine overtopping | 1,600 m³/s | 2,674 m³/s | +67% | **Not counted as validation.** The peak occurs during the wave pulse (within the first minute), not from breach enlargement |
 
-\[
-V(y) = V_0 \left(\frac{y}{y_0}\right)^m
-\]
+**2-D engine, Dig Tsho reconstruction.** The moraine is rebuilt with the Westoby et al. (2015) lake curve, and an erodibility and roughness sensitivity sweep was registered before running. Across that sweep, peak outflow ranges from about 1,500 to 4,500 m³/s, against published estimates of 1,375–2,000 m³/s. This is reported as sensitivity, not calibration. Every run is indexed in [`RUNS.md`](RUNS.md), and the comparison with the published HR BREACH study is in [`validation/DIGTSHO_WESTOBY_2015_CHECK.md`](validation/DIGTSHO_WESTOBY_2015_CHECK.md).
 
-### Open breach (weir)
+**Calibration protocol.** Calibration and validation cases (USDA-ARS and Reclamation jet-test embankments, DLBreach cases, IMPACT field tests, Queen Bess) are split by a rule written down before any case data were obtained ([`validation/calibration/SPLIT.md`](validation/calibration/SPLIT.md)). Three global factors are fitted with leave-one-out stability checks ([`CALIBRATION_PROTOCOL.md`](validation/calibration/CALIBRATION_PROTOCOL.md)). Dig Tsho is a reconstruction only and is never used to calibrate.
 
-\[
-Q = C_w \,(W_b + Z_b h)\, h^{3/2}
-\]
+## Known limitations
 
-Default \(C_w = 1.7\) (metric broad-crested style). Head \(h\) is water surface minus current invert.
+- Spatially uniform material: no layered moraine, ice core or melt.
+- Hydrostatic shallow-water equations only; no non-hydrostatic correction.
+- Impulse-wave travel across the lake is a reduced travel-time and shoaling correction, not a full lake solver.
+- The 2-D VAW wave formulation is outside its validated range for narrow-lake geometry such as Dig Tsho (B = 11.1 vs. 0.74–3.33); the 3-D formulation is used there.
+- Bishop and Spencer bank methods are not implemented. Requesting them raises an error instead of silently falling back.
+- Breach formation only. Export the hydrograph for downstream routing in HEC-RAS or similar.
 
-### Piping (orifice)
+Open defects and negative findings are listed in the technical report.
 
-\[
-Q = C_d \,\pi R^2 \sqrt{2 g H}
-\]
-
-Used until the pipe is large enough relative to remaining cover; then the model switches to an open trapezoidal breach (roof collapse).
-
-### Erosion rate (Wan & Fell)
-
-\[
-C_e = 10^{-I}, \qquad
-\varepsilon = \frac{C_e}{\rho_d}\,\max(\tau - \tau_c,\, 0)
-\]
-
-- Open channel shear uses a Manning-derived bed stress.
-- Pipe wall shear uses a Bonelli-type driving-pressure form involving pipe radius, head, and core length \(L\).
-
-Deepening and widening advance with \(\varepsilon\); residual side slope is influenced by friction angle \(\phi\).
-
-### What this is *not*
-
-- Not Froehlich / Xu–Zhang / BFF **regression-only** peak discharge.
-- Not a full zoned-dam FEM or 3-D CFD model.
-- Not a downstream inundation mapper (export the hydrograph into HEC-RAS, FLDWAVE-class tools, etc.).
-
-See the in-app **Theory** page for the full limitation list.
-
----
-
-## Typical erosion-rate index \(I\)
-
-| \(I\) | Soils (indicative) | Relative rate |
-|------|---------------------|---------------|
-| 0–2 | Dispersive clays, fine silts, weak SM | Extremely rapid |
-| 2–3 | Many SM, SC, ML, low-plasticity CL | Rapid (hours) |
-| 3–4 | CL, CH, MH of moderate plasticity | Moderate |
-| 4–5 | Higher-plasticity, well-compacted clays | Slow |
-| 5–6+ | Extremely resistant / cemented | Very slow |
-
-Prefer a **Hole Erosion Test** (or equivalent) when available. Changing \(I\) by 1 changes \(C_e\) by a factor of ten.
-
----
-
-## Project layout (main pieces)
+## Repository layout
 
 ```text
-src/
-  lib/breach/
-    engine.ts      # time-stepping formation engine
-    types.ts       # inputs / results
-    examples.ts    # preset cases
-    docs.ts        # theory content used by the UI
-  routes/
-    index.tsx      # Simulate workspace
-    theory.tsx     # Equations & parameters
-    install.tsx    # Install & share guidance
-  components/      # schematic, forms, charts, shell
-  store/studio.ts  # client state + localStorage
-public/            # favicon, icons
+src/lib/breach/      1-D engine, input types, theory text, verification tests
+src/lib/impulse/     VAW 2-D / 3-D impulse wave, run-up, velocity
+src/lib/lake/        lake volume relations
+src/lib/moraine/     moraine stability and ice helpers
+src/components/      dashboard UI (React)
+python/              2-D engine, tests, calibration runner
+runs/                2-D run records (summary.json per run; index in RUNS.md)
+validation/          VAW fixtures and extractor, historical cases, calibration register and split
 ```
 
-Stack: **React**, **TanStack Start/Router**, **Tailwind CSS**, **Recharts**, **Zustand**, **Vite**.
+Stack: TypeScript, React, TanStack Start, Vite, Recharts; Python, NumPy.
 
----
+## Roadmap
 
-## Sharing and desktop install
+- [ ] Fix open defects: piping τ–Q consistency, overtopping invert initialisation, deepening cap
+- [ ] Grain-shear (skin friction) option so roughness affects erosion with the right sign
+- [ ] Run calibration `cal-1` with leave-one-out; freeze and run the Dig Tsho ensemble
+- [ ] DEM-driven lake bathymetry, stage–storage curve and dam cross-sections
+- [ ] Coupled downstream routing along a DEM-derived flow path
+- [ ] Monte Carlo uncertainty on erosion index I and critical shear τc
+- [ ] More cases: Lawn Lake (1982), Laguna 513 (2010), Laguna Safuna Alta (2002)
 
-- **Share the repo or deployed URL** so others can run the same engine.
-- **Export project** → JSON of every input; colleagues **Import** it.
-- **Export hydrograph CSV** → `t`, `Q`, stages, geometry columns for external routing.
-- **Install on a PC:** open in Chrome or Edge → browser install control (“Install app” / Apps → Install this site). No separate `.exe` is required for day-to-day use.
+## Author
 
----
+Aakash Mandal, civil engineer (Pulchowk Campus, IOE, Tribhuvan University), Kathmandu, Nepal.
+Related publication: first-author GLOF hydrodynamic modelling study, *Discover Civil Engineering* (Springer Nature, 2025), [doi:10.1007/s44290-025-00176-1](https://doi.org/10.1007/s44290-025-00176-1).
 
-## References (engine lineage)
+## Disclaimer
 
-Primary concepts implemented or cited in the theory layer:
-
-1. **Wan, C. F. & Fell, R. (2004).** Investigation of rate of erosion of soils in embankment dams. *Journal of Geotechnical and Geoenvironmental Engineering*, ASCE. (Erosion rate index \(I\), coefficient of soil erosion.)
-2. **Fell, R., Wan, C. F., Cyganiewicz, J., & Foster, M.** Unified method / internal erosion guidance used widely in dam safety practice (progression and erodibility framing).
-3. **Fread, D. L. (1988).** *BREACH: An erosion model for earthen dam failures.* National Weather Service. (Process-based breach formation: weir/orifice + sediment transport + geometry evolution.)
-4. **Wu, W.** DLBreach — Dam and levee breach model (physically based formation, overtopping and piping).
-5. **USDA-ARS / WinDAM** family — headcut and cohesive erosion practice for embankments (context for future headcut upgrades).
-6. **Bonelli, S. (ed.)** and related pipe-erosion / time-to-failure formulations (driving pressure and characteristic times).
-
-This application is an **engineering screening and teaching tool**. Always document assumptions, prefer site-specific erodibility data, and use established dam-safety review processes for decisions that affect public safety.
-
----
-
-## Roadmap (planned)
-
-- [x] Mechanistic formation engine + dashboard  
-- [x] Theory page and parameter documentation  
-- [x] Project JSON / hydrograph CSV exchange  
-- [x] README and public repo hygiene  
-- [ ] Headcut module for cohesive overtopping  
-- [ ] Sensitivity / Monte Carlo on \(I\) and \(\tau_c\)  
-- [ ] Published validation cases  
-- [ ] Optional native desktop shell (Electron/Tauri) if needed  
-
----
-
-## License and disclaimer
-
-Unless a `LICENSE` file states otherwise, treat the code as provided for research and educational use. **No warranty.** Results depend strongly on soil parameters; they are not a substitute for a site-specific study by a qualified dam safety professional.
-
----
-
-## Repository
-
-**https://github.com/aakashmandal450-pixel/Dam-Breach-Studio**
+Research and teaching code under the MIT License (see `LICENSE`), provided without warranty. Results depend strongly on erodibility inputs. This is not a substitute for a site-specific dam-safety study.

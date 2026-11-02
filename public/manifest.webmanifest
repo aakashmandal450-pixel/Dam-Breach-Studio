@@ -1,0 +1,13 @@
+{
+  "name": "Dam Breach Studio",
+  "short_name": "Dam Breach",
+  "description": "Process-based dam breach and GLOF hazard-screening model",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#245460",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
