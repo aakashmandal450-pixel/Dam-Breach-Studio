@@ -1,0 +1,45 @@
+{
+ "id": "GooseCreek",
+ "tier": "calibration",
+ "group": "G3",
+ "kind": "field",
+ "source": "Wu 2016 Tables 6.3-6.4 #16 (Justin 1932; Wahl 1998). Initial breach 0.2 x 1.0 m assumed by DLBreach; section width 12 H (no crest length)",
+ "H": 6.7,
+ "crest_w": 3.0,
+ "zu": 1.5,
+ "zd": 1.5,
+ "section_width": 80.4,
+ "stub_up": 3.35,
+ "apron": 13.4,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 0.2,
+  "bottom_width": 1.0,
+  "side_hv": 1.0
+ },
+ "reservoir": {
+  "type": "power",
+  "V_full": 10600000.0,
+  "H_full": 6.7,
+  "exp": 2.0,
+  "_note": "storage only -> exponent 2 (DLBreach rule, Sect. 3.3.3)"
+ },
+ "initial_level": 6.7,
+ "inflow": 0.0,
+ "t_end": 43200.0,
+ "material": {
+  "class": "cohesive",
+  "d50_mm": 0.03,
+  "porosity": 0.3,
+  "cohesion_kPa": 13.2,
+  "tan_phi": 0.5,
+  "kd_cm3Ns": 5.35,
+  "tauc_Pa": 0.15,
+  "kd_status": "assumed (DLBreach calibrated); not scaled by f_kd"
+ },
+ "manning_n": 0.016,
+ "obs": {
+  "Qp": 565,
+  "B": 30.5
+ }
+}

@@ -1,0 +1,9 @@
+id,group,source,material,H_m,crest_w_m,us_slope_VH,ds_slope_VH,crest_len_m,reservoir,inflow_m3s,notch_depth_m,notch_w_m,d50_mm,porosity,cohesion_kPa,tan_phi,kd_cm3_Ns,tauc_Pa,kd_status,manning_n_source,notes
+E1S2,G1,Hanson2005,cohesive SM,2.29,1.84 (notch crest length 4.6),0.333,0.333,4.6,as E1S1,1.0,0.46,1.83,,,,,2.0,0.14,measured JET,,
+E2S1,G1,Hanson2005,cohesive SM,1.52,1.90 (notch crest length 3.7),0.333,0.333,3.7,Fig.2 1.5 m curve,0.30,0.30,1.22,,,,,14.2,0.14,measured JET,,
+E2S3,G1,Hanson2005,cohesive CL,1.52,1.90 (notch crest length 3.7),0.333,0.333,3.7,Fig.2 1.5 m curve,0.30,0.30,1.22,,,,,0.038,10,measured JET,,
+Poerua,G3,Wu2016 #9 (Hancox 2005),non-cohesive landslide dam,80,0,0.21,0.45,,storage (5-7)e6 m3; area ~2e5 m2,,0.4a,3.0a,11,0.22a,0,0.8,,,n/a,0.04,
+Yigong,G3,Wu2016 #8 (Chen 2015),non-cohesive landslide dam,80,1.0a,0.068,0.068,,storage 2.38e9 m3; area 5.04e7 m2,,5.0a,5.0a,8,0.3,13,0.75,,,n/a,0.037,very large domain
+LaurelRun,G3,Wu2016 #17 (Wahl 1998),cohesive,12.8,6.1,0.333a,0.4a,,Vw 5.55e5 m3,100a,0.2a,1.0a,0.03a,0.35a,25a,0.55a,7.2a,0.15,assumed,0.016,
+IMPACT_1-02,G4,Wu2016 #15; Hassan & Morris 2008,cohesive clay,5.9,2.0,0.416,0.444,,area-height: site curve from DLBreach card Impactfld03 (ASSUMED same reservoir); Qin(t) Fig.2 of T04-08-04,Qin(t),0.45,5.5,0.007,0.46,4.9,0.42,17.68,0.15,measured,0.016,documented data-quality issues
+IMPACT_2C-02,G4,Wu2016 #6; Hassan & Morris 2008,non-cohesive gravel,5,2,0.526,0.625,,as IMPACT_1-02 (ASSUMED),Qin(t),0.10,2,4.65,0.22,0.9,0.9,,,n/a,0.034,documented volume-balance errors in the outflow hydrographs

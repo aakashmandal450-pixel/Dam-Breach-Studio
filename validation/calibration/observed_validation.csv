@@ -1,0 +1,10 @@
+# VALIDATION OBSERVATIONS - not to be used before stage 4 (blind validation).
+id,obs_Qp_m3s,obs_B_m,obs_Tp_h,obs_Tf_h,obs_stage_times_min,source_note
+E1S2,1.8,6.2,,,54 / 266 / 112,Hanson 2005 Table 4
+E2S1,2.3,3.3,,,18 / 22 / 68,Hanson 2005 Table 4
+E2S3,0.3 (= inflow; no breach),2.4,,,166 / >4200 / -,Hanson 2005 Table 4
+Poerua,2500,125 (top),,0.75,,Wu 2016 Table 6.2
+Yigong,94013,432 (top),6.17,,,Wu 2016 Table 6.2
+LaurelRun,1050,35.1 (average),,,,Wu 2016 Table 6.4
+IMPACT_1-02,390 / 340 (two data sets),,5.1 / 4.9,,,Wu 2016 Table 6.4
+IMPACT_2C-02,117,15 (average),2.45,,,Wu 2016 Table 6.2
