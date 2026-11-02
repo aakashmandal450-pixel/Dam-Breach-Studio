@@ -150,7 +150,7 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
 
 def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = None, verbose: bool = False,
         grid_divisor: Optional[float] = None, max_wall_seconds: Optional[float] = None, chunk_s: float = 120.0,
-        progress: bool = False, overrides: Optional[Dict] = None) -> Dict:
+        progress: bool = False, overrides: Optional[Dict] = None, progress_cb=None) -> Dict:
     """Run a case. Times reported are physical (morphological) seconds.
 
     case['accel'] = A (> 1): morphology runs A times faster than the flow until breach initiation is detected
@@ -185,6 +185,11 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                 step = min(chunk_s, t_phys_end - phys(eng.time))
             eng.run(eng.time + step, Qin=q_in, verbose=verbose, print_every=600.0,
                     stop_when_drained_s=600.0)
+            if progress_cb is not None:
+                hh = eng.history[-1] if eng.history else {}
+                progress_cb({"t": phys(eng.time), "t_end": t_phys_end, "Q": hh.get("Q_prism_outlet", 0.0),
+                             "level": res.level, "lowering": float(np.max(z0 - mesh.z_b)),
+                             "wall": time.perf_counter() - wall0, "accelerated": A > 1.0 and t_switch_h is None})
             if progress:
                 hh = eng.history[-1] if eng.history else {}
                 lw = float(np.max(z0 - mesh.z_b))

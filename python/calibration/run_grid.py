@@ -58,9 +58,18 @@ def worker(args):
         return cid, "skip", 0.0
     import cases as C
     t0 = time.time()
+    live = out / "_live"; live.mkdir(exist_ok=True)
+    lf = live / (path.stem + ".txt")
+
+    def cb(p):
+        try:
+            lf.write_text(json.dumps({"case": cid, "factors": fac, **p}))
+        except OSError:
+            pass
+    cb({"t": 0.0, "t_end": 1.0, "Q": 0.0, "level": 0.0, "lowering": 0.0, "wall": 0.0, "accelerated": False})
     try:
         c = C.load_case(cid)
-        r = C.run(c, fac, max_wall_seconds=max_wall)
+        r = C.run(c, fac, max_wall_seconds=max_wall, chunk_s=60.0, progress_cb=cb)
         r["score"] = C.score(c, r)
         r["case_obs"] = c["obs"]
     except Exception as exc:  # record the failure, keep the batch going
@@ -68,6 +77,10 @@ def worker(args):
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(r, indent=1, default=str))
     os.replace(tmp, path)
+    try:
+        lf.unlink()
+    except OSError:
+        pass
     return cid, ("error" if "error" in r else "ok"), time.time() - t0
 
 
@@ -78,6 +91,7 @@ def main():
     ap.add_argument("--out", type=str, default=str(HERE.parent.parent / "runs" / "calibration_grid"))
     ap.add_argument("--max-wall", type=float, default=5400.0, help="wall-time cap per run [s]; capped runs are flagged")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--heartbeat", type=float, default=60.0, help="seconds between status blocks")
     a = ap.parse_args()
     only = set(a.only.split(",")) if a.only else None
     runs = plan(only)
@@ -90,13 +104,41 @@ def main():
     if a.list or not todo:
         return
     t0 = time.time(); done = 0
+    live = out / "_live"; live.mkdir(exist_ok=True)
+    for f in live.glob("*.txt"):          # leftovers from an interrupted batch
+        f.unlink()
     ctx = mp.get_context("spawn")
+    print(f"started {time.strftime('%H:%M:%S')}. A status block of the runs in progress prints every {a.heartbeat:.0f} s; "
+          f"a line prints whenever a run finishes. Ctrl+C stops; re-running resumes.", flush=True)
     with ctx.Pool(a.workers, maxtasksperchild=4) as pool:
-        for cid, status, wall in pool.imap_unordered(worker, todo):
+        it = pool.imap_unordered(worker, todo)
+        while done < len(todo):
+            try:
+                cid, status, wall = it.next(timeout=a.heartbeat)
+            except mp.TimeoutError:
+                el = time.time() - t0
+                rows = []
+                for f in sorted(live.glob("*.txt")):
+                    try:
+                        p = json.loads(f.read_text())
+                    except (OSError, ValueError):
+                        continue
+                    fac = p["factors"]
+                    rows.append(f"    {p['case']:11s} f_kd={fac['f_kd']:<7.3g} C_h={fac['C_h']:<7.3g} f_t={fac['f_t']:<7.3g} "
+                                f"{100 * p['t'] / max(p['t_end'], 1e-9):5.1f} % of {p['t_end']:.0f} s   Q={p['Q']:9.3g} m3/s   "
+                                f"max lowering={p['lowering']:6.3f} m   running {p['wall'] / 60:5.1f} min"
+                                + ("   [accelerated initiation]" if p.get("accelerated") else ""))
+                print(f"--- {time.strftime('%H:%M:%S')}  still running: {len(rows)} runs, {done}/{len(todo)} finished, "
+                      f"elapsed {el / 3600:.2f} h", flush=True)
+                for r_ in rows:
+                    print(r_, flush=True)
+                continue
             done += 1
             el = time.time() - t0
             eta = el / done * (len(todo) - done)
-            print(f"[{done}/{len(todo)}] {cid:11s} {status:5s} {wall/60:6.1f} min   elapsed {el/3600:5.2f} h   eta {eta/3600:5.2f} h", flush=True)
+            print(f"[{done}/{len(todo)}] {time.strftime('%H:%M:%S')} {cid:11s} {status:5s} {wall/60:6.1f} min   "
+                  f"elapsed {el/3600:5.2f} h   eta {eta/3600:5.2f} h", flush=True)
+    print(f"all done in {(time.time() - t0) / 3600:.2f} h. Next: python calibration\\fit.py", flush=True)
 
 
 if __name__ == "__main__":
