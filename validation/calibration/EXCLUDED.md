@@ -13,3 +13,4 @@
 | Reclamation zoned embankment overtopping test (2017) | Wahl, PFHA 2019 | 4 | Zoned rockfill embankment |
 | Queen Bess Lake 1997 | Kershaw, Clague & Evans 2005 | 3 | No dam height or slopes reported (only lake lowering 8 m, release 6.5e6 m3). Re-admit before the first calibration run if Clague & Evans (2000) or a DEM supplies the moraine geometry |
 | Wahl (1998) historic database | DSO-98-004 Table A1 | G5 | Screening only by split rule; to be extracted separately, never calibration |
+| Walsh (2019) S1-S6, W1-W5 | Walsh 2019 MASc | split-4 | Engine cannot start a breach from a 6 cm notch at the cal-1 grid (setup diagnostics, 2026-11-02) |

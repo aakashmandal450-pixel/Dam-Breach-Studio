@@ -1,6 +1,6 @@
 {
  "id": "WalshS5",
- "tier": "calibration",
+ "tier": "excluded",
  "group": "G8",
  "kind": "lab",
  "source": "Walsh (2019) MASc, Queen's University: Tables 2.1/3.1 (geometry, d50, Qpeak); Tp read from Fig. 2.5a / 3.5a (+/- 5 s) ",
@@ -42,5 +42,6 @@
   "Qp": 0.17,
   "Tp_h": 0.02583,
   "_tp_note": "93 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
- }
+ },
+ "_excluded": "split-4 (2026-11-02): engine resolution limit, see validation/calibration/SPLIT.md"
 }
