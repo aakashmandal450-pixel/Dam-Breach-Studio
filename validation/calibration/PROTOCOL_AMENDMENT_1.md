@@ -1,7 +1,7 @@
 # Calibration protocol — amendment 1 (`protocol-amend-1`)
 
-**Status:** DRAFT — written 2026-11-04 while the cal-1 grid is still running, before `fit.py` has been run.
-Commit and tag `protocol-amend-1` **before** the grid finishes and before any fit or score is looked at.
+**Status:** committed 2026-11-04 as `protocol-amend-1`; §6 wording corrected the same day as `protocol-amend-1a`.
+Both were written while the cal-1 grid was still running, before `fit.py` had been run or any score looked at.
 
 **Amends:** `CALIBRATION_PROTOCOL.md` (2026-11-01). The objective, the factor grid, the calibration/validation
 split, the engine version (V3.2.2) and every frozen model choice in `cal1_config.json` are **unchanged**.
@@ -100,8 +100,10 @@ Primary rule (used for cal-1):
 - A censored run keeps `J = 25` (`PENALTY_MISSING`, as now).
 
 Pre-registered sensitivity check (reported alongside, not used for the freeze unless stated below):
-- Refit with every censored combination **excluded** from that case's sum, i.e. the factor set is judged on the
-  remaining cases only for that combination.
+- Refit with every factor set **removed from the search** if any case included in the fit is censored for it.
+  (Amendment 1a, 2026-11-04: the original wording, "excluded from that case's sum", would lower J for exactly the
+  censored factor sets and bias the fit toward them, so the whole factor set is removed instead. Changed before any
+  fit or score was looked at.)
 - If the primary fit and the sensitivity fit choose a different grid value for any factor, that factor is
   recorded in `cal-1.json` as **censoring-sensitive**. It is still frozen at the primary value, but it is treated
   like an "unstable" factor in the protocol: the Dig Tsho ensemble samples the range spanned by both fits and
