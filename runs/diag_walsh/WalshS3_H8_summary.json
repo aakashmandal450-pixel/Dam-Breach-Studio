@@ -1,0 +1,29 @@
+{
+ "case": "WalshS3",
+ "grid_divisor": 8.0,
+ "nx": 168,
+ "ny": 17,
+ "dx": 0.125,
+ "dy": 0.12294117647058822,
+ "notch_cell_width_m": 0.12294117647058822,
+ "real_notch_top_width_m": 0.06,
+ "initial_head_m": 0.020000000000000018,
+ "h_dry_m": 0.001,
+ "tau_c_Pa": 0.09129185999999999,
+ "theta_c": 0.047,
+ "manning_n": 0.016,
+ "grain_n": 0.010525621586977845,
+ "hand_Q_vnotch_m3s": 4.0090776994216604e-05,
+ "hand_Q_onecell_m3s": 0.0005911412690719544,
+ "first_flow_over_crest_s": 10.0,
+ "max_Q_crest_m3s": 0.00027050853425339525,
+ "max_Q_in_prism_m3s": 0.00024019106167296546,
+ "min_head_m": 0.011406253767504038,
+ "max_tau_ratio_face": 5.999927796486542,
+ "max_notch_lowering_m": 0.0002164758789453547,
+ "simulated_s": 1800.0,
+ "wall_s": 671.069697400002,
+ "verdict": [
+  "ERODES BUT TOO SLOWLY: shear exceeds critical (max ratio 6.0) but the notch lowered only 0.2 mm (initiation needs 15 mm)."
+ ]
+}

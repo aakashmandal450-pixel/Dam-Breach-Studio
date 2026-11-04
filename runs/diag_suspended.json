@@ -1,0 +1,95 @@
+[
+ {
+  "Qp": 0.0004047854561564004,
+  "Tp_h": 0.00029621937734431824,
+  "B": 0.0,
+  "breached": false,
+  "max_lowering_m": 0.002829531196922419,
+  "wall_s": 133.19044989999384,
+  "balances": [
+   -6.106226635438361e-16,
+   -5.052069873556775e-13,
+   -8.881784197001252e-16
+  ],
+  "check": "WalshS3 bed load only",
+  "obs": {
+   "Qp": 0.24,
+   "Tp_h": 0.02028,
+   "_tp_note": "73 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
+  }
+ },
+ {
+  "Qp": 0.00040478702345968893,
+  "Tp_h": 0.00029621937732940195,
+  "B": 0.0,
+  "breached": false,
+  "max_lowering_m": 0.004699074269823522,
+  "wall_s": 136.66378509998322,
+  "balances": [
+   -3.4416913763379853e-15,
+   -5.440092820663267e-15,
+   -8.881784197001252e-16
+  ],
+  "check": "WalshS3 + suspended",
+  "obs": {
+   "Qp": 0.24,
+   "Tp_h": 0.02028,
+   "_tp_note": "73 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
+  }
+ },
+ {
+  "Qp": 0.0004048232082804962,
+  "Tp_h": 0.00029621937698630216,
+  "B": 0.12294117647058822,
+  "breached": true,
+  "max_lowering_m": 0.05539380979756392,
+  "wall_s": 136.63451170001645,
+  "balances": [
+   5.578870698741412e-15,
+   -8.729128531115293e-14,
+   5.487425274450365e-48
+  ],
+  "check": "WalshS3 + suspended, f_t=10",
+  "obs": {
+   "Qp": 0.24,
+   "Tp_h": 0.02028,
+   "_tp_note": "73 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
+  }
+ },
+ {
+  "Qp": 162.82736952958143,
+  "Tp_h": 0.7132717191961083,
+  "B": 80.68904109589042,
+  "breached": true,
+  "max_lowering_m": 6.29271958710147,
+  "wall_s": 141.64700020011514,
+  "balances": [
+   9.604264050722122e-10,
+   5.774199962615967e-08,
+   4.941291820159677e-11
+  ],
+  "check": "Castlewood bed load only 1 h",
+  "obs": {
+   "Qp": 3570,
+   "B": 54.9
+  }
+ },
+ {
+  "Qp": 162.33229989251257,
+  "Tp_h": 0.7218502213877674,
+  "B": 80.68904109589042,
+  "breached": true,
+  "max_lowering_m": 6.313225392960094,
+  "wall_s": 147.24385820003226,
+  "balances": [
+   2.270098775625229e-09,
+   -2.0081643015146255e-08,
+   1.0336620448470057e-11
+  ],
+  "check": "Castlewood + suspended 1 h",
+  "obs": {
+   "Qp": 3570,
+   "B": 54.9
+  }
+ }
+]

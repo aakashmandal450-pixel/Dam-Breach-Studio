@@ -1,0 +1,33 @@
+{
+ "case": "WalshS3",
+ "grid_divisor": 24.0,
+ "nx": 502,
+ "ny": 51,
+ "dx": 0.041666666666666664,
+ "dy": 0.04098039215686274,
+ "notch_cell_width_m": 0.04098039215686274,
+ "real_notch_top_width_m": 0.06,
+ "initial_head_m": 0.020000000000000018,
+ "h_dry_m": 0.001,
+ "tau_c_Pa": 0.09129185999999999,
+ "theta_c": 0.047,
+ "manning_n": 0.016,
+ "grain_n": 0.010525621586977845,
+ "hand_Q_vnotch_m3s": 4.0090776994216604e-05,
+ "hand_Q_onecell_m3s": 0.00019704708969065147,
+ "first_flow_over_crest_s": null,
+ "max_Q_crest_m3s": -8.391883558387878e-09,
+ "max_Q_in_prism_m3s": -9.114155372226571e-11,
+ "min_head_m": -0.010862002634305035,
+ "max_tau_ratio_face": 1.7912436390911384e-05,
+ "max_notch_lowering_m": -0.03062052637833379,
+ "simulated_s": 120.0,
+ "wall_s": 1023.571074499996,
+ "verdict": [
+  "NO FLOW: no water ever crosses the crest. The trickle is lost before the notch (check the wet/dry threshold, the upstream boundary and the initial water surface).",
+  "TRICKLE AT THE WET/DRY LIMIT: depth on the downstream face never exceeds 2 x h_dry (2 mm), so shear there is set to zero or near zero.",
+  "BELOW THRESHOLD: grain shear on the crest/face never reaches critical (max tau/tau_c = 0.00).",
+  "SUPPLY RUNS OUT: lake head over the notch fell to -10.9 mm before the notch deepened, so the feedback (deeper notch -> more flow) never starts.",
+  "NOTCH FILLED IN: the notch invert rose by up to 31 mm (sediment or collapsed notch walls), which can block the trickle."
+ ]
+}

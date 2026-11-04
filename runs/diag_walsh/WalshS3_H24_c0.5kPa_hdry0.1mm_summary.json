@@ -1,0 +1,30 @@
+{
+ "case": "WalshS3",
+ "grid_divisor": 24.0,
+ "nx": 502,
+ "ny": 51,
+ "dx": 0.041666666666666664,
+ "dy": 0.04098039215686274,
+ "notch_cell_width_m": 0.04098039215686274,
+ "real_notch_top_width_m": 0.06,
+ "cohesion_Pa": 500.0,
+ "initial_head_m": 0.020000000000000018,
+ "h_dry_m": 0.0001,
+ "tau_c_Pa": 0.09129185999999999,
+ "theta_c": 0.047,
+ "manning_n": 0.016,
+ "grain_n": 0.010525621586977845,
+ "hand_Q_vnotch_m3s": 4.0090776994216604e-05,
+ "hand_Q_onecell_m3s": 0.00019704708969065147,
+ "first_flow_over_crest_s": 10.0,
+ "max_Q_crest_m3s": 0.00010588665409256518,
+ "max_Q_in_prism_m3s": 9.131988026823963e-05,
+ "min_head_m": 0.017230900588551257,
+ "max_tau_ratio_face": 14.444384876022689,
+ "max_notch_lowering_m": -7.309889898399202e-05,
+ "simulated_s": 300.0,
+ "wall_s": 3033.4867024999985,
+ "verdict": [
+  "No single cause flagged; read the time series."
+ ]
+}

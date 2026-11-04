@@ -1,0 +1,147 @@
+[
+ {
+  "check": "WalshS3 default",
+  "Qp": 0.00041083524326009275,
+  "Tp_h": 0.0002964367452504905,
+  "B": 0.0,
+  "breached": false,
+  "max_lowering_m": 0.0001496218024886753,
+  "t_end_phys_s": 600.0,
+  "t_switch_phys_s": null,
+  "stop_reason": null,
+  "steps": 73582,
+  "wall_s": 133.287505999906,
+  "grid": [
+   168,
+   17,
+   0.125
+  ],
+  "balances": [
+   -6.702971511174383e-15,
+   1.288275042199416e-13,
+   1.096968146360235e-17
+  ],
+  "obs": {
+   "Qp": 0.24,
+   "Tp_h": 0.02028,
+   "_tp_note": "73 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
+  }
+ },
+ {
+  "check": "WalshS3 f_t=10",
+  "Qp": 0.0004108360095888209,
+  "Tp_h": 0.00029643674524311393,
+  "B": 0.0,
+  "breached": false,
+  "max_lowering_m": 0.0014911090327168752,
+  "t_end_phys_s": 600.0,
+  "t_switch_phys_s": null,
+  "stop_reason": null,
+  "steps": 73582,
+  "wall_s": 130.10749580000993,
+  "grid": [
+   168,
+   17,
+   0.125
+  ],
+  "balances": [
+   -4.565792188770956e-15,
+   6.58501031480796e-14,
+   8.455617603678568e-16
+  ],
+  "obs": {
+   "Qp": 0.24,
+   "Tp_h": 0.02028,
+   "_tp_note": "73 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
+  }
+ },
+ {
+  "check": "WalshS3 grid H/24",
+  "Qp": 0.0,
+  "Tp_h": 0.0,
+  "B": 0.0,
+  "breached": false,
+  "max_lowering_m": 0.0,
+  "t_end_phys_s": 600.0,
+  "t_switch_phys_s": null,
+  "stop_reason": null,
+  "steps": 220960,
+  "wall_s": 2578.8622156999772,
+  "grid": [
+   502,
+   50,
+   0.041666666666666664
+  ],
+  "balances": [
+   1.0324499466558119e-13,
+   -1.0324499466558119e-13,
+   0.0
+  ],
+  "obs": {
+   "Qp": 0.24,
+   "Tp_h": 0.02028,
+   "_tp_note": "73 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
+  }
+ },
+ {
+  "check": "E1S1 default",
+  "Qp": 1.7257844705997007,
+  "Tp_h": 2.0,
+  "B": 2.8625,
+  "breached": true,
+  "max_lowering_m": 1.8589583333333335,
+  "t_end_phys_s": 7200.0,
+  "t_switch_phys_s": 3000.0,
+  "stop_reason": null,
+  "steps": 391015,
+  "wall_s": 741.8356878000777,
+  "grid": [
+   76,
+   26,
+   0.28625
+  ],
+  "balances": [
+   6.17319528828375e-11,
+   -5.093170329928398e-11,
+   -7.105427357601002e-14
+  ],
+  "obs": {
+   "Qp": 6.5,
+   "B": 6.9,
+   "Tp_h": 0.666,
+   "stage_times_min": [
+    16,
+    15,
+    20
+   ],
+   "breached": true
+  }
+ },
+ {
+  "check": "Castlewood default 3 h",
+  "Qp": 0.0,
+  "Tp_h": 1.365648551375933e-05,
+  "B": 0.0,
+  "breached": false,
+  "max_lowering_m": 0.0,
+  "t_end_phys_s": 10800.0,
+  "t_switch_phys_s": null,
+  "stop_reason": null,
+  "steps": 219708,
+  "wall_s": 281.9963378999382,
+  "grid": [
+   41,
+   72,
+   3.5566666666666666
+  ],
+  "balances": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "obs": {
+   "Qp": 3570,
+   "B": 54.9
+  }
+ }
+]

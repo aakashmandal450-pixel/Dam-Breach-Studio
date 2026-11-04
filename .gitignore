@@ -58,3 +58,17 @@ python/tmp/
 __pycache__/
 runs/**/*.npz
 runs/**/history_thinned.csv
+
+# Calibration batch working files (results JSONs are committed at freeze; these are not)
+runs/calibration_grid/_ckpt/
+runs/calibration_grid/_live/
+runs/calibration_grid/_repro/
+runs/calibration_grid/*.tmp
+python/calibration/_next/
+python/calibration/_cal1_runner_backup/
+python/_smoke_ckpt/
+python/_smoke_ck_result.json
+
+# Local scratch and source documents (PDFs etc. are kept locally, not in git)
+tmp/
+validation/sources/

@@ -66,3 +66,40 @@ Westoby geometry: the lake drains to the debris-top stage (25.8 m) by about 7,00
 
 Roughness with grain shear (Westoby geometry, 5 kPa): peak 3,511 / 3,656 / 3,452 m3/s for n 0.025 / 0.035 / 0.05 (within +/-3 %), time to peak 67 / 73 / 102 min.
 The wave-window overtopping peak falls with n (4,570 / 2,848 / 1,411 m3/s). The rerun at n 0.035 reproduces the interrupted run's peak exactly.
+
+## Calibration (stage 3) diagnostics and batch runs
+
+### Setup diagnostics before the cal-1 grid (`runs/diag_setup.json`, `runs/diag_suspended.json`; default factors, not scored)
+
+| Check | Model Qp (m3/s) / Tp (h) / B (m) | Observed Qp / Tp / B | Note |
+|---|---|---|---|
+| E1S1 default, 7,200 s | 1.73 / 2.0 / 2.9 | 6.5 / 0.67 / 6.9 | breaches, but slower and smaller; f_kd expected > 1 |
+| Castlewood default, 3 h | 0 / - / 0 | 3,570 / - / 54.9 | no flow: notch lost on an even grid; fixed by the odd-cell, centred-notch rule and depth-scaled Ls |
+| Castlewood 1 h, bed load only / + wu2000 suspended | 163 / 0.71 / 80.7 and 162 / 0.72 / 80.7 | 3,570 / - / 54.9 | after the notch fix; suspended load changes little at 1 h |
+| WalshS3 default (H/8), f_t = 10, bed / + suspended | about 4e-4 / - / 0 | 0.24 / 73 s / - | no breach |
+| WalshS3 H/24 | 0 | | no flow over the crest |
+
+### Walsh (2019) S3 diagnostics (`python/calibration/diag_walsh.py`, `runs/diag_walsh/`, 2026-11-03; read-only, not scored)
+
+| Run | Setup | Result |
+|---|---|---|
+| WalshS3_H8 | cal-1 setup, 12.5 cm cells, 1,800 s | about 0.26 L/s over the one-cell notch; flow falls below h_dry = 1 mm on the face and spreads as a sheet; notch lowered 0.2 mm; no breach |
+| WalshS3_H24 | 4 cm cells, 120 s | notch walls (about 63 deg, c = 0) collapse in seconds; invert rises 31 mm above the lake; no flow |
+| WalshS3_H24_c0.5kPa_hdry0.1mm | 0.5 kPa, h_dry 0.1 mm, 300 s | notch stays open, about 0.1 L/s reaches the toe; 32 mm scour hole at the crest edge, refilled by a fan downstream; headcut never triggers (slope 0.38-0.43 < 0.5); stalls after about 220 s |
+| WalshS3_H8_pilot0.37m | stage-3 start, V pilot 0.37 x 0.12 m, 300 s | 2.5 L/s, constant; upstream lip does not erode (1 mm) and controls the flow |
+| WalshS3_H16_pilot0.37m | same, 6 cm cells, 300 s | lip erodes about 15 cm; Q 13 L/s at 300 s and still rising; breach width 0.76 m; observed 0.24 m3/s at 73 s |
+
+Conclusion: Walsh stays excluded (EXCLUDED.md). The initiation stage is set by grid and threshold artefacts; from stage 3,
+erosion and widening at the upstream breach lip are too weak. Candidate engine changes are listed in the handoff of 2026-11-03.
+
+### cal-1 grid (`python/calibration/run_grid.py`, `runs/calibration_grid/`)
+
+- Pre-registered log grid, 204 runs over the 6 calibration cases; run 2026-11-02 to 2026-11-04 with 11 workers and a
+  5,400 s wall-clock cap. 117 runs completed, 87 capped (E1S3 27, E2S2 40, Goose Creek 6, South Fork 10, Castlewood 4),
+  0 errors. About 326 worker-hours; several multi-hour machine pauses (sleep) were counted against the wall cap.
+- Protocol amendment 1 / 1a (`validation/calibration/PROTOCOL_AMENDMENT_1.md`, tags `protocol-amend-1`,
+  `protocol-amend-1a`), written before any fit: capped runs are censored, not failed; post-peak stop; CPU-time budget;
+  re-run of the capped set. Runner tag `amend1-runner`.
+- Reproducibility check (2026-11-04): E1S1 and Castlewood runs repeated with the new runner match the stored Qp, Tp, B
+  exactly (relative difference 0). Original capped files are kept in `runs/calibration_grid/_capped_v1/`.
+- Amendment-1 re-run of the 87 runs started 2026-11-04 17:16, 5 workers, 1 thread each, checkpoints every 30 min CPU.
