@@ -88,9 +88,16 @@ The wave-window overtopping peak falls with n (4,570 / 2,848 / 1,411 m3/s). The 
 | WalshS3_H24_c0.5kPa_hdry0.1mm | 0.5 kPa, h_dry 0.1 mm, 300 s | notch stays open, about 0.1 L/s reaches the toe; 32 mm scour hole at the crest edge, refilled by a fan downstream; headcut never triggers (slope 0.38-0.43 < 0.5); stalls after about 220 s |
 | WalshS3_H8_pilot0.37m | stage-3 start, V pilot 0.37 x 0.12 m, 300 s | 2.5 L/s, constant; upstream lip does not erode (1 mm) and controls the flow |
 | WalshS3_H16_pilot0.37m | same, 6 cm cells, 300 s | lip erodes about 15 cm; Q 13 L/s at 300 s and still rising; breach width 0.76 m; observed 0.24 m3/s at 73 s |
+| WalshS3_H16_pilot0.37m_t900 | same, 900 s, cross-section snapshots every 30 s | peak 22 L/s at 450 s, then falls as the lake drains (30.3 -> 19.1 m3); breach width 0.82 m. The lip (breach control section) always sits on the un-eroded upstream face: the channel head creeps up the face at about 1.2 mm/s, so the inlet lowers only about 0.4 mm/s (0.880 -> 0.523 m in 900 s); Fr 0.4-0.7 over the lip; mid-crest flowing width 0.3-0.5 m |
+| WalshS3_H16_pilot0.37m_t900_a_uphill1 | (a) slope-factor lower clip 0.3 -> 1.0 (no capacity reduction where flow runs uphill), diagnostic patch | peak 20 L/s at 520 s, width 0.82 m: no change, so the uphill slope factor is not the lip bottleneck |
+| WalshS3_H16_pilot0.37m_t900_c_hc0.1 | (c) headcut_min_slope 0.5 -> 0.1 | peak 50 L/s at 320 s, width 1.08 m; lip lowers about 6x faster (0.880 -> 0.493 m by 270 s). At the peak the lip could pass about 125 L/s but 47 L/s flows: the narrow channel (flowing 0.44-0.63 m, top about 1.0 m) now controls. Outflow stops at 540 s when the closed flume end (downstream wall) fills to lake level |
 
 Conclusion: Walsh stays excluded (EXCLUDED.md). The initiation stage is set by grid and threshold artefacts; from stage 3,
 erosion and widening at the upstream breach lip are too weak. Candidate engine changes are listed in the handoff of 2026-11-03.
+Sensitivity (2026-11-05, diagnostic overrides only, engine file unchanged): the headcut scarp threshold, not the uphill
+slope factor, holds the lip back; with it lowered, channel widening becomes the limit (peak still about 5x low vs 0.24 m3/s).
+The threshold compares a cell-to-cell drop with dx, so it is partly grid-dependent; a cal-2 change should address that.
+Widening tests (d) near_bank_shear_factor 1.5 and (e) lateral_model force_balance, both with (c), follow.
 
 ### cal-1 grid (`python/calibration/run_grid.py`, `runs/calibration_grid/`)
 

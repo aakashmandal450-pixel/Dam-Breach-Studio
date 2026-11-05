@@ -1,0 +1,45 @@
+{
+ "case": "WalshS3",
+ "pilot": {
+  "width_m": 0.37,
+  "depth_m": 0.12025,
+  "x_from_m": 2.523727,
+  "x_to_m": 6.032,
+  "source": "width = B* at T=0, Walsh (2019) Fig. 2.7a (30 deg, S3); depth: sides at friction angle"
+ },
+ "stage3": {
+  "Qp_model_m3s": 0.022110599703336568,
+  "Qp_obs_m3s": 0.24,
+  "t_peak_model_s": 450.0,
+  "t_peak_from_5pct_s": 440.0,
+  "Tp_obs_s_from_T0": 73.008,
+  "breach_width_model_m": 0.8233333333333333
+ },
+ "grid_divisor": 16.0,
+ "nx": 335,
+ "ny": 33,
+ "dx": 0.0625,
+ "dy": 0.06333333333333332,
+ "notch_cell_width_m": 0.06333333333333332,
+ "real_notch_top_width_m": 0.06,
+ "cohesion_Pa": 0.0,
+ "initial_head_m": 0.08024999999999993,
+ "h_dry_m": 0.001,
+ "tau_c_Pa": 0.09129185999999999,
+ "theta_c": 0.047,
+ "manning_n": 0.016,
+ "grain_n": 0.010525621586977845,
+ "hand_Q_vnotch_m3s": 0.0012929510609830846,
+ "hand_Q_onecell_m3s": 0.0024476472550217705,
+ "first_flow_over_crest_s": 10.0,
+ "max_Q_crest_m3s": 0.028708968626615476,
+ "max_Q_in_prism_m3s": 0.022110599703336568,
+ "min_head_m": 0.08024999999999993,
+ "max_tau_ratio_face": 150.28827415936192,
+ "max_notch_lowering_m": 0.5171798857463228,
+ "simulated_s": 900.0,
+ "wall_s": 1207.0818626000255,
+ "verdict": [
+  "BREACH: notch lowered by more than half its depth."
+ ]
+}

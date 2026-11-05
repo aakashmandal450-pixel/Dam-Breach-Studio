@@ -9,6 +9,13 @@ At the end it writes a CSV time series, a CSV bed profile, a JSON summary and a 
 Usage (from the python folder):
   python -u calibration\\diag_walsh.py --grid 8  --t-end 1800 --log-every 10
   python -u calibration\\diag_walsh.py --grid 24 --t-end 120  --log-every 5
+  python -u calibration\\diag_walsh.py --grid 16 --t-end 900 --log-every 10 --pilot-channel     # stage-3 start
+
+Cross-section snapshots (--section-every, default 30 s) record the full-width bed and flow at two rows:
+  control  the breach control section: the row whose lowest bed point is highest along the flow path from the
+           lake to the toe (the breach lip; it moves upstream as the lip erodes)
+  midcrest the middle row of the original crest
+and print, per snapshot, the control row position, its invert, the eroded top width, the flowing width and Q.
 """
 from __future__ import annotations
 
@@ -44,6 +51,15 @@ ap.add_argument("--pilot-width", type=float, default=0.37,
                 help="pilot channel top width [m]; 0.37 m = B* at T=0 for S3 (30 deg), Walsh 2019 Fig. 2.7a")
 ap.add_argument("--pilot-depth", type=float, default=None,
                 help="pilot channel depth [m]; default: sides at the friction angle, depth = width/2 * tan(phi)")
+ap.add_argument("--section-every", type=float, default=30.0,
+                help="simulated seconds between cross-section snapshots at the breach control section and mid-crest "
+                     "(0 = off)")
+ap.add_argument("--cfg", action="append", default=[], metavar="KEY=VALUE",
+                help="diagnostic override of an EngineConfig field, e.g. --cfg headcut_min_slope=0.1 (repeatable)")
+ap.add_argument("--uphill-floor", type=float, default=None,
+                help="lower clip of the bed-slope factor on transport capacity (engine: 0.3). 1.0 = no reduction "
+                     "where flow runs uphill (upstream face / breach lip); downhill enhancement unchanged")
+ap.add_argument("--suffix", default="", help="appended to the output file names (keeps earlier results)")
 ap.add_argument("--out", default=str(HERE.parent.parent / "runs" / "diag_walsh"))
 a = ap.parse_args()
 
@@ -51,6 +67,27 @@ case = C.load_case(a.case)
 mesh, res, mat, cfg, meta = C.build(case, {"f_t": 1.0}, a.grid)
 cfg.morph_accel = 1.0
 tag = f"{a.case}_H{int(a.grid)}"
+overrides = {}
+for kv in a.cfg:                        # diagnostic EngineConfig overrides (engine file unchanged)
+    k, v = kv.split("=", 1)
+    if not hasattr(cfg, k):
+        sys.exit(f"--cfg: EngineConfig has no field '{k}'")
+    old_v = getattr(cfg, k)
+    new_v = (v.lower() in ("1", "true", "yes")) if isinstance(old_v, bool) else type(old_v)(v) if old_v is not None else float(v)
+    setattr(cfg, k, new_v)
+    overrides[k] = {"default": old_v, "set": new_v}
+if a.uphill_floor is not None:          # diagnostic patch of the slope factor, this process only
+    _floor = float(a.uphill_floor)
+
+    def _slope_factor_patched(self, mesh_, ux, uy, speed):
+        if not self.cfg.use_slope_effect:
+            return 1.0
+        dzdx = np.gradient(mesh_.z_b, mesh_.dx, axis=0)
+        dzdy = np.gradient(mesh_.z_b, mesh_.dy, axis=1)
+        dzds = (dzdx * ux + dzdy * uy) / (speed + 1e-9)
+        return np.clip(1.0 - self.cfg.slope_beta * dzds, _floor, 3.0)
+    E.Morphology._slope_factor = _slope_factor_patched
+    overrides["slope_factor_lower_clip"] = {"default": 0.3, "set": _floor}
 if a.cohesion_kpa is not None:          # diagnostic override only (engine and case files unchanged)
     mat.cohesion = a.cohesion_kpa * 1000.0
     tag += f"_c{a.cohesion_kpa:g}kPa"
@@ -77,6 +114,7 @@ if a.pilot_channel:      # diagnostic start condition only (case file and engine
                        if a.pilot_depth is None else "width Fig. 2.7a; depth user-set"}
     tag += f"_pilot{pw:g}m"
     meta["invert"] = float(np.min(mesh.z_b[(mesh.x >= x_up) & (mesh.x <= x_up + case["crest_w"]), :]))
+tag += a.suffix
 out = Path(a.out)
 out.mkdir(parents=True, exist_ok=True)
 
@@ -134,9 +172,43 @@ print(f"    overrides: cohesion = {mat.cohesion/1000:g} kPa, h_dry = {cfg.h_dry*
 if pilot:
     print(f"    PILOT CHANNEL (stage 3 start): V {pilot['width_m']:.2f} m wide x {pilot['depth_m']*100:.1f} cm deep,"
           f" x = {pilot['x_from_m']:.2f}-{pilot['x_to_m']:.2f} m; {pilot['source']}")
+if overrides:
+    print(f"    DIAGNOSTIC OVERRIDES: {overrides}")
 print(f"    simulating {a.t_end:.0f} s, a line every {a.log_every:.0f} s; started {time.strftime('%H:%M:%S')}\n", flush=True)
 print("      t[s]   head[cm]  Qin[L/s] Qcrest[L/s] Qout[L/s] | h[mm] crest/mid/toe | tau/tau_c crest/mid/toe |"
       " notch low[mm] max low[mm] @  | wall[s]", flush=True)
+
+sec_rows, sec_lines = [], []
+i_dam0 = int(np.argmax(z0[:, 0] > float(np.min(z0[:, 0])) + 1e-9))    # first row on the upstream face
+mid_crest = int(crest_idx[len(crest_idx) // 2])
+next_sec = 0.0 if a.section_every > 0 else float("inf")
+
+
+def snapshot():
+    """Full-width bed and flow at the control section and mid-crest; returns a one-line summary dict."""
+    zb, h = mesh.z_b, mesh.h
+    rmin = zb[i_dam0:toe + 1, :].min(axis=1)
+    ictl = i_dam0 + int(np.argmax(rmin))          # highest lowest-point along the path = breach control section
+    sp_ = np.hypot(mesh.u, mesh.v)
+    tau_ = grain_shear(h, sp_)
+    out_ = {"t": eng.time}
+    for name, i in (("control", ictl), ("midcrest", mid_crest)):
+        eroded = zb[i, :] < z0[i, 0] - 0.01        # channel: >1 cm below the undisturbed dam surface (edge column)
+        wet = h[i, :] > 2 * h_dry
+        q_row = float(np.sum(h[i, :] * mesh.u[i, :]) * dy)
+        jj = int(np.argmin(zb[i, :]))
+        fr = float(sp_[i, jj] / math.sqrt(g * max(h[i, jj], 1e-9))) if h[i, jj] > h_dry else 0.0
+        out_.update({f"{name}_row": i, f"{name}_x": float(mesh.x[i]), f"{name}_invert": float(zb[i, :].min()),
+                     f"{name}_top_width": float(eroded.sum() * dy), f"{name}_wet_width": float(wet.sum() * dy),
+                     f"{name}_Q": q_row, f"{name}_hmax": float(h[i, :].max()), f"{name}_Fr_centre": fr,
+                     f"{name}_tau_ratio_max": float(tau_[i, :].max() / tau_c)})
+        for j in range(ny):
+            sec_rows.append({"t": eng.time, "section": name, "row": i, "x_m": float(mesh.x[i]), "j": j,
+                             "y_m": float(mesh.y[j]), "z0_m": float(z0[i, j]), "zb_m": float(zb[i, j]),
+                             "h_m": float(h[i, j]), "u_ms": float(mesh.u[i, j]), "v_ms": float(mesh.v[i, j]),
+                             "tau_ratio": float(tau_[i, j] / tau_c)})
+    return out_
+
 
 rows = []
 wall0 = time.perf_counter()
@@ -179,6 +251,17 @@ with warnings.catch_warnings():
               f" {r['h_crest_m']*1000:5.1f} {r['h_face_mid_m']*1000:5.1f} {r['h_toe_m']*1000:5.1f} |"
               f" {r['ratio_crest']:6.2f} {r['ratio_face_mid']:6.2f} {r['ratio_toe']:6.2f} |"
               f" {notch_low*1000:9.2f} {r['max_lowering_m']*1000:9.2f} {zone:>8s} | {r['wall_s']:6.0f}", flush=True)
+        if eng.time >= next_sec - 1e-9:
+            sl = snapshot()
+            sec_lines.append(sl)
+            print(f"      [section t={sl['t']:5.0f} s] control row {sl['control_row']} x={sl['control_x']:.2f} m"
+                  f" invert {sl['control_invert']:.3f} m | top width {sl['control_top_width']:.2f} m,"
+                  f" flowing {sl['control_wet_width']:.2f} m, Q {sl['control_Q']*1000:.2f} L/s,"
+                  f" h max {sl['control_hmax']*1000:.0f} mm, Fr {sl['control_Fr_centre']:.2f},"
+                  f" tau/tau_c max {sl['control_tau_ratio_max']:.1f} || mid-crest: invert {sl['midcrest_invert']:.3f} m,"
+                  f" top width {sl['midcrest_top_width']:.2f} m, flowing {sl['midcrest_wet_width']:.2f} m", flush=True)
+            while next_sec <= eng.time + 1e-9:
+                next_sec += a.section_every
         if eng.stop_reason is not None:
             print(f"    engine stopped: {eng.stop_reason}")
             break
@@ -192,6 +275,12 @@ with ts.open("w", newline="") as f:
     w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
     w.writeheader()
     w.writerows(rows)
+if sec_rows:
+    for fname, data in ((f"{tag}_sections.csv", sec_rows), (f"{tag}_sections_summary.csv", sec_lines)):
+        with (out / fname).open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(data[0].keys()))
+            w.writeheader()
+            w.writerows(data)
 h, sp = mesh.h, np.hypot(mesh.u, mesh.v)
 tau = grain_shear(h, sp)
 pf = out / f"{tag}_profile.csv"
@@ -239,7 +328,7 @@ obs = case.get("obs", {})
 stage3 = {"Qp_model_m3s": qp, "Qp_obs_m3s": obs.get("Qp"), "t_peak_model_s": tp,
           "t_peak_from_5pct_s": tp - t5, "Tp_obs_s_from_T0": (obs.get("Tp_h") or 0) * 3600.0,
           "breach_width_model_m": float(bd["width_m"])}
-summary = {"case": a.case, "pilot": pilot, "stage3": stage3, "grid_divisor": a.grid, "nx": nx, "ny": ny, "dx": dx, "dy": dy,
+summary = {"case": a.case, "overrides": overrides, "pilot": pilot, "stage3": stage3, "grid_divisor": a.grid, "nx": nx, "ny": ny, "dx": dx, "dy": dy,
            "notch_cell_width_m": dy, "real_notch_top_width_m": case["notch"]["top_width"],
            "cohesion_Pa": mat.cohesion,
            "initial_head_m": head0, "h_dry_m": h_dry, "tau_c_Pa": tau_c, "theta_c": theta_c,
@@ -258,4 +347,5 @@ if pilot:
 print("\n    VERDICT:")
 for v in verdict:
     print("     - " + v)
-print(f"\n    wrote {ts.name}, {pf.name}, {tag}_summary.json in {out}", flush=True)
+print(f"\n    wrote {ts.name}, {pf.name}, {tag}_summary.json"
+      + (f", {tag}_sections.csv, {tag}_sections_summary.csv" if sec_rows else "") + f" in {out}", flush=True)
