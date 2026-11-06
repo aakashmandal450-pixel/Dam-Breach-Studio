@@ -189,6 +189,28 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
     pp_key = "Q_in_prism" if case.get("q_measure") == "reservoir" else "Q_prism_outlet"
     pp_qin = float(case.get("inflow", 0.0)) if not callable(case.get("inflow", 0.0)) else 0.0
     pp = {"i": 0, "qmax": -np.inf, "t_peak": None, "t_last_exceed": None}
+    # Compact history (memory fix, 2026-11-05): the engine appends one dict per step to eng.history (about 1.5 kB
+    # each, 2-4 GB for a long lab run). After every chunk the runner moves the entries into float64 columns of the
+    # only keys it uses and empties eng.history. The engine only ever appends to history, so results are unchanged.
+    H_KEYS = ("time", "Q_in_prism", "Q_prism_outlet")
+    hstore = {"chunks": {k: [] for k in H_KEYS}, "n": 0, "last": {}}
+
+    def h_absorb():
+        ents = eng.history
+        if ents:
+            for k_ in H_KEYS:
+                hstore["chunks"][k_].append(np.array([e[k_] for e in ents], dtype=float))
+            hstore["n"] += len(ents)
+            hstore["last"] = ents[-1]
+            eng.history = []
+
+    def h_column(k_, start=0):
+        ch = hstore["chunks"][k_]
+        if len(ch) > 1:                       # consolidate so later slices are cheap
+            ch[:] = [np.concatenate(ch)]
+        arr = ch[0] if ch else np.zeros(0)
+        return arr[start:]
+
     cpu_prev = wall_prev = 0.0
     restarts = 0
     ck = Path(checkpoint_dir) if checkpoint_dir else None
@@ -204,16 +226,16 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
         q_in = case.get("inflow", 0.0)
         if ck_state is not None:
             eng.load_checkpoint(str(ck / ck_state["engine_file"]))
-            hist = []
+            eng.history = []
             for part in ck_state["parts"]:
                 with np.load(ck / part, allow_pickle=False) as a_:
-                    cols = {k: a_[k] for k in a_.files}
-                n_ = len(next(iter(cols.values()))) if cols else 0
-                keys_ = list(cols)
-                hist.extend({k: float(cols[k][i]) for k in keys_} for i in range(n_))
-            if len(hist) != ck_state["n_history"]:
-                raise RuntimeError(f"checkpoint history has {len(hist)} entries, runner.json says {ck_state['n_history']}")
-            eng.history = hist
+                    for k_ in H_KEYS:
+                        hstore["chunks"][k_].append(np.asarray(a_[k_], dtype=float).copy())
+            hstore["n"] = int(sum(len(c) for c in hstore["chunks"]["time"]))
+            if hstore["n"]:
+                hstore["last"] = {k_: float(hstore["chunks"][k_][-1][-1]) for k_ in H_KEYS}
+            if hstore["n"] != ck_state["n_history"]:
+                raise RuntimeError(f"checkpoint history has {hstore['n']} entries, runner.json says {ck_state['n_history']}")
             t_switch_h = ck_state["t_switch_h"]
             cpu_prev, wall_prev = ck_state["cpu_s"], ck_state["wall_s"]
             restarts = ck_state.get("restarts", 0) + 1
@@ -221,7 +243,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
             pp["qmax"] = -np.inf if ck_state["pp"]["qmax"] is None else ck_state["pp"]["qmax"]
             if progress:
                 print(f"    resumed from checkpoint at engine t = {eng.time:.0f} s (restart {restarts})", flush=True)
-        ck_saved_n = len(eng.history)
+        ck_saved_n = hstore["n"]
         ck_last_cpu = time.process_time()
 
         def save_ck():
@@ -229,26 +251,21 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
             k_ = (ck_state or {}).get("seq", 0) + 1 if not hasattr(save_ck, "seq") else save_ck.seq + 1
             save_ck.seq = k_
             ck.mkdir(parents=True, exist_ok=True)
-            new_h = eng.history[ck_saved_n:]
+            h_absorb()
+            n_new = hstore["n"] - ck_saved_n
             part = f"hist_{k_:05d}.npz"
-            if new_h:
-                keys_ = list(new_h[0].keys())
+            if n_new > 0:
                 tmp = ck / (part + ".tmp")
                 with open(tmp, "wb") as fh:
-                    np.savez(fh, **{k: np.array([h_[k] for h_ in new_h], dtype=float) for k in keys_})
+                    np.savez(fh, **{k: h_column(k, ck_saved_n) for k in H_KEYS})
                 import os as _os
                 _os.replace(tmp, ck / part)
-            full = eng.history
-            eng.history = []
-            try:
-                eng.save_checkpoint(str(ck / f"engine_{k_:05d}.npz"))
-            finally:
-                eng.history = full
+            eng.save_checkpoint(str(ck / f"engine_{k_:05d}.npz"))     # eng.history is empty here
             parts = list((ck_state or {}).get("parts", [])) if not hasattr(save_ck, "parts") else save_ck.parts
-            if new_h:
+            if n_new > 0:
                 parts = parts + [part]
             save_ck.parts = parts
-            state = {"seq": k_, "engine_file": f"engine_{k_:05d}.npz", "parts": parts, "n_history": len(full),
+            state = {"seq": k_, "engine_file": f"engine_{k_:05d}.npz", "parts": parts, "n_history": hstore["n"],
                      "engine_time": eng.time, "t_switch_h": t_switch_h, "A": A,
                      "cpu_s": cpu_prev + time.process_time() - cpu0, "wall_s": wall_prev + time.perf_counter() - wall0,
                      "restarts": restarts,
@@ -264,7 +281,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                         old_f.unlink()
                     except OSError:
                         pass
-            ck_saved_n = len(full)
+            ck_saved_n = hstore["n"]
             ck_last_cpu = time.process_time()
 
         def phys(th):
@@ -288,13 +305,14 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                 step = min(chunk_s, t_phys_end - phys(eng.time))
             eng.run(eng.time + step, Qin=q_in, verbose=verbose, print_every=600.0,
                     stop_when_drained_s=600.0)
+            h_absorb()
             if progress_cb is not None:
-                hh = eng.history[-1] if eng.history else {}
+                hh = hstore["last"]
                 progress_cb({"t": phys(eng.time), "t_end": t_phys_end, "Q": hh.get("Q_prism_outlet", 0.0),
                              "level": res.level, "lowering": float(np.max(z0 - mesh.z_b)),
                              "wall": time.perf_counter() - wall0, "accelerated": A > 1.0 and t_switch_h is None})
             if progress:
-                hh = eng.history[-1] if eng.history else {}
+                hh = hstore["last"]
                 lw = float(np.max(z0 - mesh.z_b))
                 print(f"    t = {phys(eng.time):9.0f} s of {t_phys_end:.0f} s  ({100 * phys(eng.time) / t_phys_end:5.1f} %)   "
                       f"Q out = {hh.get('Q_prism_outlet', 0.0):9.4g} m3/s   lake level = {res.level:8.3f} m   "
@@ -313,14 +331,14 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                     if progress:
                         print(f"    breach initiation detected at t = {t_switch_h * A:.0f} s -> acceleration off", flush=True)
             if pp_on:   # post-peak quiescence, updated incrementally from the new history entries
-                hist_ = eng.history
-                for h_ in hist_[pp["i"]:]:
-                    tq, qq = phys_h(h_["time"]), float(h_[pp_key])
+                t_new, q_new = h_column("time", pp["i"]), h_column(pp_key, pp["i"])
+                for th_, qq in zip(t_new.tolist(), q_new.tolist()):
+                    tq = phys_h(th_)
                     if qq > pp["qmax"]:
                         pp["qmax"], pp["t_peak"] = qq, tq
                     if qq > pp_qin + post_peak_frac * (pp["qmax"] - pp_qin):
                         pp["t_last_exceed"] = tq
-                pp["i"] = len(hist_)
+                pp["i"] = hstore["n"]
                 t_now = phys(eng.time)
                 lowered = float(np.max((z0 - mesh.z_b)[crest, :])) if crest.any() else 0.0
                 if (lowered > 0.5 * dn and pp["t_peak"] is not None and pp["t_last_exceed"] is not None
@@ -344,11 +362,11 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
     censored = stop_cause in ("wall_cap", "cpu_budget")
     if stop_cause is None and phys(eng.time) < t_phys_end - 1e-6:   # left the loop early for no recorded reason
         stop_cause = "unknown"
-    hist = eng.history
-    th = np.array([h["time"] for h in hist])
-    tp = np.array([phys(v) for v in th])
+    h_absorb()
+    th = h_column("time")
+    tp = np.array([phys(v) for v in th.tolist()])
     key = "Q_in_prism" if case.get("q_measure") == "reservoir" else "Q_prism_outlet"
-    q = np.array([h[key] for h in hist])
+    q = h_column(key)
     k = int(np.argmax(q)) if len(q) else 0
     datum = 0.0
     if case.get("tp_datum") == "q_frac" and len(q):

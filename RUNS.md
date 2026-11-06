@@ -97,7 +97,39 @@ erosion and widening at the upstream breach lip are too weak. Candidate engine c
 Sensitivity (2026-11-05, diagnostic overrides only, engine file unchanged): the headcut scarp threshold, not the uphill
 slope factor, holds the lip back; with it lowered, channel widening becomes the limit (peak still about 5x low vs 0.24 m3/s).
 The threshold compares a cell-to-cell drop with dx, so it is partly grid-dependent; a cal-2 change should address that.
-Widening tests (d) near_bank_shear_factor 1.5 and (e) lateral_model force_balance, both with (c), follow.
+Widening tests, both with (c): (d) near_bank_shear_factor 1.5 -> peak 57 L/s at 290 s, width 0.95 m;
+(e) lateral_model force_balance -> 48 L/s at 290 s, width 1.01 m. Neither widens the channel: bank erosion strength and
+the lateral law are not the limit. Cross-sections show why: dry cliffs up to 36 cm high at 70-80 deg and submerged banks
+at about 54 deg (phi = 33 deg, c = 0) stand for minutes. BankStability._collapse_pairs collapses only a dry cell above a
+wet toe ("unsupported" pairs); dry-dry and wet-wet pairs steeper than phi never fail, so the channel cannot widen by
+bank failure. Next diagnostic: an angle-of-repose avalanche rule for all pairs.
+(f) (c) + angle-of-repose collapse for all neighbour pairs (diagnostic patch of BankStability._collapse_pairs, phi = 33 deg
+dry and wet, half the excess moved per pass, mass conserved; balances <= 4e-13 m3): peak 94 L/s at 230 s (160 s after Q
+first reached 5 % of the peak), breach width 1.33 m; the channel widens to the full 2.09 m flume width by 240 s with banks
+at about phi, and the rising limb becomes a sharp single rise. Peak still about 2.6x low (0.24 m3/s) and rise about 2x slow.
+Literature (Barlow et al. 2024, XBeach on the same tests): avalanching off -> width growth stops, peak 0.05 vs 0.16 m3/s;
+on -> 0.13 m3/s. Standard 2D practice (XBeach, BASEMENT, Wu 2D, Swartenbroekx) collapses all pairs above a critical
+angle, with separate dry and submerged angles.
+
+Follow-up, all with (c) + (f) and the same pilot (0.37 x 0.12 m), H/16 unless noted (2026-11-05):
+
+| Run | Change | Peak Q | Rise (5 % -> peak) | Breach width |
+|---|---|---|---|---|
+| (f) | reference, f_t = 1, phi 33 deg | 94 L/s | 160 s | 1.33 m |
+| (g1) | f_t = 3 | 222 L/s | 70 s | 1.58 m |
+| (g2) | f_t = 10 | 353 L/s | 20 s | 2.09 m (flume walls) |
+| (h1) | phi 30.5 deg (measured repose angle, Beddoe & Take 2016) | 100 L/s | 160 s | 1.58 m |
+| (h2) | phi 30.5, dry pairs up to 45 deg, wet/dry switch depth 0.1 m | 87 L/s | 170 s | 1.27 m |
+| (i) | H/24 (4 cm cells); MemoryError at 840 s, values from the log | 118 L/s | 140 s | - |
+| Walsh observed | | 240 L/s | 73 s | about 1.6 m |
+
+With the lip (c) and widening (f) processes in place, the remaining gap is the erosion rate: f_t = 3 matches peak, rise
+and width together; f_t = 10 overshoots all three. The repose / dry-wet angles change the peak by a few %. H/16 -> H/24
+raises the peak about 26 % (vs about 9x from H/8 to H/16 before (c) and (f)). Walsh is excluded and its observations
+are seen, so f_t ~ 3 is diagnostic, not a calibration. A XBeach-style submerged angle of 16.7 deg (wetslp 0.3) without a
+rate limit flattens the submerged 30 deg upstream face within seconds and was not used.
+Note: (i) and 11 E2S2 re-runs failed with MemoryError while the five diagnostics ran alongside the re-run (per-step
+history held as Python dicts, about 2-4 GB per long run); see the calibration section.
 
 ### cal-1 grid (`python/calibration/run_grid.py`, `runs/calibration_grid/`)
 

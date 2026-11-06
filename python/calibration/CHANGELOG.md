@@ -31,3 +31,17 @@ every new option defaults to off, so `cases.run()` without them behaves exactly 
 Known, not changed: in `cases.run()` the physical-time mapping `phys()` maps history entries recorded before the
 acceleration switch as if they were after it. No calibration case uses a Q-fraction Tp datum and peaks occur after
 the switch, so cal-1 scores are not affected; the post-peak stop uses a corrected mapping (`phys_h`).
+
+## memfix (2026-11-05)
+
+`cases.run()` no longer keeps the engine's per-step history as Python dicts. After every chunk the runner moves the
+entries into float64 columns of the three keys it uses (`time`, `Q_in_prism`, `Q_prism_outlet`) and empties
+`eng.history`. The engine only appends to `history` and never reads it during a run, so results are unchanged.
+Reason: 13 E2S2 re-runs and a Walsh diagnostic failed with MemoryError on 2026-11-05 (about 0.8 kB per step held in
+memory; 2-4 GB per long lab run, more with 5 workers plus diagnostics).
+
+* Tests (Linux): identical Qp, Tp, B, steps, stop time, lake volume, max lowering and all three balances vs the
+  previous runner for E1S1 H/4 with post-peak stop, WalshS3 H/8 (reservoir discharge, Q-fraction Tp datum) and E1S1
+  H/8 to 7,200 s; kill/resume twice with the new runner; and a checkpoint written by the previous runner resumed by
+  the new one (the situation of the failed runs). Peak memory 162 -> 52 MB (145k steps) and 374 -> 76 MB (393k steps).
+* Checkpoint history parts now hold only the three keys; parts written by the previous runner (all keys) are still read.

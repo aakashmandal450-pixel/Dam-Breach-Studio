@@ -59,15 +59,33 @@ ap.add_argument("--cfg", action="append", default=[], metavar="KEY=VALUE",
 ap.add_argument("--uphill-floor", type=float, default=None,
                 help="lower clip of the bed-slope factor on transport capacity (engine: 0.3). 1.0 = no reduction "
                      "where flow runs uphill (upstream face / breach lip); downhill enhancement unchanged")
+ap.add_argument("--avalanche", action="store_true",
+                help="diagnostic patch of bank collapse: every neighbour pair steeper than the friction angle fails "
+                     "(engine: only a dry cell above a wet toe fails); mass conserved as in the engine")
+ap.add_argument("--avalanche-dry-deg", type=float, default=None,
+                help="with --avalanche: critical angle for pairs that are not both wet [deg] (default: friction angle)")
+ap.add_argument("--avalanche-hswitch", type=float, default=None,
+                help="with --avalanche: depth [m] above which a cell counts as wet for the angle choice (default h_dry; "
+                     "XBeach hswitch = 0.1)")
+ap.add_argument("--f-t", type=float, default=1.0, help="transport capacity factor f_t (cal-1 factor; default 1)")
+ap.add_argument("--phi-deg", type=float, default=None,
+                help="override the material friction / repose angle [deg] (Walsh case file: 33; measured 30.5)")
+ap.add_argument("--avalanche-wet-deg", type=float, default=None,
+                help="with --avalanche: critical angle for pairs where both cells are wet [deg] (default: friction angle)")
 ap.add_argument("--suffix", default="", help="appended to the output file names (keeps earlier results)")
 ap.add_argument("--out", default=str(HERE.parent.parent / "runs" / "diag_walsh"))
 a = ap.parse_args()
 
 case = C.load_case(a.case)
-mesh, res, mat, cfg, meta = C.build(case, {"f_t": 1.0}, a.grid)
+mesh, res, mat, cfg, meta = C.build(case, {"f_t": a.f_t}, a.grid)
 cfg.morph_accel = 1.0
 tag = f"{a.case}_H{int(a.grid)}"
 overrides = {}
+if a.f_t != 1.0:
+    overrides["f_t"] = {"default": 1.0, "set": a.f_t}
+if a.phi_deg is not None:               # diagnostic material override (case file unchanged)
+    overrides["phi_deg"] = {"default": mat.phi, "set": a.phi_deg}
+    mat.phi = a.phi_deg
 for kv in a.cfg:                        # diagnostic EngineConfig overrides (engine file unchanged)
     k, v = kv.split("=", 1)
     if not hasattr(cfg, k):
@@ -88,6 +106,47 @@ if a.uphill_floor is not None:          # diagnostic patch of the slope factor, 
         return np.clip(1.0 - self.cfg.slope_beta * dzds, _floor, 3.0)
     E.Morphology._slope_factor = _slope_factor_patched
     overrides["slope_factor_lower_clip"] = {"default": 0.3, "set": _floor}
+if a.avalanche:                         # diagnostic patch of BankStability._collapse_pairs, this process only
+    _wet_deg = a.avalanche_wet_deg
+    _dry_deg = a.avalanche_dry_deg
+    _hsw = a.avalanche_hswitch
+
+    def _collapse_pairs_avalanche(self, zA, zB, SA, SB, hA, hB, ds):
+        p_, phi = self.mat.porosity, np.deg2rad(self.mat.phi)
+        dz = zA - zB
+        ad = np.abs(dz)
+        beta = np.arctan(ad / ds)
+        Zc = self.critical_height(beta)
+        fs_trigger = max(self.cfg.bank_fs_trigger, 1e-6)
+        fs_target = max(self.cfg.bank_fs_target, 1e-6)
+        FS = Zc / np.maximum(ad, 1e-12)
+        if np.any(ad > 1e-9):
+            self.last_min_fs = min(self.last_min_fs, float(np.min(FS[ad > 1e-9])))
+        wetA, wetB = hA > self.cfg.h_dry, hB > self.cfg.h_dry
+        hs_ = self.cfg.h_dry if _hsw is None else _hsw
+        both_wet = (hA > hs_) & (hB > hs_)
+        phi_pair = np.full_like(dz, phi if _dry_deg is None else np.deg2rad(_dry_deg))
+        phi_pair = np.where(both_wet, phi if _wet_deg is None else np.deg2rad(_wet_deg), phi_pair)
+        trig = (FS < fs_trigger) | (beta > phi_pair)
+        target = np.minimum(np.maximum(Zc / fs_target, ds * np.tan(phi_pair)), ad)
+        target = np.where(beta > phi_pair, np.minimum(target, ds * np.tan(phi_pair)), target)
+        d = np.where(trig, ad - target, 0.0)
+        d = np.where(d > 1e-6, 0.5 * d, 0.0)     # move half the excess: both cells meet at the critical slope
+        fromA, fromB = np.where(dz > 0, d, 0.0), np.where(dz < 0, d, 0.0)
+        zA -= fromA
+        zB -= fromB
+        toA, toB = fromB, fromA
+        SA += np.where(wetA, (1.0 - p_) * toA, 0.0)
+        zA += np.where(wetA, 0.0, toA)
+        SB += np.where(wetB, (1.0 - p_) * toB, 0.0)
+        zB += np.where(wetB, 0.0, toB)
+        return float(np.sum(d))
+    E.BankStability._collapse_pairs = _collapse_pairs_avalanche
+    overrides["bank_collapse"] = {"default": "dry cell above wet toe only",
+                                  "set": "all pairs steeper than the critical angle",
+                                  "dry_deg": _dry_deg if _dry_deg is not None else "phi",
+                                  "wet_deg": _wet_deg if _wet_deg is not None else "phi",
+                                  "hswitch_m": _hsw if _hsw is not None else "h_dry"}
 if a.cohesion_kpa is not None:          # diagnostic override only (engine and case files unchanged)
     mat.cohesion = a.cohesion_kpa * 1000.0
     tag += f"_c{a.cohesion_kpa:g}kPa"
@@ -328,7 +387,12 @@ obs = case.get("obs", {})
 stage3 = {"Qp_model_m3s": qp, "Qp_obs_m3s": obs.get("Qp"), "t_peak_model_s": tp,
           "t_peak_from_5pct_s": tp - t5, "Tp_obs_s_from_T0": (obs.get("Tp_h") or 0) * 3600.0,
           "breach_width_model_m": float(bd["width_m"])}
-summary = {"case": a.case, "overrides": overrides, "pilot": pilot, "stage3": stage3, "grid_divisor": a.grid, "nx": nx, "ny": ny, "dx": dx, "dy": dy,
+_d = eng.diagnostics_summary()
+balances = {"water_m3": _d["water_balance_err_m3"], "reservoir_m3": _d["reservoir_balance_err_m3"],
+            "sediment_m3": _d["sediment_balance_err_m3"]}
+print(f"\n    balance errors: water {balances['water_m3']:.2e} m3, reservoir {balances['reservoir_m3']:.2e} m3,"
+      f" sediment {balances['sediment_m3']:.2e} m3")
+summary = {"case": a.case, "overrides": overrides, "balances": balances, "pilot": pilot, "stage3": stage3, "grid_divisor": a.grid, "nx": nx, "ny": ny, "dx": dx, "dy": dy,
            "notch_cell_width_m": dy, "real_notch_top_width_m": case["notch"]["top_width"],
            "cohesion_Pa": mat.cohesion,
            "initial_head_m": head0, "h_dry_m": h_dry, "tau_c_Pa": tau_c, "theta_c": theta_c,
