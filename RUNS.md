@@ -120,12 +120,14 @@ Follow-up, all with (c) + (f) and the same pilot (0.37 x 0.12 m), H/16 unless no
 | (g2) | f_t = 10 | 353 L/s | 20 s | 2.09 m (flume walls) |
 | (h1) | phi 30.5 deg (measured repose angle, Beddoe & Take 2016) | 100 L/s | 160 s | 1.58 m |
 | (h2) | phi 30.5, dry pairs up to 45 deg, wet/dry switch depth 0.1 m | 87 L/s | 170 s | 1.27 m |
-| (i) | H/24 (4 cm cells); MemoryError at 840 s, values from the log | 118 L/s | 140 s | - |
+| (i) | H/24 (4 cm cells), f_t = 1 (rerun 2026-11-06; first attempt hit MemoryError at 840 s) | 118 L/s | 140 s | 1.43 m |
+| (i2) | H/24, f_t = 3 | 252 L/s | 50 s | 1.68 m |
 | Walsh observed | | 240 L/s | 73 s | about 1.6 m |
 
 With the lip (c) and widening (f) processes in place, the remaining gap is the erosion rate: f_t = 3 matches peak, rise
 and width together; f_t = 10 overshoots all three. The repose / dry-wet angles change the peak by a few %. H/16 -> H/24
-raises the peak about 26 % (vs about 9x from H/8 to H/16 before (c) and (f)). Walsh is excluded and its observations
+raises the peak 26 % at f_t = 1 and 13 % at f_t = 3 and shortens the rise by about 20 s (vs about 9x from H/8 to H/16
+before (c) and (f)). At H/24, f_t = 3 still matches Walsh: peak +5 %, width +5 %, rise 23 s faster. Balances <= 4e-13 m3. Walsh is excluded and its observations
 are seen, so f_t ~ 3 is diagnostic, not a calibration. A XBeach-style submerged angle of 16.7 deg (wetslp 0.3) without a
 rate limit flattens the submerged 30 deg upstream face within seconds and was not used.
 Note: (i) and 11 E2S2 re-runs failed with MemoryError while the five diagnostics ran alongside the re-run (per-step
