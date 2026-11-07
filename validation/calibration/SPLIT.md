@@ -53,3 +53,21 @@ are excluded from both calibration and validation in this round, and may return 
 Also fixed in cal-1 before any run: non-cohesive cases use bed load plus Wu, Wang & Jia (2000) suspended load.
 Calibration: E1S1, E1S3, E2S2, Castlewood, SouthFork, GooseCreek. Validation: E1S2, E2S1, E2S3, Poerua, Yigong, LaurelRun,
 IMPACT 1-02, IMPACT 2C-02 (+ Taiwan pending).
+
+## split-5 (2026-11-07, after the cal-1 fit, BEFORE any cal-2 code): Walsh (G8) S-series returns as SEEN validation
+Reason: the Walsh S3 diagnostics (RUNS.md, 2026-11-03 to 2026-11-06) located the engine limits behind split-4 and
+shaped cal-2 changes C1 and C2 (CAL2_PROPOSAL.md). Walsh can therefore not be a blind test, but it is the only
+fully instrumented non-cohesive breach in the set and is kept as a separately reported check of those changes.
+What has been seen (disclosure): Walsh Tables 2.1 / 3.1 and Figs 2.5-2.7 (all S and W tests; read for the case files
+and the S3 diagnostics); Barlow et al. (2024) Table 1 (peak discharge for upstream slopes 10, 18.4, 25 and 30 deg);
+model results for S3 only (diagnostic runs, never scored).
+Rules, written before any cal-2 run on Walsh:
+| Item | Rule |
+|---|---|
+| Cases | S-series tests whose case files exist (S1 18.4 deg, S3 30 deg, S5 25 deg). S2, S4, S6 and the W-series stay excluded for now (no case files; W needs the beach geometry checked). |
+| Tier | `seen-validation`: never calibration, never in the stage-4 pass rate; reported in its own table next to stage 4. |
+| Start state | Walsh stage 3 ("T = 0", onset of rapid rise): V pilot channel along the notch line, top width = breach width B* at T = 0 read from Walsh Fig. 2.7 for each test (flagged "read from figure"), sides at the friction angle, from where its floor meets the upstream face to the toe. Lake level at T = 0 from the case file (as in the S3 diagnostics). |
+| Material | repose / friction angle 30.5 deg, measured for this sand (Beddoe & Take 2016, used by Barlow et al. 2024), replacing the assumed 33 deg; other values as in the case files. |
+| Scored | Qp; time to peak from T = 0 (model datum: start of the run); B* at the time of the peak, read from Walsh Fig. 2.7. Same objective terms as calibration, plus the stage-4 acceptance limits. |
+| Model | frozen cal-2 (factors and config), grid H/16; H/24 reported as a grid check. |
+| Timing | run once, at stage 4, after cal-2 is frozen. |
