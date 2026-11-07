@@ -1,0 +1,56 @@
+{
+ "id": "Castlewood",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 0.1,
+  "f_t": 0.31622776601683794
+ },
+ "Qp": 118.74794652677559,
+ "Tp_h": 1.4022841376714759,
+ "B": 80.68904109589042,
+ "breached": true,
+ "t_end_phys_s": 30120.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": null,
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 600972,
+ "wall_s": 2264.880339299998,
+ "cpu_s": 1493.546875,
+ "restarts": 0,
+ "lake_volume_end_m3": 3055849.805850243,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": 86400.0,
+  "checkpoint_every_cpu_s": 1800.0
+ },
+ "grid": [
+  41,
+  73,
+  3.5566666666666666
+ ],
+ "balances": [
+  -3.41970007866621e-08,
+  6.845220923423767e-08,
+  3.725286745748235e-11
+ ],
+ "max_lowering_m": 5.765150859358643,
+ "score": {
+  "id": "Castlewood",
+  "terms": {
+   "Qp": 11.582571533314232,
+   "B": 0.22066105973288905
+  },
+  "J": 11.80323259304712
+ },
+ "case_obs": {
+  "Qp": 3570,
+  "B": 54.9
+ }
+}

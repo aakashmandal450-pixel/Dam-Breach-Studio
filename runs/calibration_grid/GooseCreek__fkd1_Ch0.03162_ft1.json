@@ -1,0 +1,56 @@
+{
+ "id": "GooseCreek",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 0.03162277660168379,
+  "f_t": 1.0
+ },
+ "Qp": 176.62347798996043,
+ "Tp_h": 8.177894123973696,
+ "B": 14.317808219178083,
+ "breached": true,
+ "t_end_phys_s": 43200.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "t_end",
+ "t_switch_phys_s": null,
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 1933405,
+ "wall_s": 4527.709378400003,
+ "cpu_s": 4474.21875,
+ "restarts": 0,
+ "lake_volume_end_m3": 5854090.21498838,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": 86400.0,
+  "checkpoint_every_cpu_s": 1800.0
+ },
+ "grid": [
+  36,
+  73,
+  1.1166666666666667
+ ],
+ "balances": [
+  3.8271309676929377e-07,
+  2.0023435354232788e-07,
+  1.4551915228366852e-11
+ ],
+ "max_lowering_m": 6.7,
+ "score": {
+  "id": "GooseCreek",
+  "terms": {
+   "Qp": 1.3521166479523274,
+   "B": 0.2814978025598499
+  },
+  "J": 1.6336144505121775
+ },
+ "case_obs": {
+  "Qp": 565,
+  "B": 30.5
+ }
+}

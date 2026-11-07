@@ -1,0 +1,48 @@
+{
+ "id": "E1S3",
+ "factors": {
+  "f_kd": 0.01,
+  "C_h": 0.1,
+  "f_t": 1.0
+ },
+ "Qp": 0.9969004056725499,
+ "Tp_h": 16.833333333333332,
+ "B": 0.0,
+ "breached": false,
+ "t_end_phys_s": 60600.0,
+ "capped": true,
+ "t_switch_phys_s": null,
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 507600,
+ "wall_s": 10740.372770300004,
+ "grid": [
+  76,
+  27,
+  0.28625
+ ],
+ "balances": [
+  -2.1451285192597425e-10,
+  7.10315362084657e-10,
+  -3.2017111184501346e-11
+ ],
+ "max_lowering_m": 0.0011677115261875537,
+ "score": {
+  "id": "E1S3",
+  "terms": {
+   "no_breach": 0.0,
+   "B": 1.0
+  },
+  "J": 1.0
+ },
+ "case_obs": {
+  "B": 4.2,
+  "breached": false,
+  "stage_times_min": [
+   164,
+   ">1036",
+   null
+  ],
+  "_note": "no breach during the test; t_end = 164 + 1036 min"
+ }
+}

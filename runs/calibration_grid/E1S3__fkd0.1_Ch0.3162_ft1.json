@@ -1,0 +1,62 @@
+{
+ "id": "E1S3",
+ "factors": {
+  "f_kd": 0.1,
+  "C_h": 0.31622776601683794,
+  "f_t": 1.0
+ },
+ "Qp": 0.9991102295235751,
+ "Tp_h": 20.0,
+ "B": 0.0,
+ "breached": false,
+ "t_end_phys_s": 72000.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "t_end",
+ "t_switch_phys_s": null,
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 604786,
+ "wall_s": 1638.1110983000253,
+ "cpu_s": 1609.96875,
+ "restarts": 0,
+ "lake_volume_end_m3": 5299.567608771752,
+ "runner": {
+  "post_peak_stop": false,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": 86400.0,
+  "checkpoint_every_cpu_s": 1800.0
+ },
+ "grid": [
+  76,
+  27,
+  0.28625
+ ],
+ "balances": [
+  2.4641622076160274e-11,
+  6.366462912410498e-11,
+  -4.2157513591156714e-11
+ ],
+ "max_lowering_m": 0.01455695624829706,
+ "score": {
+  "id": "E1S3",
+  "terms": {
+   "no_breach": 0.0,
+   "B": 1.0
+  },
+  "J": 1.0
+ },
+ "case_obs": {
+  "B": 4.2,
+  "breached": false,
+  "stage_times_min": [
+   164,
+   ">1036",
+   null
+  ],
+  "_note": "no breach during the test; t_end = 164 + 1036 min"
+ }
+}

@@ -1,0 +1,51 @@
+{
+ "id": "E2S2",
+ "factors": {
+  "f_kd": 0.01,
+  "C_h": 0.1,
+  "f_t": 1.0
+ },
+ "Qp": 0.29677151657576756,
+ "Tp_h": 24.866666666666667,
+ "B": 2.3592592592592596,
+ "breached": false,
+ "t_end_phys_s": 89520.0,
+ "capped": true,
+ "t_switch_phys_s": 89400.0,
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 905118,
+ "wall_s": 7351.163783299999,
+ "grid": [
+  82,
+  27,
+  0.19
+ ],
+ "balances": [
+  -1.6473933328597923e-11,
+  3.865352482534945e-10,
+  -1.616484723854228e-13
+ ],
+ "max_lowering_m": 0.24577072970064548,
+ "score": {
+  "id": "E2S2",
+  "terms": {
+   "Qp": 2.1819928179291606,
+   "Tp": 0.00963302651234278,
+   "B": 0.08126658781353872
+  },
+  "J": 2.272892432255042
+ },
+ "case_obs": {
+  "Qp": 1.3,
+  "B": 3.3,
+  "Tp_h": 22.542,
+  "stage_times_min": [
+   80,
+   1092,
+   361
+  ],
+  "breached": true,
+  "_tp_note": "Tp not reported; midpoint of stage III used (rule as E1S1 check)"
+ }
+}
