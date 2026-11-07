@@ -21,6 +21,13 @@ foreach ($backend in @("NumPy", "Numba")) {
         $summary += ("{0,-38} {1,-6} {2}  [{3:N0} s]" -f $s, $backend, $(if ($code -eq 0) { "PASS" } else { "FAIL (exit $code)" }), $sw.Elapsed.TotalSeconds)
     }
 }
+# C5: Numba morphology kernels vs NumPy (kernel part; run_c5_check.ps1 adds the full-run comparison)
+"`n===== tests\c5_fast_morph_check.py (kernels) =====" | Tee-Object -FilePath $log -Append
+$sw = [Diagnostics.Stopwatch]::StartNew()
+python -u tests\c5_fast_morph_check.py 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath $log -Append
+$code = $LASTEXITCODE; $sw.Stop()
+if ($code -ne 0) { $overall = 1 }
+$summary += ("{0,-38} {1,-6} {2}  [{3:N0} s]" -f "tests\c5_fast_morph_check.py", "Numba", $(if ($code -eq 0) { "PASS" } else { "FAIL (exit $code)" }), $sw.Elapsed.TotalSeconds)
 "`n===== SUMMARY =====" | Tee-Object -FilePath $log -Append
 $summary | Tee-Object -FilePath $log -Append
 $(if ($overall -eq 0) { "ALL PASS" } else { "SOME FAILED" }) | Tee-Object -FilePath $log -Append

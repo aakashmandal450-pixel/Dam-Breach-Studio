@@ -16,6 +16,9 @@ depend only on the bed and were recomputed every hydraulic step for the history 
 
 Left in NumPy, unchanged: the reservoir-face positivity limit, Q_left / Q_right sums and the speed-clip bookkeeping.
 Steps with an incident lake-wave boundary (wave_boundary given) fall back to the NumPy step.
+
+V3.3 C5: enable() also switches on fast_morph (bank collapse, C1 scarp headcut, lateral erosion, sediment advection;
+see fast_morph.py for how closely each matches NumPy), and the bed-cache check no longer allocates a temporary.
 """
 from __future__ import annotations
 
@@ -25,6 +28,9 @@ from typing import Optional, Tuple
 import numpy as np
 
 import breach_engine_2d_v3_2 as E
+import fast_morph   # C5: morphology kernels, switched on and off with the hydraulics
+
+_MORPH = True       # set fast_hydro._MORPH = False before enable() to keep the NumPy morphology (for comparisons)
 
 try:
     import numba as _nb
@@ -423,6 +429,21 @@ def _fast_bed_shear(self, mesh):
     return mesh.tau_b
 
 
+@njit(cache=True)
+def _same_k(a, b):
+    for k in range(a.size):
+        if a.flat[k] != b.flat[k]:
+            return False
+    return True
+
+
+def _same(a, b) -> bool:
+    """np.array_equal for two float arrays of equal shape, with early exit and no temporary (C5)."""
+    if not (a.flags.c_contiguous and b.flags.c_contiguous):
+        return bool(np.array_equal(a, b))
+    return bool(_same_k(a.ravel(), b.ravel()))
+
+
 def _cached(self, name, fn):
     """The breach diagnostics depend only on the bed, which changes only at morphology steps: cache them by
     the bed's content (exact; recomputed whenever any bed value differs)."""
@@ -432,7 +453,7 @@ def _cached(self, name, fn):
     key = (id(self.mesh), float(self.cfg.breach_width_fraction), float(self._dam_height),
            id(self._initial_bed), id(self._crest_rows))
     hit = c.get(name)
-    if hit is not None and hit[0] == key and hit[1].shape == zb.shape and np.array_equal(hit[1], zb):
+    if hit is not None and hit[0] == key and hit[1].shape == zb.shape and _same(hit[1], zb):
         return hit[2]
     val = fn(self)
     c[name] = (key, zb.copy(), val)
@@ -457,6 +478,8 @@ def enable() -> bool:
     E.Hydrodynamics.bed_shear = _fast_bed_shear
     E.UltimateBreachEngine.breach_development = _fast_breach_development
     E.UltimateBreachEngine.channelization_index = _fast_channelization_index
+    if _MORPH:
+        fast_morph.enable()
     _ENABLED = True
     return True
 
@@ -467,6 +490,7 @@ def disable() -> None:
     E.Hydrodynamics.bed_shear = _ORIG_SHEAR
     E.UltimateBreachEngine.breach_development = _ORIG_BD
     E.UltimateBreachEngine.channelization_index = _ORIG_CI
+    fast_morph.disable()
     _ENABLED = False
 
 

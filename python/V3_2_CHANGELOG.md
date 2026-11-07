@@ -150,3 +150,20 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
   cohesive unchanged by "off"; an x-facing bank retreats exactly like a y-facing one with "xy"; default "y" leaves
   an x-facing bank alone; "xy" gives the same as "y" for a y-facing bank; mass conserved; bad option values raise
   ValueError). V3.3 suite 34/34; all V3.2 suites pass with defaults, NumPy and Numba.
+- C5 (Numba kernels for the morphology; new file `fast_morph.py`, switched on by `fast_hydro.enable()`; engine
+  unchanged and still the reference). Compiled: bank collapse (both modes, all passes), C1 scarp headcut (all rate
+  laws), lateral erosion ('critical_shear'; 'force_balance' stays in NumPy) and sediment advection with the outflow
+  limiter. The bed-cache check in fast_hydro no longer allocates a temporary. `fast_hydro._MORPH = False` before
+  enable() keeps the NumPy morphology (used by the comparison).
+  Agreement: advection is arithmetic only and bit-identical; collapse, headcut and lateral erosion use arctan / tan /
+  cbrt, where Numba (C maths library) and NumPy (own SIMD routines) can differ in the last bit, so they agree to
+  round-off. On random beds: collapse and lateral bit-identical in all 240 tests, scarp within 5e-16 relative, same
+  headcut position. Full runs (cal-1 factors, C1+C2 on, H/4 or H/8): same step count, Qp/Tp/B/max lowering equal to
+  <= 4e-16 (E1S1, E2S2, Walsh S3) and 6e-15 (Castlewood).
+  Speed (CPU, Numba hydraulics, NumPy -> Numba morphology): E1S1 36.7 -> 19.5 s (1.9x), E2S2 to 20,000 s
+  116.8 -> 68.4 s (1.7x), Castlewood 125 -> 102 s (1.2x), Walsh S3 22.3 -> 20.7 s (1.1x). With C5, C1 + C2 cost
+  about 5 % (E2S2: 67 s on vs 64 s off). What is left is mostly the hydraulic step itself.
+  Correction to the C1 note above: the "3-10x slower" figure was measured without the Numba backend. With the Numba
+  hydraulics and before C5, C1 + C2 added about 23 % (E2S2 136 -> 167 s).
+  Checked: tests/c5_fast_morph_check.py (part 1 kernels, part 2 full runs; run_c5_check.ps1); all V3.2 and V3.3
+  suites pass with NumPy and Numba.
