@@ -41,6 +41,7 @@ V3.2 additions (defaults keep v2-style behaviour except the positivity fix)
 * V3.3 options (all default to V3.2.2 behaviour; see CAL2_PROPOSAL.md):
   C2 collapse_mode='all_pairs' with collapse_phi_dry / collapse_phi_wet / collapse_hswitch.
   C1 headcut_mode='scarp' with headcut_seg_slope / headcut_min_height (headcut_min_slope applies to the scarp).
+  C3 lateral_noncohesive='off'.  C4 lateral_directions='xy'.
 * material_class 'mixed' is reserved (accepted with a warning, behaves as
   noncohesive). make_floor, LakeGeometry, impulse3d, InitiationMonitor,
   initiation_success, perturb_crest, weak_spot, auto_seed_notch.
@@ -223,6 +224,9 @@ class EngineConfig:
                                           #     "scarp" (runs of steep drops in x and y, rate from the scarp height)
     headcut_seg_slope: float = 0.1        # C1: a drop belongs to a scarp if its cell-to-cell slope >= this
     headcut_min_height: float = 0.0       # C1: minimum scarp height [m] (0 = no cell-size dependent floor)
+    lateral_noncohesive: str = "excess_shear"  # C3: "excess_shear" (V3.2.2) or "off": no lateral law for non-cohesive
+                                               #     (and 'mixed') material; banks retreat by toe erosion + collapse
+    lateral_directions: str = "y"         # C4: "y" (V3.2.2: banks facing y only) or "xy" (also banks facing x)
     kinematic_viscosity: float = 1.0e-6   # [m2/s], for the settling velocity
     eps: float = 1e-12
 
@@ -996,15 +1000,31 @@ class LateralErosion:
 
     def apply(self, mesh: MeshState, tau: np.ndarray, dt: float) -> float:
         m, cfg = self.mat, self.cfg
+        if cfg.lateral_noncohesive not in ("excess_shear", "off"):
+            raise ValueError("lateral_noncohesive must be 'excess_shear' or 'off'")
+        if cfg.lateral_directions not in ("y", "xy"):
+            raise ValueError("lateral_directions must be 'y' or 'xy'")
+        if cfg.lateral_noncohesive == "off" and m.material_class != "cohesive":
+            return 0.0                                     # C3: non-cohesive banks retreat by toe erosion + collapse
+        total = self._apply_axis(mesh, tau, dt, 1)          # banks facing y (V3.2.2)
+        if cfg.lateral_directions == "xy":
+            total += self._apply_axis(mesh, tau, dt, 0)     # C4: banks facing x
+        return total
+
+    def _apply_axis(self, mesh: MeshState, tau: np.ndarray, dt: float, axis: int) -> float:
+        m, cfg = self.mat, self.cfg
         p, phi = m.porosity, np.deg2rad(m.phi)
         z, S, h, zf = mesh.z_b, mesh.S, mesh.h, mesh.z_floor
+        ds = mesh.dy if axis == 1 else mesh.dx
         total = 0.0
         for ia, ib in ((slice(0, -1), slice(1, None)), (slice(1, None), slice(0, -1))):
-            zA, zB = z[:, ia], z[:, ib]
-            SA, hA, tA = S[:, ia], h[:, ia], tau[:, ia]
+            A = (slice(None), ia) if axis == 1 else (ia, slice(None))
+            B = (slice(None), ib) if axis == 1 else (ib, slice(None))
+            zA, zB = z[A], z[B]
+            SA, hA, tA = S[A], h[A], tau[A]
             drop = zB - zA
             mask = (hA > cfg.h_dry) & (drop > 1e-6)
-            tan_a = np.where(mask, drop / mesh.dy, 0.0)
+            tan_a = np.where(mask, drop / ds, 0.0)
             if cfg.lateral_model == "force_balance":
                 K = ikeda_side_slope_factor(np.arctan(tan_a), phi, cfg.lateral_lift_drag)
             else:
@@ -1016,9 +1036,9 @@ class LateralErosion:
             tau_cb = tau_c_bank * K
             R = kd_bank * np.maximum(tau_bank - tau_cb, 0.0) ** n_bank
             hw = np.minimum(drop, hA)
-            dzB = np.where(mask, R * hw * dt / mesh.dy, 0.0)
+            dzB = np.where(mask, R * hw * dt / ds, 0.0)
             dzB = np.minimum(dzB, np.maximum(drop, 0.0))
-            dzB = np.minimum(dzB, np.maximum(zB - zf[:, ib], 0.0))
+            dzB = np.minimum(dzB, np.maximum(zB - zf[B], 0.0))
             zB -= dzB
             SA += (1.0 - p) * dzB
             total += float(np.sum(dzB)) * mesh.dx * mesh.dy

@@ -2,6 +2,7 @@
 
 C2: general slope collapse (collapse_mode='all_pairs').
 C1: scarp-based headcut (headcut_mode='scarp').
+C3: lateral_noncohesive='off'.  C4: lateral_directions='xy'.
 """
 import sys
 import warnings
@@ -189,6 +190,55 @@ try:
     check("C1 unknown headcut_mode rejected", False)
 except ValueError:
     check("C1 unknown headcut_mode rejected", True)
+
+# =====================================================================================================================
+# C3: no lateral law for non-cohesive material; C4: lateral erosion of banks facing x
+# =====================================================================================================================
+
+def bank_mesh(axis, ds=0.2, n=20):
+    """Wet channel (bed 0, water 0.2 m) beside a dry bank (0.5 m); bank faces y (axis=1) or x (axis=0)."""
+    zb = np.zeros((n, n))
+    if axis == 1:
+        zb[:, n // 2:] = 0.5
+    else:
+        zb[n // 2:, :] = 0.5
+    m = eng.create_prism_mesh(n * ds, n * ds, n, n, zb.copy(), 0.2)
+    tau = np.where(m.h > 1e-3, 50.0, 0.0)
+    return m, tau
+
+
+def run_lateral(axis, material_class="cohesive", **kw):
+    m, tau = bank_mesh(axis)
+    mat = eng.MaterialProps(material_class=material_class, kd=1e-5, tau_c=2.0, porosity=0.35, phi=33.0)
+    cfg = eng.EngineConfig(h_dry=1e-3, **kw)
+    before = solids(m, mat.porosity)
+    vol = eng.LateralErosion(mat, cfg).apply(m, tau, 10.0)
+    return vol, solids(m, mat.porosity) - before
+
+
+v_def, _ = run_lateral(1, "noncohesive")
+v_off, _ = run_lateral(1, "noncohesive", lateral_noncohesive="off")
+check("C3 non-cohesive bank erodes with the V3.2.2 law (default)", v_def > 0.0, f"{v_def:.3g} m3")
+check("C3 lateral_noncohesive='off': no lateral erosion for non-cohesive", v_off == 0.0)
+v_mix, _ = run_lateral(1, "mixed", lateral_noncohesive="off")
+check("C3 'mixed' material treated as non-cohesive", v_mix == 0.0)
+v_c1, _ = run_lateral(1, "cohesive")
+v_c2, _ = run_lateral(1, "cohesive", lateral_noncohesive="off")
+check("C3 cohesive material unchanged by lateral_noncohesive='off'", v_c1 == v_c2 and v_c1 > 0.0, f"{v_c1:.3g} m3")
+
+vy, dmy = run_lateral(1, "cohesive", lateral_directions="xy")
+vx, dmx = run_lateral(0, "cohesive", lateral_directions="xy")
+vx_old, _ = run_lateral(0, "cohesive")
+check("C4 bank facing x retreats like a bank facing y (dx = dy)", abs(vx - vy) / vy < 1e-12, f"{vx:.6g} vs {vy:.6g} m3")
+check("C4 default 'y': a bank facing x does not retreat (V3.2.2)", vx_old == 0.0)
+check("C4 y-facing bank: 'xy' gives the same as 'y'", vy == v_c1)
+check("C4 mass conserved", abs(dmx) < 1e-12 and abs(dmy) < 1e-12, f"{dmx:.1e}, {dmy:.1e} m3")
+for bad in ({"lateral_noncohesive": "x"}, {"lateral_directions": "z"}):
+    try:
+        run_lateral(1, "cohesive", **bad)
+        check(f"C3/C4 bad option {bad} rejected", False)
+    except ValueError:
+        check(f"C3/C4 bad option {bad} rejected", True)
 
 print(f"\nV3.3 checks: {total - fails} of {total} passed", flush=True)
 sys.exit(1 if fails else 0)

@@ -140,3 +140,13 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
   lower than headcut_min_height; mass conserved). All V3.2 suites pass with defaults, NumPy and Numba.
   Note for C5: with C1 + C2 on, runs are 3-10x slower per step in this Python implementation (E2S2 H/4 6,000 s:
   4 s -> 42 s); Numba kernels for C1 and C2 are needed before the cal-2 grid.
+- C3 (`lateral_noncohesive`, default "excess_shear" = V3.2.2): with "off", `LateralErosion` does nothing for
+  non-cohesive or mixed material; widening then comes only from bed erosion plus the C2 angle-of-repose collapse
+  (as in DLBreach / XBeach-type models). Cohesive material is unchanged.
+- C4 (`lateral_directions`, default "y" = V3.2.2): with "xy", banks facing x are also eroded (V3.2.2 eroded only
+  banks facing y, so a breach could not widen along the dam axis where the crest is not aligned with y). Same law,
+  ds = dx instead of dy; one shared loop `_apply_axis(mesh, tau, dt, axis)`.
+  Checked: 10 unit checks (default non-cohesive bank still erodes; "off" gives zero for non-cohesive and mixed;
+  cohesive unchanged by "off"; an x-facing bank retreats exactly like a y-facing one with "xy"; default "y" leaves
+  an x-facing bank alone; "xy" gives the same as "y" for a y-facing bank; mass conserved; bad option values raise
+  ValueError). V3.3 suite 34/34; all V3.2 suites pass with defaults, NumPy and Numba.
