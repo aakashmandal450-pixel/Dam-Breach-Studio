@@ -109,3 +109,17 @@ It is untested.
   `--erosion-shear total`). New options: --erosion-shear (default grain), --lake-bed, --lake-volume,
   --storage-exp, --floor.
 * New test: `tests/v3_2_2_step0_tests.py` (11 checks).
+
+
+## V3.3 (in progress, from 2026-11-07): cal-2 engine changes (validation/calibration/CAL2_PROPOSAL.md)
+
+All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchanged. New checks: `tests/v3_3_tests.py`.
+
+* C2 `collapse_mode = "all_pairs"` (default `"unsupported"` = V3.2.2): every x / y neighbour pair is checked, dry,
+  submerged or mixed, not only a dry cell above a wet toe. A pair fails when its Culmann factor of safety, computed
+  with the critical angle for its state, is below `bank_fs_trigger` (for c = 0: steeper than that angle). Half the
+  excess moves per pass, material lands on the lower bed (dry) or in its sediment store (wet); mass conserved.
+  `collapse_phi_dry`, `collapse_phi_wet` [deg] (None = material phi) and `collapse_hswitch` [m] (None = h_dry).
+  Checked: 13 unit checks (x and y steps, submerged steps, slopes below phi untouched, cohesive banks below and
+  above the Culmann height, separate dry / wet angles, mass to 1e-16 m3); identical to the Walsh diagnostic patch
+  (`diag_walsh.py --avalanche`) on WalshS3 H/8: same Qp, width and balances.

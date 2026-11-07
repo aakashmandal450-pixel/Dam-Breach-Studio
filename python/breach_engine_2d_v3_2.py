@@ -38,6 +38,8 @@ V3.2 additions (defaults keep v2-style behaviour except the positivity fix)
 * bank_fs_trigger / bank_fs_target: factor-of-safety collapse trigger and
   target around the Culmann critical height (defaults equal the old rule).
 * headcut_retardation / headcut_max_rate, downstream_boundary='wall'.
+* V3.3 options (all default to V3.2.2 behaviour; see CAL2_PROPOSAL.md):
+  C2 collapse_mode='all_pairs' with collapse_phi_dry / collapse_phi_wet / collapse_hswitch.
 * material_class 'mixed' is reserved (accepted with a warning, behaves as
   noncohesive). make_floor, LakeGeometry, impulse3d, InitiationMonitor,
   initiation_success, perturb_crest, weak_spot, auto_seed_notch.
@@ -210,6 +212,12 @@ class EngineConfig:
     breach_width_fraction: float = 0.5    # breach width counts columns lowered >= this fraction of the max (0 = legacy)
     transport_capacity_factor: float = 1.0  # calibration multiplier on capacity-law transport (Wu, MPM, van Rijn)
     suspended_load: str = "none"          # "none" (bed load only) or "wu2000": add Wu, Wang & Jia (2000) suspended load
+    # ---- V3.3 (cal-2 proposal, validation/calibration/CAL2_PROPOSAL.md). Defaults reproduce V3.2.2.
+    collapse_mode: str = "unsupported"    # C2: "unsupported" (V3.2.2: only a dry cell above a wet toe can fail) or
+                                          #     "all_pairs" (every x / y neighbour pair; half the excess per pass)
+    collapse_phi_dry: Optional[float] = None  # C2 critical angle [deg] for pairs not both submerged; None -> material phi
+    collapse_phi_wet: Optional[float] = None  # C2 critical angle [deg] for submerged pairs; None -> material phi
+    collapse_hswitch: Optional[float] = None  # C2 depth [m] above which both cells count as submerged; None -> h_dry
     kinematic_viscosity: float = 1.0e-6   # [m2/s], for the settling velocity
     eps: float = 1e-12
 
@@ -1045,7 +1053,58 @@ class BankStability:
         den = self.gamma * (1.0 - np.cos(beta - phi)) + 1e-12
         return np.where(beta > phi, num / den, np.inf)
 
+    def _critical_height_phi(self, beta: np.ndarray, phi: np.ndarray) -> np.ndarray:
+        """Culmann critical height with a per-pair friction angle phi [rad] (C2)."""
+        c = self.mat.cohesion
+        num = 4.0 * c * np.sin(beta) * np.cos(phi)
+        den = self.gamma * (1.0 - np.cos(beta - phi)) + 1e-12
+        return np.where(beta > phi, num / den, np.inf)
+
+    def _collapse_pairs_all(self, zA, zB, SA, SB, hA, hB, ds) -> float:
+        """C2 (V3.3, collapse_mode='all_pairs'): every neighbour pair is checked, dry, submerged or mixed.
+
+        A pair fails when its Culmann factor of safety, computed with the critical angle for its state (dry or
+        submerged), is below bank_fs_trigger; for c = 0 this is 'steeper than the critical angle'. Half the excess
+        over the target height moves from the higher to the lower cell per pass, so the two cells meet at the
+        target slope; the material lands on the lower bed if that cell is dry and in its sediment store if wet.
+        Mass is conserved. References: Roelvink et al. 2009 (XBeach avalanching), Volz et al. 2012 (BASEMENT),
+        Swartenbroekx et al. 2010; Barlow et al. 2024 for its effect on the Walsh breach tests.
+        """
+        cfg = self.cfg
+        p = self.mat.porosity
+        phi_dry = np.deg2rad(self.mat.phi if cfg.collapse_phi_dry is None else cfg.collapse_phi_dry)
+        phi_wet = np.deg2rad(self.mat.phi if cfg.collapse_phi_wet is None else cfg.collapse_phi_wet)
+        hsw = cfg.h_dry if cfg.collapse_hswitch is None else cfg.collapse_hswitch
+        dz = zA - zB
+        ad = np.abs(dz)
+        beta = np.arctan(ad / ds)
+        phi_pair = np.where((hA > hsw) & (hB > hsw), phi_wet, phi_dry)
+        Zc = self._critical_height_phi(beta, phi_pair)
+        fs_trigger = max(cfg.bank_fs_trigger, 1e-6)
+        fs_target = max(cfg.bank_fs_target, 1e-6)
+        FS = Zc / np.maximum(ad, 1e-12)
+        if np.any(ad > 1e-9):
+            self.last_min_fs = min(self.last_min_fs, float(np.min(FS[ad > 1e-9])))
+        target = np.minimum(np.maximum(Zc / fs_target, ds * np.tan(phi_pair)), ad)
+        d = np.where(FS < fs_trigger, ad - target, 0.0)
+        d = np.where(d > 1e-6, 0.5 * d, 0.0)
+        wetA, wetB = hA > cfg.h_dry, hB > cfg.h_dry
+        fromA, fromB = np.where(dz > 0, d, 0.0), np.where(dz < 0, d, 0.0)
+        zA -= fromA
+        zB -= fromB
+        toA, toB = fromB, fromA
+        SA += np.where(wetA, (1.0 - p) * toA, 0.0)
+        zA += np.where(wetA, 0.0, toA)
+        SB += np.where(wetB, (1.0 - p) * toB, 0.0)
+        zB += np.where(wetB, 0.0, toB)
+        return float(np.sum(d))
+
     def _collapse_pairs(self, zA, zB, SA, SB, hA, hB, ds) -> float:
+        mode = self.cfg.collapse_mode
+        if mode == "all_pairs":
+            return self._collapse_pairs_all(zA, zB, SA, SB, hA, hB, ds)
+        if mode != "unsupported":
+            raise ValueError("collapse_mode must be 'unsupported' or 'all_pairs'")
         p, phi = self.mat.porosity, np.deg2rad(self.mat.phi)
         dz = zA - zB
         ad = np.abs(dz)
