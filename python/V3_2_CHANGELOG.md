@@ -123,3 +123,20 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
   Checked: 13 unit checks (x and y steps, submerged steps, slopes below phi untouched, cohesive banks below and
   above the Culmann height, separate dry / wet angles, mass to 1e-16 m3); identical to the Walsh diagnostic patch
   (`diag_walsh.py --avalanche`) on WalshS3 H/8: same Qp, width and balances.
+* C1 `headcut_mode = "scarp"` (default `"cell"` = V3.2.2). Along the flow direction, in x and y, a scarp is a run of
+  consecutive drops whose cell-to-cell slope is >= `headcut_seg_slope` (0.1); height H_s = sum of the drops, length
+  L_s = number of drops x cell size. Active if H_s / L_s >= `headcut_min_slope`, H_s >= `headcut_min_height` (0),
+  the foot cell is wet and the unit discharge onto the top cell, toward the drop, exceeds 1e-6 m2/s. The scarp face
+  moves upstream at the headcut rate R(q, H_s) (same laws as before, now with the scarp height): each scarp cell is
+  lowered toward its downstream neighbour by f = min(R dt / ds, 1) of the drop between them (upwind translation),
+  material to that neighbour's sediment store. Eroded volume per unit width = R H_s dt on any grid.
+  Implementation note vs the proposal text ("applied to the top cell"): taking the whole volume from the top cell
+  was not grid-independent (capped by the first drop on fine grids; failed the dx / dx/2 check by 3x), so the face is
+  translated instead. Known effect: the first-order translation slowly smooths a travelling scarp (in the 400-step
+  test it erodes about half of an ideal sharp scarp), less on finer grids (0.349 / 0.363 / 0.392 m3/m at
+  dx 0.1 / 0.05 / 0.025 m).
+  Checked: 11 unit checks (one-step volume equals C (q H_s)^(1/3) H_s dt exactly on two grids; dx vs dx/2 within 4 %
+  after 400 steps; x, -x and y scarps; no headcut for gentle slopes, flow away from the drop, a dry foot or a scarp
+  lower than headcut_min_height; mass conserved). All V3.2 suites pass with defaults, NumPy and Numba.
+  Note for C5: with C1 + C2 on, runs are 3-10x slower per step in this Python implementation (E2S2 H/4 6,000 s:
+  4 s -> 42 s); Numba kernels for C1 and C2 are needed before the cal-2 grid.

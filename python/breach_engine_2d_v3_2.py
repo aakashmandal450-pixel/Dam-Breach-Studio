@@ -40,6 +40,7 @@ V3.2 additions (defaults keep v2-style behaviour except the positivity fix)
 * headcut_retardation / headcut_max_rate, downstream_boundary='wall'.
 * V3.3 options (all default to V3.2.2 behaviour; see CAL2_PROPOSAL.md):
   C2 collapse_mode='all_pairs' with collapse_phi_dry / collapse_phi_wet / collapse_hswitch.
+  C1 headcut_mode='scarp' with headcut_seg_slope / headcut_min_height (headcut_min_slope applies to the scarp).
 * material_class 'mixed' is reserved (accepted with a warning, behaves as
   noncohesive). make_floor, LakeGeometry, impulse3d, InitiationMonitor,
   initiation_success, perturb_crest, weak_spot, auto_seed_notch.
@@ -218,6 +219,10 @@ class EngineConfig:
     collapse_phi_dry: Optional[float] = None  # C2 critical angle [deg] for pairs not both submerged; None -> material phi
     collapse_phi_wet: Optional[float] = None  # C2 critical angle [deg] for submerged pairs; None -> material phi
     collapse_hswitch: Optional[float] = None  # C2 depth [m] above which both cells count as submerged; None -> h_dry
+    headcut_mode: str = "cell"            # C1: "cell" (V3.2.2: one-cell drop / dx >= headcut_min_slope, x only) or
+                                          #     "scarp" (runs of steep drops in x and y, rate from the scarp height)
+    headcut_seg_slope: float = 0.1        # C1: a drop belongs to a scarp if its cell-to-cell slope >= this
+    headcut_min_height: float = 0.0       # C1: minimum scarp height [m] (0 = no cell-size dependent floor)
     kinematic_viscosity: float = 1.0e-6   # [m2/s], for the settling velocity
     eps: float = 1e-12
 
@@ -1189,7 +1194,120 @@ class Headcut:
         ft_per_hour = coefficient * np.maximum(attack - threshold, 0.0)
         return ft_per_hour * 0.3048 / 3600.0
 
-    def migrate(self, mesh: MeshState, qx: np.ndarray, dt: float) -> float:
+    def _rate(self, q: np.ndarray, H: np.ndarray) -> np.ndarray:
+        """Headcut advance rate [m/s] for unit discharge q [m2/s] and drop height H [m] (shared by both modes)."""
+        cfg = self.cfg
+        method = cfg.headcut_method.lower()
+        if method == "energy":
+            rate = cfg.headcut_C * np.cbrt(q * H)
+        elif method == "temple":
+            rate = cfg.headcut_C * np.cbrt(q) * np.sqrt(H)
+        elif method == "sites":
+            if self.mat.headcut_Kh is not None:
+                rate = self.sites_rate_from_Kh(q, H, self.mat.headcut_Kh)
+            else:
+                rate = cfg.headcut_C * np.maximum(np.cbrt(q * H) - cfg.headcut_threshold_A0, 0.0)
+        else:
+            raise ValueError("headcut_method must be 'energy', 'temple', or 'sites'")
+        if cfg.headcut_max_rate is not None:
+            rate = np.minimum(rate, max(cfg.headcut_max_rate, 0.0))
+        return rate * max(cfg.headcut_retardation, 0.0)
+
+    @staticmethod
+    def _runs(seg: np.ndarray):
+        """Start and end indices of runs of True along axis 0 of a 2-D bool array: (starts, ends, cols)."""
+        n, m = seg.shape
+        pad = np.zeros((n + 2, m), dtype=np.int8)
+        pad[1:-1] = seg
+        dpad = np.diff(pad, axis=0)
+        si, sc = np.where(dpad == 1)       # run starts at face si (sorted by face, then column)
+        ei, ec = np.where(dpad == -1)      # run ends before face ei
+        o1, o2 = np.lexsort((si, sc)), np.lexsort((ei, ec))
+        return si[o1], ei[o2] - 1, sc[o1]
+
+    def _migrate_scarp(self, mesh: MeshState, qx: np.ndarray, qy: np.ndarray, dt: float) -> float:
+        """C1 (V3.3, headcut_mode='scarp'): scarp-based headcut in x and y.
+
+        Along the flow direction, a scarp is a run of consecutive drops whose cell-to-cell slope is
+        >= headcut_seg_slope. Height H_s = sum of the drops, length L_s = number of drops x cell size. A scarp is
+        active if H_s / L_s >= headcut_min_slope, H_s >= headcut_min_height, the cell at its foot is wet and the
+        unit discharge onto its top cell, in the direction of the drop, exceeds 1e-6 m2/s. The scarp face moves
+        upstream at the headcut rate R(q, H_s): every cell of the scarp is lowered toward its downstream neighbour
+        by the fraction f = min(R dt / ds, 1) of the drop between them (upwind translation of the face), and the
+        material goes to the sediment store of that neighbour. The eroded volume per unit width is f ds H_s =
+        R H_s dt, so a scarp of given height and slope retreats at the same rate on any grid.
+        """
+        cfg, p = self.cfg, self.mat.porosity
+        z, h = mesh.z_b, mesh.h
+        nx, ny = z.shape
+        req = np.zeros_like(z)
+        top_list, recv_list, amt_list = [], [], []
+        dirs = ((0, +1, mesh.dx), (0, -1, mesh.dx), (1, +1, mesh.dy), (1, -1, mesh.dy))
+        for axis, sign, ds in dirs:
+            # orient so that flow in the drop direction runs toward increasing index along axis 0
+            Z = z if axis == 0 else z.T
+            Hh = h if axis == 0 else h.T
+            Q = (qx if axis == 0 else qy.T) * sign
+            if sign < 0:
+                Z, Hh, Q = Z[::-1], Hh[::-1], Q[::-1]
+            d = Z[:-1] - Z[1:]                               # drop from cell k to k+1, faces k = 0..n-2
+            seg = d / max(ds, 1e-12) >= cfg.headcut_seg_slope
+            if not np.any(seg):
+                continue
+            s_i, e_i, col = self._runs(seg)
+            csum = np.vstack([np.zeros((1, d.shape[1])), np.cumsum(np.where(seg, d, 0.0), axis=0)])
+            Hs = csum[e_i + 1, col] - csum[s_i, col]
+            Ls = (e_i - s_i + 1) * ds
+            top, foot = s_i, e_i + 1
+            q = Q[top, col]
+            ok = (Hs / Ls >= cfg.headcut_min_slope) & (Hs >= cfg.headcut_min_height) & \
+                 (Hh[foot, col] > cfg.h_dry) & (q > 1e-6)
+            if not np.any(ok):
+                continue
+            top, last, col, Hs, q = top[ok], e_i[ok], col[ok], Hs[ok], q[ok]
+            R = self._rate(q, Hs)
+            f = np.minimum(R * dt / max(ds, 1e-12), 1.0)
+            # expand each scarp to its cells k = top .. last (face k = drop from cell k to k+1)
+            lens = last - top + 1
+            cell = np.repeat(top, lens) + (np.arange(int(lens.sum())) - np.repeat(np.cumsum(lens) - lens, lens))
+            ccol = np.repeat(col, lens)
+            amt = np.repeat(f, lens) * d[cell, ccol]
+            top = cell
+            col = ccol
+            n_line = Z.shape[0]
+            # map (oriented index, column) back to (i, j) in the mesh
+            t_o = top if sign > 0 else n_line - 1 - top
+            r_o = (top + 1) if sign > 0 else n_line - 1 - (top + 1)
+            if axis == 0:
+                ti, tj, ri, rj = t_o, col, r_o, col
+            else:
+                ti, tj, ri, rj = col, t_o, col, r_o
+            top_list.append((ti, tj)); recv_list.append((ri, rj)); amt_list.append(amt)
+            np.add.at(req, (ti, tj), amt)
+        if not amt_list:
+            return 0.0
+        if cfg.z_floor_enabled:
+            available = np.maximum(z - mesh.z_floor, 0.0)
+            scale = np.minimum(1.0, available / np.maximum(req, 1e-12))
+        else:
+            scale = np.ones_like(z)
+        total = 0.0
+        tops_i = []
+        for (ti, tj), (ri, rj), amt in zip(top_list, recv_list, amt_list):
+            applied = amt * scale[ti, tj]
+            np.add.at(z, (ti, tj), -applied)
+            np.add.at(mesh.S, (ri, rj), (1.0 - p) * applied)
+            total += float(np.sum(applied))
+            tops_i.append(ti)
+        mesh.headcut_i = int(np.min(np.concatenate(tops_i)))
+        return total * mesh.dx * mesh.dy
+
+    def migrate(self, mesh: MeshState, qx: np.ndarray, dt: float, qy: Optional[np.ndarray] = None) -> float:
+        mode = self.cfg.headcut_mode
+        if mode == "scarp":
+            return self._migrate_scarp(mesh, qx, np.zeros_like(qx) if qy is None else qy, dt)
+        if mode != "cell":
+            raise ValueError("headcut_mode must be 'cell' or 'scarp'")
         cfg, p = self.cfg, self.mat.porosity
         z = mesh.z_b
         drops = z[:-1, :] - z[1:, :]                     # (nx-1, ny), face i|i+1
@@ -1370,7 +1488,7 @@ class Morphology:
         self._transport_exner(mesh, h, qx, qy, tau, dt)
         trans = self._transport_bed_change - _tb0
         lat = self.lateral.apply(mesh, tau, dt) if cfg.lateral_erosion_enabled else 0.0
-        hc = self.headcut.migrate(mesh, qx, dt) if cfg.headcut_enabled else 0.0
+        hc = self.headcut.migrate(mesh, qx, dt, qy=qy) if cfg.headcut_enabled else 0.0
         col = self.bank.check_and_collapse(mesh) if cfg.bank_collapse_enabled else 0.0
         toe = 0.0
         if col > 0.0 and cfg.toe_scour_factor > 0.0:

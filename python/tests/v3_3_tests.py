@@ -1,6 +1,7 @@
 """V3.3 checks (cal-2 changes, CAL2_PROPOSAL.md). Defaults must reproduce V3.2.2; this file tests the new options.
 
 C2: general slope collapse (collapse_mode='all_pairs').
+C1: scarp-based headcut (headcut_mode='scarp').
 """
 import sys
 import warnings
@@ -104,6 +105,90 @@ try:
     check("C2 unknown collapse_mode rejected", False)
 except ValueError:
     check("C2 unknown collapse_mode rejected", True)
+
+# =====================================================================================================================
+# C1: scarp-based headcut (headcut_mode='scarp')
+# =====================================================================================================================
+
+def scarp_mesh(ds, H=0.3, slope=0.5, Lx=6.0, ny=4, axis=0, wet=True, q=0.05, reverse=False):
+    """Flat 'upstream' at H, a planar scarp of the given slope, flat 'downstream' at 0; water on the foot."""
+    n = int(round(Lx / ds))
+    x = (np.arange(n) + 0.5) * ds
+    x0 = 2.0                                                  # scarp starts at x0, ends at x0 + H / slope
+    line = np.clip(H - slope * (x - x0), 0.0, H)
+    if reverse:
+        line = line[::-1]
+    zb = np.tile(line[:, None], (1, ny)) if axis == 0 else np.tile(line[None, :], (ny, 1))
+    eta = 0.05 if wet else -1.0                               # 5 cm of water over the low part only
+    m = eng.create_prism_mesh(zb.shape[0] * ds, zb.shape[1] * ds, zb.shape[0], zb.shape[1], zb.copy(), eta)
+    qq = np.full_like(zb, q * (-1.0 if reverse else 1.0))
+    qx, qy = (qq, np.zeros_like(zb)) if axis == 0 else (np.zeros_like(zb), qq)
+    return m, qx, qy
+
+
+def run_headcut(m, qx, qy, steps=1, dt=0.5, **kw):
+    cfg = eng.EngineConfig(headcut_mode="scarp", headcut_min_slope=0.1, headcut_seg_slope=0.1, h_dry=1e-3, **kw)
+    mat = eng.MaterialProps(porosity=0.35)
+    hc = eng.Headcut(cfg, mat)
+    before = solids(m, mat.porosity)
+    vol = 0.0
+    film = np.any(m.h > 0)
+    for _ in range(steps):
+        if film:                                     # flowing water covers the whole bed (2 cm film), as in a run
+            m.h = np.full_like(m.z_b, 0.02)
+        vol += hc.migrate(m, qx, dt, qy=qy)
+    return vol, solids(m, mat.porosity) - before
+
+
+# C1.1 the same physical scarp on two grids: identical erosion rate in one step
+v1, _ = run_headcut(*scarp_mesh(0.10))
+v2, _ = run_headcut(*scarp_mesh(0.05))
+w1, w2 = v1 / (4 * 0.10), v2 / (4 * 0.05)                     # per unit width
+check("C1 same scarp, dx and dx/2: same eroded volume per width (one step)", abs(w1 - w2) / w1 < 1e-9,
+      f"{w1:.6g} vs {w2:.6g} m3/m")
+# C1.2 over many steps the retreat stays within 10 %
+v1, dm1 = run_headcut(*scarp_mesh(0.10), steps=400)
+v2, dm2 = run_headcut(*scarp_mesh(0.05), steps=400)
+w1, w2 = v1 / (4 * 0.10), v2 / (4 * 0.05)
+check("C1 same scarp, dx and dx/2: eroded volume per width within 10 % after 400 steps", abs(w1 - w2) / w1 < 0.10,
+      f"{w1:.4g} vs {w2:.4g} m3/m")
+check("C1 mass conserved", abs(dm1) < 1e-12 and abs(dm2) < 1e-12, f"{dm1:.1e}, {dm2:.1e} m3")
+# C1.3 rate law uses the scarp height: energy law R = C (q H)^(1/3), volume per width R H dt
+cfgE = eng.EngineConfig()
+expect = cfgE.headcut_C * (0.05 * 0.3) ** (1 / 3) * 0.3 * 0.5
+v, _ = run_headcut(*scarp_mesh(0.10))
+check("C1 one-step volume per width = C (q H_s)^(1/3) H_s dt", abs(v / 0.4 - expect) / expect < 1e-9,
+      f"{v / 0.4:.6g} vs {expect:.6g} m3/m")
+# C1.4 a gentle slope (0.05 per cell) is not a scarp
+v, _ = run_headcut(*scarp_mesh(0.10, slope=0.05))
+check("C1 slope 0.05 below the segment threshold: no headcut", v == 0.0)
+# C1.5 a scarp in y (flow in +y) and one with flow in -x are found, with the same rate
+vy, _ = run_headcut(*scarp_mesh(0.10, axis=1))
+vr, _ = run_headcut(*scarp_mesh(0.10, reverse=True))
+check("C1 y-direction scarp: same rate as x", abs(vy - v1 / 400 * 0) >= 0 and abs(vy / 0.4 - expect) / expect < 1e-9,
+      f"{vy / 0.4:.6g} m3/m")
+check("C1 flow in -x: same rate", abs(vr / 0.4 - expect) / expect < 1e-9, f"{vr / 0.4:.6g} m3/m")
+# C1.6 flow away from the drop, or a dry foot: no headcut
+m, qx, qy = scarp_mesh(0.10)
+v, _ = run_headcut(m, -qx, qy)
+check("C1 flow away from the scarp: no headcut", v == 0.0)
+v, _ = run_headcut(*scarp_mesh(0.10, wet=False))
+check("C1 dry foot: no headcut", v == 0.0)
+# C1.7 minimum height
+v, _ = run_headcut(*scarp_mesh(0.10), headcut_min_height=0.5)
+check("C1 headcut_min_height above the scarp height: no headcut", v == 0.0)
+# C1.8 bad option rejected
+try:
+    run_headcut(*scarp_mesh(0.10), headcut_mode_override=True)
+except TypeError:
+    pass
+try:
+    hc = eng.Headcut(eng.EngineConfig(headcut_mode="nonsense"), eng.MaterialProps())
+    m, qx, qy = scarp_mesh(0.10)
+    hc.migrate(m, qx, 0.5, qy=qy)
+    check("C1 unknown headcut_mode rejected", False)
+except ValueError:
+    check("C1 unknown headcut_mode rejected", True)
 
 print(f"\nV3.3 checks: {total - fails} of {total} passed", flush=True)
 sys.exit(1 if fails else 0)
