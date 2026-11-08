@@ -45,3 +45,19 @@ memory; 2-4 GB per long lab run, more with 5 workers plus diagnostics).
   H/8 to 7,200 s; kill/resume twice with the new runner; and a checkpoint written by the previous runner resumed by
   the new one (the situation of the failed runs). Peak memory 162 -> 52 MB (145k steps) and 374 -> 76 MB (393k steps).
 * Checkpoint history parts now hold only the three keys; parts written by the previous runner (all keys) are still read.
+
+## cal-2 runner (2026-11-08)
+
+`cases.py`: `build(..., model=...)` and `run(..., model=..., early_no_breach_factor=...)`. `model="cal-2"` applies the
+engine options of `cal2_config.json` (V3.3 C1-C4, threshold as CAL2_AMENDMENT_1); `None`/`"cal-1"` builds exactly as
+before. Early no-breach stop (CAL2_PROPOSAL s.4): for a case observed to breach that reports Tp, a run without
+initiation (crest lowered by 25 % of the notch depth) by factor x observed Tp stops as completed, `stop_cause
+"no_breach_early"`. Results record `model`, `t_init_phys_s` and the early-stop settings; checkpoints carry `t_init`.
+`run_grid.py --config cal2`: grid from `cal2_config.json` (234 runs), output `runs/calibration_grid_cal2`, Numba backend
+in every worker, post-peak stop, 8 h CPU budget, checkpoints every 30 min CPU, early no-breach stop.
+`fit.py --config cal2`: same fit and LOO on the cal-2 grid, writes `cal-2_candidate.json`.
+cal-1 behaviour is unchanged (`run_grid.py --list` still plans the same 204 runs).
+
+* Tests (Linux): `smoke_cal2.py` (E1S1): options applied; cal-1 build unchanged; a non-breaching run stops at
+  3 x observed Tp and is scored; a breaching run is not stopped early; a run interrupted by the CPU budget and resumed
+  from its checkpoint reproduces the uninterrupted run exactly; balances <= 5e-11 m3.

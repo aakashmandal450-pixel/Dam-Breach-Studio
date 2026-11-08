@@ -1,7 +1,8 @@
 """Fit the calibration factors on the grid results and run leave-one-out (CALIBRATION_PROTOCOL.md,
 PROTOCOL_AMENDMENT_1.md).
 
-Usage: python calibration\\fit.py            -> prints the fit and LOO table, writes calibration\\cal-1_candidate.json
+Usage: python calibration\\fit.py                  -> cal-1 grid, writes calibration\\cal-1_candidate.json
+       python calibration\\fit.py --config cal2    -> cal-2 grid (runs\\calibration_grid_cal2), writes cal-2_candidate.json
 The objective separates by case type: measured-kd cohesive cases depend on (f_kd, C_h); other cohesive cases on C_h;
 non-cohesive cases on (f_t, C_h). The total is minimised over the full grid.
 
@@ -23,7 +24,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from run_grid import LOG_GRID  # noqa: E402
+from run_grid import LOG_GRID, grid_for  # noqa: E402
 
 PENALTY_MISSING = 25.0   # a run that failed or was censored counts as a very poor fit (primary rule)
 
@@ -62,9 +63,10 @@ def case_cls(res, cid, kind, fk, ch, ft):
     return "error" if v is None else v[2]
 
 
-def fit(res, kinds, include, drop_censored=False):
+def fit(res, kinds, include, drop_censored=False, grid=None):
+    grid = grid or LOG_GRID
     best = None
-    for fk, ch, ft in itertools.product(LOG_GRID["f_kd"], LOG_GRID["C_h"], LOG_GRID["f_t"]):
+    for fk, ch, ft in itertools.product(grid["f_kd"], grid["C_h"], grid["f_t"]):
         if drop_censored and any(case_cls(res, cid, kinds[cid], fk, ch, ft) == "censored" for cid in include):
             continue
         J = sum(case_J(res, cid, kinds[cid], fk, ch, ft) for cid in include)
@@ -73,8 +75,10 @@ def fit(res, kinds, include, drop_censored=False):
     return best
 
 
-def main(out=None):
-    out = out or HERE.parent.parent / "runs" / "calibration_grid"
+def main(out=None, config="cal1"):
+    grid = grid_for(config)
+    tag = "cal-2" if config == "cal2" else "cal-1"
+    out = out or HERE.parent.parent / "runs" / ("calibration_grid_cal2" if config == "cal2" else "calibration_grid")
     res = load(out)
     kinds = {}
     for f in sorted((HERE / "cases").glob("*.json")):
@@ -89,7 +93,7 @@ def main(out=None):
     counts = {}
     for cid in ids:
         keys = {_key(kinds[cid], fk, ch, ft) for fk, ch, ft in
-                itertools.product(LOG_GRID["f_kd"], LOG_GRID["C_h"], LOG_GRID["f_t"])}
+                itertools.product(grid["f_kd"], grid["C_h"], grid["f_t"])}
         n = {"completed": 0, "censored": 0, "error": 0}
         for k in keys:
             v = res.get((cid, k))
@@ -97,11 +101,11 @@ def main(out=None):
         counts[cid] = n
         print(f"  {cid:11s} completed {n['completed']:3d}  censored {n['censored']:3d}  error/missing {n['error']:3d}")
 
-    J, fk, ch, ft = fit(res, kinds, ids)
+    J, fk, ch, ft = fit(res, kinds, ids, grid=grid)
     print(f"full fit: J={J:.3f}  f_kd=10^{fk} ({10**fk:.3g})  C_h=10^{ch} ({10**ch:.3g})  f_t=10^{ft} ({10**ft:.3g})")
     loo = []
     for leave in ids:
-        Jl, a, b, c_ = fit(res, kinds, [i for i in ids if i != leave])
+        Jl, a, b, c_ = fit(res, kinds, [i for i in ids if i != leave], grid=grid)
         held = case_J(res, leave, kinds[leave], a, b, c_)
         loo.append({"left_out": leave, "f_kd": 10 ** a, "C_h": 10 ** b, "f_t": 10 ** c_, "held_out_J": held})
         print(f"  LOO -{leave:11s}: f_kd {10**a:8.3g}  C_h {10**b:8.3g}  f_t {10**c_:8.3g}   held-out J {held:.3f}")
@@ -112,7 +116,7 @@ def main(out=None):
         stab[k] = {"min": min(vals), "max": max(vals), "max_over_min": ratio, "stable": ratio <= 3.0}
         print(f"  {k}: LOO range {min(vals):.3g}-{max(vals):.3g} (x{ratio:.1f}) -> {'stable' if ratio <= 3.0 else 'UNSTABLE'}")
 
-    sens = fit(res, kinds, ids, drop_censored=True)
+    sens = fit(res, kinds, ids, drop_censored=True, grid=grid)
     if sens is None:
         print("censoring sensitivity: every factor set has a censored case; no sensitivity fit possible")
         sens_out, flags = None, {k: True for k in ("f_kd", "C_h", "f_t")}
@@ -127,10 +131,13 @@ def main(out=None):
                 for cid in ids}
     cand = {"factors": {"f_kd": 10 ** fk, "C_h": 10 ** ch, "f_t": 10 ** ft}, "J_total": J, "J_per_case": per_case,
             "loo": loo, "stability": stab, "censoring_sensitivity": sens_out, "censoring_sensitive": flags,
-            "run_counts": counts, "grid": LOG_GRID, "n_results": len(res)}
-    (HERE / "cal-1_candidate.json").write_text(json.dumps(cand, indent=1))
-    print("written calibration/cal-1_candidate.json (freeze as cal-1 only after review)")
+            "run_counts": counts, "grid": grid, "n_results": len(res), "config": config}
+    (HERE / f"{tag}_candidate.json").write_text(json.dumps(cand, indent=1))
+    print(f"written calibration/{tag}_candidate.json (freeze as {tag} only after review)")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else None)
+    args = [x for x in sys.argv[1:] if not x.startswith("--")]
+    cfg_ = "cal2" if "--config" in sys.argv and sys.argv[sys.argv.index("--config") + 1] == "cal2" else "cal1"
+    args = [x for x in args if x not in ("cal2", "cal1")]
+    main(args[0] if args else None, cfg_)

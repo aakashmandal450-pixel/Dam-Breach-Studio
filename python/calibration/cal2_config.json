@@ -1,0 +1,43 @@
+{
+  "_note": "cal-2 model choices (CAL2_PROPOSAL.md as amended by CAL2_AMENDMENT_1.md), fixed before the first cal-2 calibration run. Everything not listed here is as cal1_config.json. Only the three factors are calibrated.",
+  "name": "cal-2",
+  "engine": "breach_engine_2d_v3_3 options in breach_engine_2d_v3_2.py (V3.3: C1-C4) + fast_hydro/fast_morph Numba backend (C5)",
+  "base_config": "cal1_config.json",
+  "engine_options": {
+    "headcut_mode": "scarp",
+    "headcut_seg_slope": 0.1,
+    "headcut_min_slope": 0.5,
+    "headcut_min_height": 0.0,
+    "collapse_mode": "all_pairs",
+    "collapse_phi_dry": null,
+    "collapse_phi_wet": null,
+    "collapse_hswitch": null,
+    "collapse_iterations": 3,
+    "lateral_noncohesive": "off",
+    "lateral_directions": "xy"
+  },
+  "_engine_options_notes": {
+    "headcut_min_slope": "0.5 per CAL2_AMENDMENT_1 (proposal: 0.1). Scarp = run of cell-to-cell slopes >= 0.1 whose overall slope is >= 0.5",
+    "collapse_phi_dry/wet": "null = material friction angle (proposal C2); collapse_hswitch null = h_dry",
+    "lateral_noncohesive": "C3: lateral excess-shear law off for non-cohesive material; cohesive unchanged",
+    "lateral_directions": "C4: x- and y-facing banks"
+  },
+  "factors": {
+    "f_kd": {"meaning": "multiplier on jet-test kd (cohesive, measured kd only)", "default": 1.0, "search_log10": [-2.0, 1.5]},
+    "C_h": {"meaning": "multiplier on headcut_C = 0.05 (energy method, scarp height)", "default": 1.0, "search_log10": [-1.5, 1.0]},
+    "f_t": {"meaning": "transport_capacity_factor (non-cohesive, Wu law)", "default": 1.0, "search_log10": [-1.5, 1.5]},
+    "step_log10": 0.5
+  },
+  "runner": {
+    "backend": "numba (fast_hydro.enable(): hydraulics + morphology)",
+    "post_peak_stop": true,
+    "max_cpu_seconds": 28800,
+    "checkpoint_every_cpu_s": 1800,
+    "threads_per_worker": 1,
+    "early_no_breach_factor": 3.0,
+    "_early_no_breach": "for a case whose observation is a breach and that reports Tp: if the model has not detected initiation (crest lowered by 25 % of the notch depth) by 3 x observed Tp, measured from the model's t = 0, the run stops as completed (stop_cause 'no_breach_early') and is scored from its state then. Cases without an observed Tp, or observed 'no breach' (E1S3), run to their normal end."
+  },
+  "unchanged_from_cal1": ["cases and split (amendments 1, 1a, 2; split-5)", "objective, penalties, LOO, stability rule (max/min <= 3)",
+                          "transport and detachment laws", "hydraulics (spatial order 1, CFL 0.4)", "grid rule (H/8 lab, H/6 field)",
+                          "adaptation length", "morph acceleration", "outputs"]
+}

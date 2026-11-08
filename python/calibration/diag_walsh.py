@@ -10,6 +10,7 @@ Usage (from the python folder):
   python -u calibration\\diag_walsh.py --grid 8  --t-end 1800 --log-every 10
   python -u calibration\\diag_walsh.py --grid 24 --t-end 120  --log-every 5
   python -u calibration\\diag_walsh.py --grid 16 --t-end 900 --log-every 10 --pilot-channel     # stage-3 start
+  add --fast for the Numba backend (V3.3 C5)
 
 Cross-section snapshots (--section-every, default 30 s) record the full-width bed and flow at two rows:
   control  the breach control section: the row whose lowest bed point is highest along the flow path from the
@@ -72,11 +73,18 @@ ap.add_argument("--phi-deg", type=float, default=None,
                 help="override the material friction / repose angle [deg] (Walsh case file: 33; measured 30.5)")
 ap.add_argument("--avalanche-wet-deg", type=float, default=None,
                 help="with --avalanche: critical angle for pairs where both cells are wet [deg] (default: friction angle)")
+ap.add_argument("--fast", action="store_true",
+                help="Numba backend (fast_hydro + fast_morph, V3.3 C5); results equal NumPy to round-off")
 ap.add_argument("--suffix", default="", help="appended to the output file names (keeps earlier results)")
 ap.add_argument("--out", default=str(HERE.parent.parent / "runs" / "diag_walsh"))
 a = ap.parse_args()
 
 case = C.load_case(a.case)
+if a.fast:
+    sys.path.insert(0, str(HERE.parent))
+    import fast_hydro  # noqa: E402
+    if not fast_hydro.enable():
+        sys.exit("--fast: numba is not installed")
 mesh, res, mat, cfg, meta = C.build(case, {"f_t": a.f_t}, a.grid)
 cfg.morph_accel = 1.0
 tag = f"{a.case}_H{int(a.grid)}"

@@ -65,9 +65,21 @@ def _stage_volume(res: Dict, H: float) -> Dict[float, float]:
     raise ValueError(f"unknown reservoir type {res['type']}")
 
 
+def load_model(name: Optional[str]) -> Dict:
+    """Engine options of a calibration model: None or 'cal-1' -> {} (cal-1 as built); 'cal-2' -> cal2_config.json."""
+    if name in (None, "cal-1", "cal1"):
+        return {}
+    if name in ("cal-2", "cal2"):
+        return dict(json.loads((HERE / "cal2_config.json").read_text())["engine_options"])
+    raise ValueError(f"unknown model {name!r}")
+
+
 def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[float] = None,
-          overrides: Optional[Dict] = None):
-    """Return (mesh, reservoir, material, config, meta) for a case and factor set."""
+          overrides: Optional[Dict] = None, model: Optional[str] = None):
+    """Return (mesh, reservoir, material, config, meta) for a case and factor set.
+
+    model: None / 'cal-1' builds the cal-1 configuration; 'cal-2' then applies the engine options of
+    cal2_config.json (V3.3 C1-C4). Diagnostic overrides are applied last."""
     f = dict(DEFAULT_FACTORS, **(factors or {}))
     H, Wc, zu, zd = case["H"], case["crest_w"], case["zu"], case["zd"]
     div = grid_divisor or (8.0 if case["kind"] == "lab" else 6.0)
@@ -142,7 +154,11 @@ def build(case: Dict, factors: Optional[Dict] = None, grid_divisor: Optional[flo
                          adaptation_length_mode="depth_scaled", adaptation_depth_factor=5.0,
                          suspended_load=suspended,
                          downstream_boundary=case.get("downstream", "outfall"))
-    for k, v in (overrides or {}).items():   # diagnostics only; calibration runs use cal-1 as built
+    for k, v in load_model(model).items():   # cal-2 engine options (V3.3)
+        if not hasattr(cfg, k):
+            raise ValueError(f"model option {k!r} is not an EngineConfig field")
+        setattr(cfg, k, v)
+    for k, v in (overrides or {}).items():   # diagnostics only; calibration runs use the model as built
         setattr(cfg, k, v)
     meta = dict(notch_widened=notch_widened, dx=dx, nx=nx, ny=ny, lx=lx, ly=ly, invert=invert, xc0=xc0, notch_y=yc, factors=f, manning_n=n_man)
     return mesh, res, mat, cfg, meta
@@ -153,7 +169,8 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
         progress: bool = False, overrides: Optional[Dict] = None, progress_cb=None, *,
         max_cpu_seconds: Optional[float] = None, max_wall_safety_seconds: Optional[float] = None,
         post_peak_stop: bool = False, post_peak_window_s: float = 1800.0, post_peak_frac: float = 0.05,
-        checkpoint_dir: Optional[str] = None, checkpoint_every_cpu_s: float = 1800.0) -> Dict:
+        checkpoint_dir: Optional[str] = None, checkpoint_every_cpu_s: float = 1800.0,
+        model: Optional[str] = None, early_no_breach_factor: Optional[float] = None) -> Dict:
     """Run a case. Times reported are physical (morphological) seconds.
 
     case['accel'] = A (> 1): morphology runs A times faster than the flow until breach initiation is detected
@@ -174,8 +191,15 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
     numbered .npz part, and the runner state (switch time, CPU/wall used, parts) is written last to runner.json.
     A later call with the same checkpoint_dir resumes from it; CPU and wall time are cumulative across restarts.
     The caller deletes the folder once the result is written.
+
+    cal-2 (CAL2_PROPOSAL.md s.4, cal2_config.json):
+      model                   'cal-2' applies the V3.3 engine options (see build)
+      early_no_breach_factor  for a case observed to breach that reports Tp: if the model has not detected initiation
+                              (crest lowered by 25 % of the notch depth, the acceleration-switch rule) by
+                              factor x observed Tp from the model's t = 0, stop as completed -> 'no_breach_early'.
+                              Not applied to observed 'no breach' cases or cases without an observed Tp.
     """
-    mesh, res, mat, cfg, meta = build(case, factors, grid_divisor, overrides)
+    mesh, res, mat, cfg, meta = build(case, factors, grid_divisor, overrides, model)
     z0 = mesh.z_b.copy()
     A = float(case.get("accel", 1.0))
     cfg.morph_accel = A
@@ -186,6 +210,11 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
     cpu0 = time.process_time()
     stop_cause: Optional[str] = None
     pp_on = bool(post_peak_stop) and case.get("obs", {}).get("breached") is not False
+    obs_ = case.get("obs", {})
+    t_nb = None                      # early no-breach stop time [physical s] (cal-2)
+    if early_no_breach_factor and obs_.get("breached") is not False and obs_.get("Tp_h"):
+        t_nb = float(early_no_breach_factor) * float(obs_["Tp_h"]) * 3600.0
+    t_init: Optional[float] = None   # physical time initiation was first detected (all cases)
     pp_key = "Q_in_prism" if case.get("q_measure") == "reservoir" else "Q_prism_outlet"
     pp_qin = float(case.get("inflow", 0.0)) if not callable(case.get("inflow", 0.0)) else 0.0
     pp = {"i": 0, "qmax": -np.inf, "t_peak": None, "t_last_exceed": None}
@@ -237,6 +266,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
             if hstore["n"] != ck_state["n_history"]:
                 raise RuntimeError(f"checkpoint history has {hstore['n']} entries, runner.json says {ck_state['n_history']}")
             t_switch_h = ck_state["t_switch_h"]
+            t_init = ck_state.get("t_init")
             cpu_prev, wall_prev = ck_state["cpu_s"], ck_state["wall_s"]
             restarts = ck_state.get("restarts", 0) + 1
             pp.update({k: ck_state["pp"][k] for k in ("i", "t_peak", "t_last_exceed")})
@@ -266,7 +296,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                 parts = parts + [part]
             save_ck.parts = parts
             state = {"seq": k_, "engine_file": f"engine_{k_:05d}.npz", "parts": parts, "n_history": hstore["n"],
-                     "engine_time": eng.time, "t_switch_h": t_switch_h, "A": A,
+                     "engine_time": eng.time, "t_switch_h": t_switch_h, "t_init": t_init, "A": A,
                      "cpu_s": cpu_prev + time.process_time() - cpu0, "wall_s": wall_prev + time.perf_counter() - wall0,
                      "restarts": restarts,
                      "pp": {"i": pp["i"], "t_peak": pp["t_peak"], "t_last_exceed": pp["t_last_exceed"],
@@ -330,6 +360,13 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                     eng.cfg.morph_accel = 1.0
                     if progress:
                         print(f"    breach initiation detected at t = {t_switch_h * A:.0f} s -> acceleration off", flush=True)
+            if t_init is None and crest.any() and np.max((z0 - mesh.z_b)[crest, :]) > 0.25 * dn:
+                t_init = phys(eng.time)
+            if t_nb is not None and t_init is None and phys(eng.time) >= t_nb - 1e-9:
+                stop_cause = "no_breach_early"
+                if progress:
+                    print(f"    stopped: no initiation by {t_nb:.0f} s ({early_no_breach_factor:g} x observed Tp)", flush=True)
+                break
             if pp_on:   # post-peak quiescence, updated incrementally from the new history entries
                 t_new, q_new = h_column("time", pp["i"]), h_column(pp_key, pp["i"])
                 for th_, qq in zip(t_new.tolist(), q_new.tolist()):
@@ -382,6 +419,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
             "capped": censored, "censored": censored,
             "stop_cause": stop_cause or "t_end",
             "t_switch_phys_s": (None if t_switch_h is None else t_switch_h * A),
+            "t_init_phys_s": t_init, "model": model or "cal-1",
             "status": eng.run_status, "stop_reason": eng.stop_reason, "steps": eng.nsteps,
             "wall_s": wall_prev + time.perf_counter() - wall0, "cpu_s": cpu_prev + time.process_time() - cpu0,
             "restarts": restarts,
@@ -389,7 +427,8 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
             "runner": {"post_peak_stop": pp_on, "post_peak_window_s": post_peak_window_s, "post_peak_frac": post_peak_frac,
                        "max_cpu_seconds": max_cpu_seconds, "max_wall_seconds": max_wall_seconds,
                        "max_wall_safety_seconds": max_wall_safety_seconds,
-                       "checkpoint_every_cpu_s": checkpoint_every_cpu_s if ck is not None else None},
+                       "checkpoint_every_cpu_s": checkpoint_every_cpu_s if ck is not None else None,
+                       "early_no_breach_factor": early_no_breach_factor, "early_no_breach_t_s": t_nb},
             "grid": [meta["nx"], meta["ny"], meta["dx"]],
             "balances": [d["water_balance_err_m3"], d["reservoir_balance_err_m3"], d["sediment_balance_err_m3"]],
             "max_lowering_m": float(np.max(low))}

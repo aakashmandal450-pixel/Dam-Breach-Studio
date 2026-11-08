@@ -129,6 +129,10 @@ def parse() -> argparse.Namespace:
     p.add_argument("--print-every", type=float, default=30.0)
     p.add_argument("--history-stride", type=int, default=20, help="write every Nth history row to the CSV")
     p.add_argument("--out", type=str, default="digtsho_out")
+    p.add_argument("--cfg", action="append", default=[], metavar="KEY=VALUE",
+                   help="EngineConfig override, repeatable (e.g. --cfg headcut_mode=scarp); recorded in the output JSON")
+    p.add_argument("--fast", action="store_true",
+                   help="Numba backend (fast_hydro + fast_morph, V3.3 C5); results equal NumPy to round-off")
     # pre-registered criterion
     p.add_argument("--crit-lowering", type=float, default=1.0, help="min max-lowering [m]")
     p.add_argument("--crit-channelization", type=float, default=1.5)
@@ -185,6 +189,18 @@ def build(args):
         dt_morpho_target=2.0, morph_accel=args.morph_accel, headcut_enabled=not args.no_headcut,
         adaptation_length_mode=args.ls_mode, downstream_boundary=args.downstream,
     )
+    for kv in args.cfg:                       # V3.3: EngineConfig overrides from the command line
+        k, v = kv.split("=", 1)
+        if not hasattr(cfg, k):
+            raise SystemExit(f"--cfg: EngineConfig has no field '{k}'")
+        old_v = getattr(cfg, k)
+        if isinstance(old_v, bool):
+            new_v = v.lower() in ("1", "true", "yes")
+        elif old_v is None:
+            new_v = float(v)
+        else:
+            new_v = type(old_v)(v)
+        setattr(cfg, k, new_v)
     wave = None
     if not args.no_wave:
         wave = E.LakeWaveBoundary(E.ImpulseWave3D(
@@ -196,6 +212,10 @@ def build(args):
 
 def main() -> int:
     args = parse()
+    if args.fast:
+        import fast_hydro
+        if not fast_hydro.enable():
+            raise SystemExit("--fast: numba is not installed")
     warnings.filterwarnings("ignore")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

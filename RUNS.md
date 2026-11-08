@@ -144,3 +144,74 @@ history held as Python dicts, about 2-4 GB per long run); see the calibration se
 - Reproducibility check (2026-11-04): E1S1 and Castlewood runs repeated with the new runner match the stored Qp, Tp, B
   exactly (relative difference 0). Original capped files are kept in `runs/calibration_grid/_capped_v1/`.
 - Amendment-1 re-run of the 87 runs started 2026-11-04 17:16, 5 workers, 1 thread each, checkpoints every 30 min CPU.
+
+## V3.3: T3 replays and cal-2 setup (2026-11-07/08; diagnostics, not scored)
+
+Runs on the Linux workspace with the Numba backend (`--fast`; equal to NumPy to round-off, see C5). Engine V3.3
+(commit `75808d1`). Switch names: C1 `headcut_mode=scarp, headcut_seg_slope=0.1` (+ `headcut_min_slope` as given),
+C2 `collapse_mode=all_pairs`, C3 `lateral_noncohesive=off`, C4 `lateral_directions=xy`.
+
+### T3 Walsh S3 (stage-3 start, pilot 0.37 m, H/16, f_t = 3, C_h = 1, 400 s, Q logged every 5 s)
+
+Peak Q is read from the logged samples: the g1 setup gives 240 L/s at 5 s sampling vs 222 L/s at 10 s (table above),
+so the reference value itself carries about 8 % sampling uncertainty.
+
+| Run | Peak Q | Rise (5 % -> peak) | Width |
+|---|---|---|---|
+| g1 replica: cell headcut, threshold 0.1, + C2 (phi 33) | 240 L/s | 50 s | 1.71 m |
+| cell headcut 0.1 + C2 + C3 + C4 (phi 33) | 208 L/s | 60 s | 1.58 m |
+| C1 (0.1) + C2 (phi 33) | 181 L/s | 60 s | 1.58 m |
+| C1 (0.1) + C2 + C3 + C4, phi 33 / 32.9 / 33.1 | 172 / 188 / 169 L/s | 65-70 s | 1.58 m |
+| same, phi 30.4 / 30.5 / 30.6 (measured repose angle, split-5) | 222 / 231 / 213 L/s | 40-60 s | 1.71 m |
+| same, phi 30.0 / 31.0 / 32.0 | 269 / 219 / 178 L/s | 50-65 s | 1.58-1.84 m |
+| same (phi 33), C_h = 0.316 / 3.16 / 10 | 176 / 310 / 467 L/s | 65 / 30 / 30 s | 1.58 / 1.84 / 2.09 m |
+| C2 + C3 + C4, phi 30.5, headcut off | 168 L/s | 80 s | 1.58 m |
+| same, headcut off, f_t = 10 | 316 L/s | 30 s | 2.09 m |
+| C1 with threshold 0.5 + C2 + C3 + C4, phi 30.5 (cal-2 as amended) | 182 L/s | 70 s | 1.58 m |
+| Walsh observed | 240 L/s | 73 s | about 1.6 m |
+
+- The scarp headcut (C1) erodes less than the old cell rule at the same threshold: the cell rule lowered every steep
+  cell by R dt, i.e. 1/slope times the volume R H dt of the energy law. C_h is now clearly identifiable on Walsh
+  (176 -> 467 L/s over C_h 0.3-10; in cal-1 the cohesive J was nearly flat in C_h).
+- Peak vs repose angle: about -7 % per degree with about +/-10 % scatter between neighbouring settings (threshold
+  events: collapse and headcut switching on or off), even at spatial order 1.
+- T3 criterion (proposal: peak within 20 % of 222 L/s): met at the split-5 setting (phi 30.5: 213-231 L/s) with the
+  proposal's threshold 0.1; at phi 33, 169-188 L/s (15-24 % low). With C2 in place Walsh no longer needs the low
+  threshold (0.5: 182 L/s; headcut off: 168 L/s).
+- Balances <= 7e-13 m3 in every run.
+
+### T3 Dig Tsho (Westoby geometry, grain shear, n 0.035, 5 kPa, crest dip 0.5 m, outfall, 10,800 s)
+
+| Run | Peak after the wave window | Width | Headcut / collapse / lateral [1e3 m3] | Wall |
+|---|---|---|---|---|
+| W15_c5000_n0.035_v2 (V3.2.2, Windows, NumPy, 2026-10-31) | 3,656 m3/s at 4,396 s | 90 m | - | 12 min |
+| same, V3.3 defaults, Linux NumPy | 3,742 m3/s at 5,598 s | 85 m | 103 / 904 / 214 | 6 min |
+| same, V3.3 defaults, Linux Numba | 3,751 m3/s at 5,609 s | 85 m | 103 / 932 / 211 | 6 min |
+| C2 + C3 + C4 (cell headcut) | 2,863 m3/s at 3,999 s | 60 m | 95 / 750 / 0 | 9 min |
+| C1 (0.1) only | 15,117 m3/s at 1,135 s | 250 m | 1,576 / 1,551 / 165 | 4 min |
+| C1 (0.1) + C2 + C3 + C4 | 14,037 m3/s at 1,188 s | 250 m | 1,600 / 2,126 / 0 | 2 min |
+| C2 + C3 + C4, headcut off | 1,186 m3/s at 6,845 s | 80 m | 0 / 748 / 0 | 11 min |
+| C1 (threshold 0.5) + C2 + C3 + C4 | 7,161 m3/s at 3,031 s | 100 m | 599 / 445 / 0 | 4 min |
+
+- With threshold 0.1 the whole distal face (1:3.1, slope 0.32) is one 40 m scarp from the start and the energy law
+  dominates the breach. This and the Walsh result led to CAL2_AMENDMENT_1 (threshold 0.5), adopted before the cal-2
+  grid; Dig Tsho's published peak was not used as a reason.
+- Linux NumPy and Numba agree (0.25 %); both differ from the 2026-10-31 Windows run (+2.4 % peak, peak 1,200 s
+  later). Open: re-run the reference on the laptop to tell platform round-off growth from an engine change.
+- Water / reservoir / solids balances <= 2.5e-7 m3 in every run.
+
+### cal-2 setup checks (2026-11-08; after CAL2_AMENDMENT_1; not used for any choice)
+
+- Runner smoke test (`calibration/smoke_cal2.py`, E1S1): all pass (options applied, early no-breach stop, resume exact).
+- Cost probes, cal-2 configuration, default factors (f = 1), 25 min CPU cap, Linux:
+
+| Case | Qp (obs) | B (obs) | Stop | CPU |
+|---|---|---|---|---|
+| Castlewood | 38.5 m3/s (3,570) | 38.6 m (54.9) | t_end | 5.5 min |
+| South Fork | 1.8 m3/s (8,500) | 3.6 m (128) | t_end | 5.5 min |
+| Goose Creek | 206 m3/s (565) | 29.7 m (30.5) | t_end | 11.8 min |
+| E2S2 | 1.46 m3/s (1.3) | 2.7 m (3.3) | post-peak, 23,760 s | 7.2 min |
+| E1S3 | 1.0 m3/s (no breach) | 3.5 m (4.2) | t_end, no breach | 3.7 min |
+
+  The non-cohesive prototypes do not open at f_t = 1 without the old lateral law (cal-1 at the same factors: 162 and
+  59 m3/s, widths 95 and 101 m from the tau_c = 1 Pa lateral law, F6); the cal-2 grid runs f_t to 10^1.5.

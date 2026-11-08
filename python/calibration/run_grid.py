@@ -6,6 +6,10 @@ Usage (from the python folder, in PowerShell):
     python -u calibration\\run_grid.py --list                                   # show the run plan only
     python -u calibration\\run_grid.py --rerun-capped --list                    # amendment-1 re-run set (dry run)
     python -u calibration\\run_grid.py --rerun-capped --workers 7               # re-run it (post-peak stop, CPU budget)
+    python -u calibration\\run_grid.py --config cal2 --list                     # cal-2 grid (cal2_config.json), plan only
+    python -u calibration\\run_grid.py --config cal2 --workers 5                # cal-2 grid: V3.3 options, Numba backend,
+                                                                                  #   post-peak stop, 8 h CPU budget, checkpoints,
+                                                                                  #   early no-breach stop; ..\\runs\\calibration_grid_cal2
 Results: one JSON per run in ..\\runs\\calibration_grid\\ (re-running skips finished runs, so it can be stopped and resumed).
 Validation cases are never run here.
 """
@@ -34,8 +38,24 @@ LOG_GRID = {  # pre-registered coarse grid (log10 values), written before the fi
 }
 
 
-def plan(only=None):
-    import cases as C
+def cal2_grid():
+    """cal-2 grid (log10 values) from cal2_config.json: search_log10 [lo, hi] in steps of step_log10."""
+    cfg = json.loads((HERE / "cal2_config.json").read_text())["factors"]
+    step = cfg["step_log10"]
+    out = {}
+    for k in ("f_kd", "C_h", "f_t"):
+        lo, hi = cfg[k]["search_log10"]
+        n = int(round((hi - lo) / step))
+        out[k] = [round(lo + i * step, 2) for i in range(n + 1)]
+    return out
+
+
+def grid_for(config):
+    return cal2_grid() if config == "cal2" else LOG_GRID
+
+
+def plan(only=None, config="cal1"):
+    grid = grid_for(config)
     runs = []
     for f in sorted((HERE / "cases").glob("*.json")):
         c = json.loads(f.read_text())
@@ -43,12 +63,12 @@ def plan(only=None):
             continue
         m = c["material"]
         measured = m["class"] == "cohesive" and m.get("kd_status", "").startswith("measured")
-        for ch in LOG_GRID["C_h"]:
+        for ch in grid["C_h"]:
             if m["class"] == "cohesive":
-                for fk in (LOG_GRID["f_kd"] if measured else [0.0]):
+                for fk in (grid["f_kd"] if measured else [0.0]):
                     runs.append((c["id"], {"f_kd": 10 ** fk, "C_h": 10 ** ch, "f_t": 1.0}))
             else:
-                for ft in LOG_GRID["f_t"]:
+                for ft in grid["f_t"]:
                     runs.append((c["id"], {"f_kd": 1.0, "C_h": 10 ** ch, "f_t": 10 ** ft}))
     return runs
 
@@ -76,6 +96,11 @@ def worker(args):
     try:
         c = C.load_case(cid)
         o = dict(opts)
+        if o.pop("fast", False):          # cal-2 (C5): Numba hydraulics + morphology in this worker process
+            sys.path.insert(0, str(HERE.parent))
+            import fast_hydro
+            if not fast_hydro.enable():
+                raise RuntimeError("numba backend requested but numba is not installed")
         ck_every = o.pop("checkpoint_every_cpu_s", None)
         if ck_every:
             o["checkpoint_dir"] = str(out / "_ckpt" / path.stem)
@@ -117,11 +142,24 @@ def main():
     ap.add_argument("--rerun-capped", action="store_true",
                     help="amendment-1 re-run: select runs whose result is capped/censored or an error, move the old files "
                          "to _capped_v1/, and re-run them with --post-peak and --max-cpu 28800 unless given otherwise")
+    ap.add_argument("--config", choices=("cal1", "cal2"), default="cal1",
+                    help="cal2: grid, engine options and runner settings from cal2_config.json; output runs\\calibration_grid_cal2")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--heartbeat", type=float, default=60.0, help="seconds between status blocks")
     a = ap.parse_args()
     only = set(a.only.split(",")) if a.only else None
-    runs = plan(only)
+    runs = plan(only, a.config)
+    if a.config == "cal2":
+        if a.rerun_capped:
+            sys.exit("--rerun-capped is a cal-1 (amendment 1) option")
+        rc = json.loads((HERE / "cal2_config.json").read_text())["runner"]
+        if a.out == ap.get_default("out"):
+            a.out = str(HERE.parent.parent / "runs" / "calibration_grid_cal2")
+        a.post_peak = rc["post_peak_stop"]
+        if a.max_cpu is None:
+            a.max_cpu = float(rc["max_cpu_seconds"])
+        if a.checkpoint_every is None:
+            a.checkpoint_every = float(rc["checkpoint_every_cpu_s"])
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     if a.rerun_capped:
         a.post_peak = True
@@ -157,6 +195,9 @@ def main():
                 "checkpoint_every_cpu_s": a.checkpoint_every}
     else:
         opts = {"max_wall_seconds": a.max_wall, "post_peak_stop": a.post_peak}
+    if a.config == "cal2":
+        opts.update({"model": "cal-2", "early_no_breach_factor": float(rc["early_no_breach_factor"]), "fast": True})
+        print(f"cal-2 grid (log10): {grid_for('cal2')}")
     print(f"runner options: {opts}; threads per worker: OMP={os.environ.get('OMP_NUM_THREADS')}")
     todo = [(cid, fac, out, opts) for cid, fac in runs if not (out / run_name(cid, fac)).exists()]
     by_case = {}
@@ -200,7 +241,8 @@ def main():
             eta = el / done * (len(todo) - done)
             print(f"[{done}/{len(todo)}] {time.strftime('%H:%M:%S')} {cid:11s} {status:5s} {wall/60:6.1f} min   "
                   f"elapsed {el/3600:5.2f} h   eta {eta/3600:5.2f} h", flush=True)
-    print(f"all done in {(time.time() - t0) / 3600:.2f} h. Next: python calibration\\fit.py", flush=True)
+    print(f"all done in {(time.time() - t0) / 3600:.2f} h. Next: python calibration\\fit.py"
+          + (" --config cal2" if a.config == "cal2" else ""), flush=True)
 
 
 if __name__ == "__main__":
