@@ -1,0 +1,41 @@
+{
+ "id": "Poerua",
+ "tier": "validation",
+ "group": "G3",
+ "kind": "field",
+ "source": "Wu 2016 Table 6.1 #9 (Hancox et al. 2005). Landslide dam, crest width 0; storage (5-7)e6 m3 -> 6e6 (midpoint), area ~2e5 m2; initial breach 0.4 x 3.0 m assumed by DLBreach",
+ "H": 80.0,
+ "crest_w": 0.0,
+ "zu": 4.761904761904762,
+ "zd": 2.2222222222222223,
+ "section_width": 960.0,
+ "stub_up": 40.0,
+ "apron": 160.0,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 0.4,
+  "bottom_width": 3.0,
+  "side_hv": 1.0
+ },
+ "reservoir": {
+  "type": "power",
+  "V_full": 6000000.0,
+  "H_full": 80.0,
+  "exp": 2.667,
+  "_note": "exponent = A H / V; storage midpoint of (5-7)e6"
+ },
+ "initial_level": 80.0,
+ "inflow": 0.0,
+ "t_end": 43200.0,
+ "material": {
+  "class": "noncohesive",
+  "d50_mm": 11.0,
+  "d90_mm": 27.5,
+  "porosity": 0.22,
+  "cohesion_kPa": 0.0,
+  "tan_phi": 0.8,
+  "_assumed": "porosity 0.22 (DLBreach a); d90 2.5 d50; no inflow given"
+ },
+ "manning_n": 0.04,
+ "_stage4_rules": "section width 12 H (no crest length); t_end 43,200 s (field rule)"
+}

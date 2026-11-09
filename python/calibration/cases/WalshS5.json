@@ -1,6 +1,6 @@
 {
  "id": "WalshS5",
- "tier": "excluded",
+ "tier": "seen-validation",
  "group": "G8",
  "kind": "lab",
  "source": "Walsh (2019) MASc, Queen's University: Tables 2.1/3.1 (geometry, d50, Qpeak); Tp read from Fig. 2.5a / 3.5a (+/- 5 s) ",
@@ -35,13 +35,16 @@
   "d90_mm": 0.3,
   "porosity": 0.35,
   "cohesion_kPa": 0.0,
-  "tan_phi": 0.65,
-  "_assumed": "porosity 0.35, tan_phi 0.65 (33 deg) and d90 2.5 d50 not reported; fill-pump inflow unknown -> 0 with 2 cm initial head"
+  "tan_phi": 0.589,
+  "_assumed": "porosity 0.35, tan_phi 0.589 (30.5 deg, measured repose angle, split-5) and d90 2.5 d50 not reported; fill-pump inflow unknown -> 0 with 2 cm initial head"
  },
  "obs": {
   "Qp": 0.17,
   "Tp_h": 0.02583,
-  "_tp_note": "93 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak"
+  "_tp_note": "93 s after Walsh's T=0 (onset of rapid rise); model datum = first time Q >= 5 % of model peak",
+  "B_star_at_peak": 1.29,
+  "_B_note": "B* at T = 0 = 0.46 m and at the peak marker (95 s) = 1.29 m, read from Walsh (2019) Fig. 2.7a (pixel positions, 200 dpi)"
  },
- "_excluded": "split-4 (2026-11-02): engine resolution limit, see validation/calibration/SPLIT.md"
+ "_split5": "split-5 (2026-11-07): seen validation, reported separately from stage 4; start = Walsh stage 3 (T = 0) with a V pilot channel of top width B* at T = 0; friction angle 30.5 deg (Beddoe & Take 2016)",
+ "pilot_width_T0": 0.46
 }

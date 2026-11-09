@@ -215,8 +215,10 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
     if early_no_breach_factor and obs_.get("breached") is not False and obs_.get("Tp_h"):
         t_nb = float(early_no_breach_factor) * float(obs_["Tp_h"]) * 3600.0
     t_init: Optional[float] = None   # physical time initiation was first detected (all cases)
+    t_breach: Optional[float] = None # physical time the notch invert first lowered by > 50 % of the notch depth
     pp_key = "Q_in_prism" if case.get("q_measure") == "reservoir" else "Q_prism_outlet"
-    pp_qin = float(case.get("inflow", 0.0)) if not callable(case.get("inflow", 0.0)) else 0.0
+    _qin0 = case.get("inflow", 0.0)
+    pp_qin = 0.0 if (callable(_qin0) or isinstance(_qin0, dict)) else float(_qin0)
     pp = {"i": 0, "qmax": -np.inf, "t_peak": None, "t_last_exceed": None}
     # Compact history (memory fix, 2026-11-05): the engine appends one dict per step to eng.history (about 1.5 kB
     # each, 2-4 GB for a long lab run). After every chunk the runner moves the entries into float64 columns of the
@@ -253,6 +255,11 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
         eng = E.UltimateBreachEngine(mesh, res, mat, cfg)
         crest = eng._crest_rows
         q_in = case.get("inflow", 0.0)
+        if isinstance(q_in, dict):         # stage 4: inflow hydrograph {"type": "table", "points": [[t_s, Q], ...]}
+            if q_in.get("type") != "table":
+                raise ValueError(f"unknown inflow type {q_in.get('type')!r}")
+            _tab = np.asarray(q_in["points"], dtype=float)
+            q_in = (lambda t, _tab=_tab: float(np.interp(phys(t), _tab[:, 0], _tab[:, 1])))
         if ck_state is not None:
             eng.load_checkpoint(str(ck / ck_state["engine_file"]))
             eng.history = []
@@ -267,6 +274,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                 raise RuntimeError(f"checkpoint history has {hstore['n']} entries, runner.json says {ck_state['n_history']}")
             t_switch_h = ck_state["t_switch_h"]
             t_init = ck_state.get("t_init")
+            t_breach = ck_state.get("t_breach")
             cpu_prev, wall_prev = ck_state["cpu_s"], ck_state["wall_s"]
             restarts = ck_state.get("restarts", 0) + 1
             pp.update({k: ck_state["pp"][k] for k in ("i", "t_peak", "t_last_exceed")})
@@ -296,7 +304,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                 parts = parts + [part]
             save_ck.parts = parts
             state = {"seq": k_, "engine_file": f"engine_{k_:05d}.npz", "parts": parts, "n_history": hstore["n"],
-                     "engine_time": eng.time, "t_switch_h": t_switch_h, "t_init": t_init, "A": A,
+                     "engine_time": eng.time, "t_switch_h": t_switch_h, "t_init": t_init, "t_breach": t_breach, "A": A,
                      "cpu_s": cpu_prev + time.process_time() - cpu0, "wall_s": wall_prev + time.perf_counter() - wall0,
                      "restarts": restarts,
                      "pp": {"i": pp["i"], "t_peak": pp["t_peak"], "t_last_exceed": pp["t_last_exceed"],
@@ -362,6 +370,8 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
                         print(f"    breach initiation detected at t = {t_switch_h * A:.0f} s -> acceleration off", flush=True)
             if t_init is None and crest.any() and np.max((z0 - mesh.z_b)[crest, :]) > 0.25 * dn:
                 t_init = phys(eng.time)
+            if t_breach is None and crest.any() and np.max((z0 - mesh.z_b)[crest, :]) > 0.5 * dn:
+                t_breach = phys(eng.time)
             if t_nb is not None and t_init is None and phys(eng.time) >= t_nb - 1e-9:
                 stop_cause = "no_breach_early"
                 if progress:
@@ -419,7 +429,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
             "capped": censored, "censored": censored,
             "stop_cause": stop_cause or "t_end",
             "t_switch_phys_s": (None if t_switch_h is None else t_switch_h * A),
-            "t_init_phys_s": t_init, "model": model or "cal-1",
+            "t_init_phys_s": t_init, "t_breach_phys_s": t_breach, "model": model or "cal-1",
             "status": eng.run_status, "stop_reason": eng.stop_reason, "steps": eng.nsteps,
             "wall_s": wall_prev + time.perf_counter() - wall0, "cpu_s": cpu_prev + time.process_time() - cpu0,
             "restarts": restarts,

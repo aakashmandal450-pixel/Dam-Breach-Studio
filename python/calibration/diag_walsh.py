@@ -73,6 +73,9 @@ ap.add_argument("--phi-deg", type=float, default=None,
                 help="override the material friction / repose angle [deg] (Walsh case file: 33; measured 30.5)")
 ap.add_argument("--avalanche-wet-deg", type=float, default=None,
                 help="with --avalanche: critical angle for pairs where both cells are wet [deg] (default: friction angle)")
+ap.add_argument("--model", choices=("cal-1", "cal-2"), default="cal-1",
+                help="cal-2: build with the frozen cal-2 factors (cal-2.json) and engine options (stage 4, split-5); "
+                     "--f-t is then ignored; --cfg still applies on top (diagnostics only)")
 ap.add_argument("--fast", action="store_true",
                 help="Numba backend (fast_hydro + fast_morph, V3.3 C5); results equal NumPy to round-off")
 ap.add_argument("--suffix", default="", help="appended to the output file names (keeps earlier results)")
@@ -85,7 +88,12 @@ if a.fast:
     import fast_hydro  # noqa: E402
     if not fast_hydro.enable():
         sys.exit("--fast: numba is not installed")
-mesh, res, mat, cfg, meta = C.build(case, {"f_t": a.f_t}, a.grid)
+if a.model == "cal-2":            # stage 4 (split-5): frozen cal-2 factors and engine options
+    _cal2 = json.loads((HERE / "cal-2.json").read_text())["factors"]
+    mesh, res, mat, cfg, meta = C.build(case, dict(_cal2), a.grid, model="cal-2")
+    a.f_t = float(_cal2["f_t"])
+else:
+    mesh, res, mat, cfg, meta = C.build(case, {"f_t": a.f_t}, a.grid)
 cfg.morph_accel = 1.0
 tag = f"{a.case}_H{int(a.grid)}"
 overrides = {}
@@ -311,6 +319,7 @@ with warnings.catch_warnings():
             r[f"u_{name}_ms"] = float(sp[i, jc])
             r[f"tau_{name}_Pa"] = float(tau[i, jc])
             r[f"ratio_{name}"] = float(tau[i, jc] / tau_c)
+        r["breach_width_m"] = float(eng.breach_development()["width_m"])   # stage 4: B* at the time of the peak
         rows.append(r)
         if first_flow_t is None and q_crest > 1e-7:
             first_flow_t = eng.time
@@ -394,7 +403,7 @@ bd = eng.breach_development()
 obs = case.get("obs", {})
 stage3 = {"Qp_model_m3s": qp, "Qp_obs_m3s": obs.get("Qp"), "t_peak_model_s": tp,
           "t_peak_from_5pct_s": tp - t5, "Tp_obs_s_from_T0": (obs.get("Tp_h") or 0) * 3600.0,
-          "breach_width_model_m": float(bd["width_m"])}
+          "breach_width_model_m": float(bd["width_m"]), "breach_width_at_peak_m": float(rows[kp]["breach_width_m"])}
 _d = eng.diagnostics_summary()
 balances = {"water_m3": _d["water_balance_err_m3"], "reservoir_m3": _d["reservoir_balance_err_m3"],
             "sediment_m3": _d["sediment_balance_err_m3"]}
@@ -415,7 +424,7 @@ summary = {"case": a.case, "overrides": overrides, "balances": balances, "pilot"
 if pilot:
     print(f"\n    STAGE 3 vs WALSH: peak Q {qp:.4f} m3/s (observed {obs.get('Qp')}) at t = {tp:.0f} s "
           f"({tp - t5:.0f} s after Q first reached 5 % of peak; observed {stage3['Tp_obs_s_from_T0']:.0f} s after T=0); "
-          f"breach width {bd['width_m']:.2f} m")
+          f"breach width {bd['width_m']:.2f} m (at the peak {stage3['breach_width_at_peak_m']:.2f} m)")
 print("\n    VERDICT:")
 for v in verdict:
     print("     - " + v)

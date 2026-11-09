@@ -1,0 +1,61 @@
+{
+ "id": "Yigong",
+ "tier": "validation",
+ "group": "G3",
+ "kind": "field",
+ "source": "Wu 2016 Table 6.1 #8 (Chen 2015); DLBreach card Yigong_cards.txt (dam length 1000 m, inflow 859 m3/s to 24 h, 0 at 28 h, simulation 300,000 s); initial breach 5 x 5 m assumed by DLBreach",
+ "H": 80.0,
+ "crest_w": 1.0,
+ "zu": 14.705882352941176,
+ "zd": 14.705882352941176,
+ "section_width": 1000.0,
+ "stub_up": 40.0,
+ "apron": 160.0,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 5.0,
+  "bottom_width": 5.0,
+  "side_hv": 1.0
+ },
+ "reservoir": {
+  "type": "power",
+  "V_full": 2380000000.0,
+  "H_full": 80.0,
+  "exp": 1.694,
+  "_note": "exponent = A H / V (rule as Castlewood); the card refers its curve to 86 m"
+ },
+ "initial_level": 80.0,
+ "inflow": {
+  "type": "table",
+  "points": [
+   [
+    0.0,
+    859.0
+   ],
+   [
+    86400.0,
+    859.0
+   ],
+   [
+    100800.0,
+    0.0
+   ],
+   [
+    10000000.0,
+    0.0
+   ]
+  ]
+ },
+ "t_end": 300000.0,
+ "material": {
+  "class": "noncohesive",
+  "d50_mm": 8.0,
+  "d90_mm": 20.0,
+  "porosity": 0.3,
+  "cohesion_kPa": 13.0,
+  "tan_phi": 0.75,
+  "_assumed": "d90 2.5 d50"
+ },
+ "manning_n": 0.037,
+ "_stage4_rules": "section width = card dam length 1000 m; t_end = card simulation period 300,000 s (stage-4 field rule: 43,200 s or the source card's period if longer)"
+}

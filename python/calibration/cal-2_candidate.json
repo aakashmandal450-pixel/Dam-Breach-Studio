@@ -1,0 +1,172 @@
+{
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.1622776601683795
+ },
+ "J_total": 6.468755206101348,
+ "J_per_case": {
+  "Castlewood": {
+   "J": 0.34732510939924954,
+   "class": "completed"
+  },
+  "E1S1": {
+   "J": 1.3118595183070796,
+   "class": "completed"
+  },
+  "E1S3": {
+   "J": 0.026614440929549687,
+   "class": "completed"
+  },
+  "E2S2": {
+   "J": 3.625467424920054,
+   "class": "completed"
+  },
+  "GooseCreek": {
+   "J": 0.9708896517076137,
+   "class": "completed"
+  },
+  "SouthFork": {
+   "J": 0.18659906083780137,
+   "class": "completed"
+  }
+ },
+ "loo": [
+  {
+   "left_out": "Castlewood",
+   "f_kd": 1.0,
+   "C_h": 10.0,
+   "f_t": 3.1622776601683795,
+   "held_out_J": 0.34732510939924954
+  },
+  {
+   "left_out": "E1S1",
+   "f_kd": 0.1,
+   "C_h": 10.0,
+   "f_t": 3.1622776601683795,
+   "held_out_J": 11.206091502160751
+  },
+  {
+   "left_out": "E1S3",
+   "f_kd": 1.0,
+   "C_h": 10.0,
+   "f_t": 3.1622776601683795,
+   "held_out_J": 0.026614440929549687
+  },
+  {
+   "left_out": "E2S2",
+   "f_kd": 3.1622776601683795,
+   "C_h": 1.0,
+   "f_t": 10.0,
+   "held_out_J": 5.891124122450407
+  },
+  {
+   "left_out": "GooseCreek",
+   "f_kd": 1.0,
+   "C_h": 10.0,
+   "f_t": 3.1622776601683795,
+   "held_out_J": 0.9708896517076137
+  },
+  {
+   "left_out": "SouthFork",
+   "f_kd": 1.0,
+   "C_h": 10.0,
+   "f_t": 3.1622776601683795,
+   "held_out_J": 0.18659906083780137
+  }
+ ],
+ "stability": {
+  "f_kd": {
+   "min": 0.1,
+   "max": 3.1622776601683795,
+   "max_over_min": 31.622776601683793,
+   "stable": false
+  },
+  "C_h": {
+   "min": 1.0,
+   "max": 10.0,
+   "max_over_min": 10.0,
+   "stable": false
+  },
+  "f_t": {
+   "min": 3.1622776601683795,
+   "max": 10.0,
+   "max_over_min": 3.162277660168379,
+   "stable": false
+  }
+ },
+ "censoring_sensitivity": {
+  "J": 6.468755206101348,
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.1622776601683795
+ },
+ "censoring_sensitive": {
+  "f_kd": false,
+  "C_h": false,
+  "f_t": false
+ },
+ "run_counts": {
+  "Castlewood": {
+   "completed": 42,
+   "censored": 0,
+   "error": 0
+  },
+  "E1S1": {
+   "completed": 48,
+   "censored": 0,
+   "error": 0
+  },
+  "E1S3": {
+   "completed": 48,
+   "censored": 0,
+   "error": 0
+  },
+  "E2S2": {
+   "completed": 48,
+   "censored": 0,
+   "error": 0
+  },
+  "GooseCreek": {
+   "completed": 6,
+   "censored": 0,
+   "error": 0
+  },
+  "SouthFork": {
+   "completed": 42,
+   "censored": 0,
+   "error": 0
+  }
+ },
+ "grid": {
+  "f_kd": [
+   -2.0,
+   -1.5,
+   -1.0,
+   -0.5,
+   0.0,
+   0.5,
+   1.0,
+   1.5
+  ],
+  "C_h": [
+   -1.5,
+   -1.0,
+   -0.5,
+   0.0,
+   0.5,
+   1.0
+  ],
+  "f_t": [
+   -1.5,
+   -1.0,
+   -0.5,
+   0.0,
+   0.5,
+   1.0,
+   1.5
+  ]
+ },
+ "n_results": 234,
+ "config": "cal2"
+}

@@ -1,0 +1,94 @@
+{
+ "id": "E2S3",
+ "tier": "validation",
+ "group": "G1",
+ "kind": "lab",
+ "source": "Hanson, Cook & Hunt (2005) Tables 1, 3 (embankment 2, soil 3, CL); reservoir Fig. 2 1.5 m curve as E2S2",
+ "H": 1.52,
+ "crest_w": 1.9,
+ "zu": 3.0,
+ "zd": 3.0,
+ "section_width": 4.9,
+ "stub_up": 1.5,
+ "apron": 3.0,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 0.3,
+  "bottom_width": 1.22,
+  "side_hv": 3.0
+ },
+ "reservoir": {
+  "type": "stage_volume",
+  "points": [
+   [
+    0.091,
+    229
+   ],
+   [
+    0.215,
+    564
+   ],
+   [
+    0.307,
+    831
+   ],
+   [
+    0.398,
+    1108
+   ],
+   [
+    0.518,
+    1510
+   ],
+   [
+    0.614,
+    1806
+   ],
+   [
+    0.703,
+    2140
+   ],
+   [
+    0.794,
+    2474
+   ],
+   [
+    0.914,
+    2943
+   ],
+   [
+    1.066,
+    3564
+   ],
+   [
+    1.221,
+    4223
+   ],
+   [
+    1.373,
+    4920
+   ],
+   [
+    1.525,
+    5646
+   ]
+  ],
+  "_note": "digitized; end point within 0.3 % of the 2.3 m curve check"
+ },
+ "inflow": 0.3,
+ "t_end": 100000.0,
+ "material": {
+  "class": "cohesive",
+  "d50_mm": 0.01,
+  "porosity": 0.35,
+  "qu_kPa": 82.0,
+  "tan_phi": 0.5,
+  "kd_cm3Ns": 0.038,
+  "tauc_Pa": 10.0,
+  "kd_status": "measured JET",
+  "_assumed": "d50 0.01 mm, porosity 0.35, tan_phi 0.5 as E1S3 (same CL soil, not reported)"
+ },
+ "manning_n": 0.016,
+ "accel": 10.0,
+ "_stage4_rules": "geometry, notch, reservoir, inflow as the same embankment's calibration case; t_end 100,000 s (stage-4 lab rule) with post-peak stop"
+}

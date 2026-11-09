@@ -1,0 +1,42 @@
+{
+ "id": "LaurelRun",
+ "tier": "validation",
+ "group": "G3",
+ "kind": "field",
+ "source": "Wu 2016 Table 6.3 #17 (Wahl 1998); Vw 5.55e5 m3 (storage only); inflow 100 m3/s, slopes, initial breach 0.2 x 1.0 m and soil assumed by DLBreach",
+ "H": 12.8,
+ "crest_w": 6.1,
+ "zu": 3.003003003003003,
+ "zd": 2.5,
+ "section_width": 153.6,
+ "stub_up": 6.4,
+ "apron": 25.6,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 0.2,
+  "bottom_width": 1.0,
+  "side_hv": 1.0
+ },
+ "reservoir": {
+  "type": "power",
+  "V_full": 555000.0,
+  "H_full": 12.8,
+  "exp": 2.0,
+  "_note": "storage only -> exponent 2 (DLBreach rule, Sect. 3.3.3)"
+ },
+ "initial_level": 12.8,
+ "inflow": 100.0,
+ "t_end": 43200.0,
+ "material": {
+  "class": "cohesive",
+  "d50_mm": 0.03,
+  "porosity": 0.35,
+  "cohesion_kPa": 25.0,
+  "tan_phi": 0.55,
+  "kd_cm3Ns": 7.2,
+  "tauc_Pa": 0.15,
+  "kd_status": "assumed (DLBreach); not scaled by f_kd"
+ },
+ "manning_n": 0.016,
+ "_stage4_rules": "section width 12 H (no crest length); t_end 43,200 s (field rule)"
+}
