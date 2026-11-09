@@ -1,0 +1,53 @@
+{
+ "id": "Yigong",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.1622776601683795
+ },
+ "Qp": 11787.642569875388,
+ "Tp_h": 19.00405574619893,
+ "B": 626.6666666666667,
+ "breached": true,
+ "t_end_phys_s": 71760.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": null,
+ "t_init_phys_s": 840.0,
+ "t_breach_phys_s": 1380.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 753742,
+ "wall_s": 2828.1400023000315,
+ "cpu_s": 2783.8125,
+ "restarts": 0,
+ "lake_volume_end_m3": 2254851963.639164,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": null,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": null,
+  "early_no_breach_t_s": null
+ },
+ "grid": [
+  192,
+  75,
+  13.333333333333334
+ ],
+ "balances": [
+  4.999339580535889e-06,
+  -2.065300941467285e-05,
+  -9.81002813205123e-07
+ ],
+ "max_lowering_m": 66.31399066198557,
+ "set": "F_all",
+ "variant": null,
+ "lake_level_end_m": 77.48587586468177,
+ "lake_level_start_m": 80.0
+}

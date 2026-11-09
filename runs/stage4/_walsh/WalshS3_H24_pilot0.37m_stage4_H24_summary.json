@@ -1,0 +1,57 @@
+{
+ "case": "WalshS3",
+ "overrides": {
+  "f_t": {
+   "default": 1.0,
+   "set": 3.1622776601683795
+  }
+ },
+ "balances": {
+  "water_m3": 2.717825964282383e-13,
+  "reservoir_m3": -1.616484723854228e-13,
+  "sediment_m3": -2.5644381675860473e-14
+ },
+ "pilot": {
+  "width_m": 0.37,
+  "depth_m": 0.10896499999999999,
+  "x_from_m": 2.54327262,
+  "x_to_m": 6.032,
+  "source": "width = B* at T=0, Walsh (2019) Fig. 2.7a (30 deg, S3); depth: sides at friction angle"
+ },
+ "stage3": {
+  "Qp_model_m3s": 0.49235353987946423,
+  "Qp_obs_m3s": 0.24,
+  "t_peak_model_s": 122.0,
+  "t_peak_from_5pct_s": 29.0,
+  "Tp_obs_s_from_T0": 73.008,
+  "breach_width_model_m": 2.09,
+  "breach_width_at_peak_m": 1.926078431372549
+ },
+ "grid_divisor": 24.0,
+ "nx": 502,
+ "ny": 51,
+ "dx": 0.041666666666666664,
+ "dy": 0.04098039215686274,
+ "notch_cell_width_m": 0.04098039215686274,
+ "real_notch_top_width_m": 0.06,
+ "cohesion_Pa": 0.0,
+ "initial_head_m": 0.06896499999999994,
+ "h_dry_m": 0.001,
+ "tau_c_Pa": 0.09129185999999999,
+ "theta_c": 0.047,
+ "manning_n": 0.016,
+ "grain_n": 0.010525621586977845,
+ "hand_Q_vnotch_m3s": 0.0008851998578997771,
+ "hand_Q_onecell_m3s": 0.001261734976276349,
+ "first_flow_over_crest_s": 1.0,
+ "max_Q_crest_m3s": 0.46037013664790527,
+ "max_Q_in_prism_m3s": 0.49235353987946423,
+ "min_head_m": 0.06896499999999994,
+ "max_tau_ratio_face": 279.6713693973067,
+ "max_notch_lowering_m": 0.8471471509423724,
+ "simulated_s": 600.0,
+ "wall_s": 1067.623071399983,
+ "verdict": [
+  "BREACH: notch lowered by more than half its depth."
+ ]
+}

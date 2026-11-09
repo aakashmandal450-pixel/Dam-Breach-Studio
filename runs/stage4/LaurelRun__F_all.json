@@ -1,0 +1,53 @@
+{
+ "id": "LaurelRun",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.1622776601683795
+ },
+ "Qp": 547.8120849648723,
+ "Tp_h": 2.6914829370875473,
+ "B": 27.353424657534244,
+ "breached": true,
+ "t_end_phys_s": 18660.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": null,
+ "t_init_phys_s": 420.0,
+ "t_breach_phys_s": 660.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 472689,
+ "wall_s": 312.94554760004394,
+ "cpu_s": 310.875,
+ "restarts": 0,
+ "lake_volume_end_m3": 63178.736535786295,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": null,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": null,
+  "early_no_breach_t_s": null
+ },
+ "grid": [
+  51,
+  73,
+  2.1333333333333333
+ ],
+ "balances": [
+  2.23881215788424e-08,
+  4.98257577419281e-08,
+  1.8553691916167736e-10
+ ],
+ "max_lowering_m": 12.8,
+ "set": "F_all",
+ "variant": null,
+ "lake_level_end_m": 4.315696570325164,
+ "lake_level_start_m": 12.8
+}

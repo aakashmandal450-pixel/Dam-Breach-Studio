@@ -1,0 +1,53 @@
+{
+ "id": "E1S2",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.1622776601683795
+ },
+ "Qp": 4.020565392778669,
+ "Tp_h": 4.95037687427816,
+ "B": 2.4333333333333336,
+ "breached": true,
+ "t_end_phys_s": 27840.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": 6600.0,
+ "t_init_phys_s": 6600.0,
+ "t_breach_phys_s": 7860.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 1859058,
+ "wall_s": 1040.4323248000583,
+ "cpu_s": 1017.84375,
+ "restarts": 0,
+ "lake_volume_end_m3": 1740.4985596675317,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": null,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": null,
+  "early_no_breach_t_s": null
+ },
+ "grid": [
+  76,
+  27,
+  0.28625
+ ],
+ "balances": [
+  -1.993214482354233e-10,
+  4.802132025361061e-10,
+  -5.293543381412746e-13
+ ],
+ "max_lowering_m": 1.83,
+ "set": "F_all",
+ "variant": null,
+ "lake_level_end_m": 0.9787206779418793,
+ "lake_level_start_m": 2.29
+}

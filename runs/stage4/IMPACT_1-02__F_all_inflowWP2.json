@@ -1,0 +1,53 @@
+{
+ "id": "IMPACT_1-02",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.1622776601683795
+ },
+ "Qp": 404.6707130595177,
+ "Tp_h": 4.941219685367028,
+ "B": 35.88493150684931,
+ "breached": true,
+ "t_end_phys_s": 35040.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": null,
+ "t_init_phys_s": 8520.0,
+ "t_breach_phys_s": 8820.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 1310247,
+ "wall_s": 989.1705273999833,
+ "cpu_s": 979.78125,
+ "restarts": 0,
+ "lake_volume_end_m3": 4.106642760150447,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": null,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": null,
+  "early_no_breach_t_s": null
+ },
+ "grid": [
+  45,
+  73,
+  0.9833333333333334
+ ],
+ "balances": [
+  -5.6013959692791104e-08,
+  2.7939677238464355e-09,
+  -4.120010999031365e-10
+ ],
+ "max_lowering_m": 5.899999999997359,
+ "set": "F_all_inflowWP2",
+ "variant": "inflow_wp2",
+ "lake_level_end_m": 0.008916225588081762,
+ "lake_level_start_m": 4.27
+}

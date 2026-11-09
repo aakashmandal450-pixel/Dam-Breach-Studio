@@ -1,0 +1,43 @@
+{
+ "id": "WalshS1",
+ "set": "H24",
+ "tier": "seen-validation",
+ "grid_divisor": 24,
+ "Qp": 0.3769306550893501,
+ "t_peak_from_start_s": 51.0,
+ "t_peak_from_5pct_s": 34.0,
+ "B_at_peak": 1.9670588235294115,
+ "B_final": 1.9670588235294115,
+ "balances": [
+  -1.936228954946273e-13,
+  2.0250467969162855e-13,
+  -2.3431138688914492e-14
+ ],
+ "simulated_s": 600.0,
+ "summary_file": "WalshS1_H24_pilot0.54m_stage4_H24_summary.json",
+ "cmd": [
+  "D:\\My Projects\\Dam-Breach-Studio\\python\\calibration\\diag_walsh.py",
+  "--case",
+  "WalshS1",
+  "--model",
+  "cal-2",
+  "--fast",
+  "--grid",
+  "24",
+  "--t-end",
+  "600.0",
+  "--log-every",
+  "1",
+  "--section-every",
+  "600",
+  "--pilot-channel",
+  "--pilot-width",
+  "0.54",
+  "--max-wall",
+  "86400",
+  "--out",
+  "D:\\My Projects\\Dam-Breach-Studio\\runs\\stage4\\_walsh",
+  "--suffix",
+  "_stage4_H24"
+ ]
+}
