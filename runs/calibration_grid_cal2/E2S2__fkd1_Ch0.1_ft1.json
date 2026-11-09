@@ -1,0 +1,69 @@
+{
+ "id": "E2S2",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 0.1,
+  "f_t": 1.0
+ },
+ "Qp": 1.5573865631828399,
+ "Tp_h": 3.515873252654691,
+ "B": 2.3592592592592596,
+ "breached": true,
+ "t_end_phys_s": 23400.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": 7200.0,
+ "t_init_phys_s": 7200.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 1491447,
+ "wall_s": 726.2710420000367,
+ "cpu_s": 720.640625,
+ "restarts": 0,
+ "lake_volume_end_m3": 1001.2381749248297,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": 86400.0,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": 3.0,
+  "early_no_breach_t_s": 243453.6
+ },
+ "grid": [
+  82,
+  27,
+  0.19
+ ],
+ "balances": [
+  -8.980549637271906e-11,
+  -3.5652192309498787e-10,
+  8.704148513061227e-14
+ ],
+ "max_lowering_m": 1.258641975308642,
+ "score": {
+  "id": "E2S2",
+  "terms": {
+   "Qp": 0.032632569755388446,
+   "Tp": 3.4525070153114368,
+   "B": 0.08126658781353872
+  },
+  "J": 3.566406172880364
+ },
+ "case_obs": {
+  "Qp": 1.3,
+  "B": 3.3,
+  "Tp_h": 22.542,
+  "stage_times_min": [
+   80,
+   1092,
+   361
+  ],
+  "breached": true,
+  "_tp_note": "Tp not reported; midpoint of stage III used (rule as E1S1 check)"
+ }
+}

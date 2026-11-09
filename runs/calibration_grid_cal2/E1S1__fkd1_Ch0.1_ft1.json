@@ -1,0 +1,68 @@
+{
+ "id": "E1S1",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 0.1,
+  "f_t": 1.0
+ },
+ "Qp": 3.109899330421941,
+ "Tp_h": 1.9735945228447824,
+ "B": 2.4333333333333336,
+ "breached": true,
+ "t_end_phys_s": 7200.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "t_end",
+ "t_switch_phys_s": 3000.0,
+ "t_init_phys_s": 3000.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 398383,
+ "wall_s": 180.27413680002792,
+ "cpu_s": 178.828125,
+ "restarts": 0,
+ "lake_volume_end_m3": 3235.653958703556,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": 86400.0,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": 3.0,
+  "early_no_breach_t_s": 7192.800000000001
+ },
+ "grid": [
+  76,
+  27,
+  0.28625
+ ],
+ "balances": [
+  -1.4992451724538114e-11,
+  1.127773430198431e-10,
+  7.460698725481052e-14
+ ],
+ "max_lowering_m": 1.885493827160494,
+ "score": {
+  "id": "E1S1",
+  "terms": {
+   "Qp": 0.5434812688357749,
+   "Tp": 1.1800957472291986,
+   "B": 0.4190529533944783
+  },
+  "J": 2.1426299694594517
+ },
+ "case_obs": {
+  "Qp": 6.5,
+  "B": 6.9,
+  "Tp_h": 0.666,
+  "stage_times_min": [
+   16,
+   15,
+   20
+  ],
+  "breached": true
+ }
+}

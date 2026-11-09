@@ -1,0 +1,60 @@
+{
+ "id": "Castlewood",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.1622776601683795
+ },
+ "Qp": 1983.1441118276311,
+ "Tp_h": 0.716333285153547,
+ "B": 52.62328767123288,
+ "breached": true,
+ "t_end_phys_s": 6600.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": null,
+ "t_init_phys_s": 60.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 117460,
+ "wall_s": 84.9089674000279,
+ "cpu_s": 84.15625,
+ "restarts": 0,
+ "lake_volume_end_m3": 65214.68529795822,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": 86400.0,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": 3.0,
+  "early_no_breach_t_s": null
+ },
+ "grid": [
+  41,
+  73,
+  3.5566666666666666
+ ],
+ "balances": [
+  8.731149137020111e-10,
+  6.05359673500061e-08,
+  -8.36735125631094e-11
+ ],
+ "max_lowering_m": 19.083584150099465,
+ "score": {
+  "id": "Castlewood",
+  "terms": {
+   "Qp": 0.3456053344058155,
+   "B": 0.0017197749934340612
+  },
+  "J": 0.34732510939924954
+ },
+ "case_obs": {
+  "Qp": 3570,
+  "B": 54.9
+ }
+}

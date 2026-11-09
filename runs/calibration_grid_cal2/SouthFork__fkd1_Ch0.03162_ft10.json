@@ -1,0 +1,60 @@
+{
+ "id": "SouthFork",
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 0.03162277660168379,
+  "f_t": 10.0
+ },
+ "Qp": 7850.353449674471,
+ "Tp_h": 4.141964766867378,
+ "B": 183.34177215189874,
+ "breached": true,
+ "t_end_phys_s": 20280.0,
+ "capped": false,
+ "censored": false,
+ "stop_cause": "post_peak",
+ "t_switch_phys_s": null,
+ "t_init_phys_s": 180.0,
+ "model": "cal-2",
+ "status": "completed",
+ "stop_reason": null,
+ "steps": 374096,
+ "wall_s": 256.4519199000206,
+ "cpu_s": 254.546875,
+ "restarts": 0,
+ "lake_volume_end_m3": 129708.99873193473,
+ "runner": {
+  "post_peak_stop": true,
+  "post_peak_window_s": 1800.0,
+  "post_peak_frac": 0.05,
+  "max_cpu_seconds": 28800.0,
+  "max_wall_seconds": null,
+  "max_wall_safety_seconds": 86400.0,
+  "checkpoint_every_cpu_s": 1800.0,
+  "early_no_breach_factor": 3.0,
+  "early_no_breach_t_s": null
+ },
+ "grid": [
+  38,
+  79,
+  3.65
+ ],
+ "balances": [
+  -2.561137080192566e-09,
+  -4.1350722312927246e-07,
+  -4.3655745685100555e-10
+ ],
+ "max_lowering_m": 21.710593526829914,
+ "score": {
+  "id": "SouthFork",
+  "terms": {
+   "Qp": 0.006321459615284138,
+   "B": 0.18693308989945523
+  },
+  "J": 0.19325454951473936
+ },
+ "case_obs": {
+  "Qp": 8500,
+  "B": 128
+ }
+}

@@ -215,3 +215,33 @@ so the reference value itself carries about 8 % sampling uncertainty.
 
   The non-cohesive prototypes do not open at f_t = 1 without the old lateral law (cal-1 at the same factors: 162 and
   59 m3/s, widths 95 and 101 m from the tau_c = 1 Pa lateral law, F6); the cal-2 grid runs f_t to 10^1.5.
+
+### cal-2 grid and fit (`run_grid.py --config cal2`, `runs/calibration_grid_cal2/`, 2026-11-08)
+
+- 234 runs, laptop, 5 workers, Numba backend, 10.4 h (smoke test passed first, commit `961bdf9`). All completed: 0
+  censored, 0 errors. Stop causes: post-peak 76, t_end 140, early no-breach 18 (E1S1 at low f_kd). CPU per run
+  29 s - 76 min (median 8 min; cal-1: about 1-2 h). Max balance 3e-6 m3.
+- Fit (`fit.py --config cal2`): **J = 6.469** (cal-1 8.34) at f_kd 1, C_h 10 (top of the range), f_t 3.16.
+  Censoring sensitivity: no censored runs, same fit.
+
+| Case | J | Qp (obs) | B (obs) | Tp (obs) |
+|---|---|---|---|---|
+| E1S1 | 1.31 | 4.58 (6.5) m3/s | 3.5 (6.9) m | 1.76 (0.67) h |
+| E2S2 | 3.63 | 1.48 (1.3) m3/s | 2.7 (3.3) m | 3.4 (22.5) h |
+| E1S3 | 0.03 | no breach (no breach) | 3.5 (4.2) m | - |
+| Goose Creek | 0.97 | 211 (565) m3/s | 29.7 (30.5) m | - |
+| Castlewood | 0.35 | 1,983 (3,570) m3/s | 52.6 (54.9) m | - |
+| South Fork | 0.19 | 5,528 (8,500) m3/s | 133 (128) m | - |
+
+- LOO: f_kd 0.1-3.16 (x31.6), C_h 1-10 (x10), f_t 3.16-10 (x3.2): all three unstable. Leaving out E1S1 moves f_kd to
+  0.1; leaving out E2S2 moves f_kd to 3.16, C_h to 1, f_t to 10.
+- Predictions (CAL2_PROPOSAL s.5): P1 stable factors FAIL; P2 one f_kd for the cohesive lab tests FAIL (best 10 /
+  0.1 / 1 for E1S1 / E2S2 / E1S3, 100x as in cal-1); P3 headcut identifiable on E2S2 FAIL (J range 0.25 at f_kd 1,
+  0.65 at f_kd 0.1; needed >= 1.0); P4 f_t inside 1-6 PASS (3.16); P5 non-cohesive widths within 25 % PASS (-4 %, +4 %);
+  P6 Goose Creek Qp within 2x FAIL (2.7x low; J nearly flat in C_h, Qp 205-211); P7 J < 8.34 PASS (6.47).
+- Reading: C3 + C2 fixed the non-cohesive widths (F6, F7) and moved f_t off the edge. The cohesive conflict (F1) is
+  unchanged: E2S2 still breaches about 7x too early at the f_kd that suits E1S1, so the gap is in the erosion rate of
+  the jet-test kd between the two tests, not in the headcut rule. C_h ends at the top of its range with total J nearly
+  flat above 10^-1, so it is weakly identified overall. Goose Creek stays about 2.7x low whatever C_h.
+- Frozen as `calibration/cal-2.json` (with the P1-P7 record) per the proposal: cal-2 is frozen whatever P1-P7 show,
+  and stage 4 is run on it once.
