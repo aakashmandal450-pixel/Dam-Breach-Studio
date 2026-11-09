@@ -1,0 +1,72 @@
+{
+ "id": "IMPACT_2C-02",
+ "tier": "validation",
+ "group": "G4",
+ "kind": "field",
+ "source": "Wu 2016 Table 6.1 #6; Hassan & Morris 2008; FLOODsite T04-08-04 Table 3 (SP3 as-built geometry). Inflow: T04-08-04 s.3.1.3, inflow volume 1,100 m3 over T = 0-2690 s (number extracted by pattern match only). Reservoir area-height as IMPACT_1-02 (DLBreach card Impactfld03, ASSUMED same reservoir)",
+ "H": 5.0,
+ "crest_w": 2.0,
+ "zu": 1.9,
+ "zd": 1.6,
+ "section_width": 60.0,
+ "stub_up": 2.5,
+ "apron": 10.0,
+ "notch": {
+  "shape": "trapezoid",
+  "depth": 0.1,
+  "bottom_width": 2.0,
+  "side_hv": 1.0
+ },
+ "reservoir": {
+  "type": "area_height",
+  "points": [
+   [
+    0.0,
+    10.0
+   ],
+   [
+    0.5,
+    911.1617
+   ],
+   [
+    1.5,
+    1366.7423
+   ],
+   [
+    2.5,
+    1548.975
+   ],
+   [
+    3.5,
+    11298.401
+   ],
+   [
+    4.5,
+    20774.49
+   ],
+   [
+    5.5,
+    31435.08
+   ],
+   [
+    6.5,
+    39544.45
+   ]
+  ],
+  "_note": "DLBreach card Impactfld03 (test 1-03); assumed for 2C-02"
+ },
+ "initial_level": 4.9,
+ "inflow": 0.4089,
+ "t_end": 43200.0,
+ "material": {
+  "class": "noncohesive",
+  "d50_mm": 4.65,
+  "d90_mm": 11.6,
+  "porosity": 0.22,
+  "cohesion_kPa": 0.9,
+  "tan_phi": 0.9,
+  "_assumed": "d90 2.5 d50"
+ },
+ "manning_n": 0.034,
+ "_stage4_rules": "section width 12 H; t_end 43,200 s; initial level = notch invert 4.90 m (case rule): the source's 4.10 m is a simulation start level, not the level at breach, and the only inflow record (1,100 m3 over 0-2690 s, 0.409 m3/s) covers the breach period, so model t = 0 = start of overtopping = record T = 0 (STAGE4_PROTOCOL s.6a)"
+}

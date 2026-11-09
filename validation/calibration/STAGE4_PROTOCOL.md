@@ -104,6 +104,17 @@ inflow - final lake, taken as initial - final lake volume).
    `observed_validation.csv` for the first time, and writes `STAGE4_RESULTS.json` / `.md`. Commit; tag
    `stage4-results`. Report in `RUNS.md` and the handoff, whatever the outcome.
 
+### 6b. Addendum, 2026-11-09 (before any IMPACT_2C-02 run and before scoring; tag `stage4-protocol-2c`)
+
+All 28 other runs finished on 2026-11-09 (2.0 h, 0 errors, 0 censored; manifest written); no result was looked at.
+IMPACT_2C-02 case file: inflow constant 1,100 m3 / 2690 s = 0.409 m3/s (s.8 e). Initial lake level = notch invert
+(4.90 m), not the 4.10 m of Wu (2016) Table 6.1: by the case rule (s.2) the lake starts at the notch invert unless the
+source gives the level at breach, and 4.10 m is the DLBreach simulation start level. The only inflow record covers the
+breach period (T = 0-2690 s), so model t = 0 (start of overtopping) is taken as record T = 0; starting at 4.10 m with
+0.41 m3/s would need about 12 h of filling in the assumed reservoir before any overtopping. This reading was chosen
+from the inputs only. Crash check (120 s) passed. Then: `run_stage4.py` adds the three 2C-02 runs and rewrites the
+manifest; commit and tag `stage4-runs`; score.
+
 ## 7. Files under the `stage4-protocol` tag
 
 `validation/calibration/STAGE4_PROTOCOL.md`; `python/calibration/cases/{E1S2, E2S1, E2S3, Poerua, Yigong, LaurelRun,
@@ -123,9 +134,10 @@ c. `observed_validation.csv`: the header line (column names) and the row ids wer
    to write the scorer. No values were seen.
 d. E2S3's outcome "no breach" has been known since `ASSIGNMENT.md` (split-2): it is part of the case description.
 e. IMPACT_2C-02: T04-08-04 gives no inflow hydrograph for this test (Fig. 7 shows outflows only). The inflow volume
-   over 0-2690 s is stated in a volume-balance paragraph that also gives the observed outflow volume. The project
-   lead read that paragraph and passed on only the inflow volume (and its period); the modeller did not see the
-   paragraph.
+   over 0-2690 s is stated in a volume-balance paragraph that also gives the observed outflow volume. On 2026-11-09
+   the modeller extracted only the period end and the inflow volume with a pattern match on the sentence "...from
+   time T=0 to T=<n> seconds. The inflow volume for this period of time is approximately <v> m3" (result: 2690 s,
+   1,100 m3); no other part of the paragraph was displayed.
 f. T04-08-04 Fig. 2 (inflow, IMPACT_1-02) was cropped to its own area before viewing; Fig. 3 (water level) on the
    same page was not viewed.
 g. Walsh (seen cases): all observations listed in split-5 have been seen. While building the stage-4 runner, Walsh
