@@ -245,3 +245,43 @@ so the reference value itself carries about 8 % sampling uncertainty.
   flat above 10^-1, so it is weakly identified overall. Goose Creek stays about 2.7x low whatever C_h.
 - Frozen as `calibration/cal-2.json` (with the P1-P7 record) per the proposal: cal-2 is frozen whatever P1-P7 show,
   and stage 4 is run on it once.
+
+## Stage 4: blind validation of frozen cal-2 (`STAGE4_PROTOCOL.md`; `runs/stage4/`; scored 2026-11-09)
+
+Runs: 31 (8 blind cases x F_all / LOO_1 / LOO_2, IMPACT_1-02 WP2 inflow, Walsh S1/S3/S5 at H/16 and H/24), laptop,
+Numba, 0 errors, 0 censored; manifest at `353a9e5`, tags `stage4-protocol`, `stage4-protocol-2c`, `stage4-runs`.
+`score_stage4.py` verified every result against the manifest, then opened `observed_validation.csv` for the first time.
+Full tables: `runs/stage4/STAGE4_RESULTS.md` / `.json`.
+
+| Case | Qp model / obs | Tp model / obs | B model / obs | Pass |
+|---|---|---|---|---|
+| E1S2 | 4.02 / 1.8 m3/s (x2.23) | 4.95 h / - | 2.4 / 6.2 m (-61 %) | no |
+| E2S1 | 1.69 / 2.3 m3/s (x0.74) | 2.45 h / - | 3.1 / 3.3 m (-7 %) | **yes** |
+| E2S3 (no breach) | no breach, as observed | - | 0 / 2.4 m (-100 %) | no (width) |
+| IMPACT_1-02 | 440 / 390 m3/s (x1.13) | 4.93 / 5.1 h (x0.97) | - | **yes** |
+| IMPACT_2C-02 | 49.7 / 117 m3/s (x0.42) | 5.71 / 2.45 h (x2.33) | 10.7 / 15 m (-29 %) | no |
+| Laurel Run | 548 / 1,050 m3/s (x0.52) | - | 27.4 / 35.1 m (-22 %) | no |
+| Poerua | 44 / 2,500 m3/s (x0.018), no breach | - | 0 / 125 m | no |
+| Yigong | 11,800 / 94,000 m3/s (x0.13) | 19.0 / 6.2 h (x3.1) | 627 / 432 m (+45 %) | no |
+
+Limits (met / applicable; a limit passes at >= 2/3): peak x1.5 2/7 FAIL; time to peak x2 1/3 FAIL; width +/-50 % 4/7
+FAIL; no breach 1/1 pass; balance < 1e-6 8/8 pass; drawdown n/a (no observations). **Cases passing: 2 of 8.**
+J (calibration objective) over the 8 blind cases: 27.2 (cal-2 on its 6 calibration cases: 6.47).
+LOO envelope (F_all, LOO_1, LOO_2) brackets the observed peak only for E1S2 (Qp ratio 0.59-2.23); Yigong reaches
+x0.75 / Tp x1.9 with LOO_2 (f_t 10, C_h 1); Laurel Run stays at x0.28-0.52, IMPACT_2C-02 x0.42-0.71.
+IMPACT_1-02 with the WP2 inflow: Qp x1.04, Tp x0.97.
+Walsh (seen, split-5, not in the pass rate): Qp x1.97 / 1.43 / 1.96 (S1 / S3 / S5) at H/16 and x2.69 / 2.05 / 3.22 at
+H/24; peak time 91 / 206 / 122 s (obs 90 / 73 / 93) at H/16; B* at peak within 30 %. Not grid-converged.
+
+Post-scoring diagnosis (not part of the pre-registered result; nothing changed):
+- Poerua does not erode at all (max lowering 0.0 m in every factor set). At H/6 the cells are 13.3 m: the 3 m pilot
+  notch becomes one 13.3 m cell (depth kept), and the cell-averaged crest is 79.8 m, 0.2 m below the nominal crest
+  and the initial lake level (80 m). The lake first spills over the whole 960 m crest (the 44 m3/s peak), drops below
+  the crest within minutes, and the remaining notch flow on the 1:2.2 face is a 4-9 cm film at <= 0.36 m/s (grain
+  shear about 2 Pa vs about 8 Pa critical for 11 mm). Grid and start-state artefact of the case rules at prototype
+  scale with a small pilot notch; no inflow is given for Poerua.
+- Systematic low peak at field scale: blind Laurel Run x0.52, IMPACT_2C-02 x0.42, Yigong x0.13, Poerua; the
+  calibration field cases were also low in cal-2 (Castlewood x0.56, South Fork x0.65, Goose Creek x0.37). The width
+  terms fitted well while peaks stayed low. IMPACT_1-02 (6 m dam, inflow-driven) is the exception.
+- Yigong is controlled by the transport factor: f_t 3.16 -> 10 raises the peak 6x (x0.13 -> x0.75). f_t from 20 m
+  gravel/rockfill dams does not carry to an 80 m landslide dam with a 2.4e9 m3 lake.

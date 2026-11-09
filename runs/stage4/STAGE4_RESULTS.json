@@ -1,0 +1,1081 @@
+{
+ "manifest_git_head": "353a9e5341f936bf8a7c428ac33c0b54397eb1af",
+ "cases": {
+  "E1S2": {
+   "F_all": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 2.2336474404325934,
+    "Qp_ok": false,
+    "B_rel": -0.6075268817204301,
+    "B_ok": false,
+    "balance_rel": 1.3301149619157497e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 1.0149195280785164,
+    "Qp": 4.020565392778669,
+    "Tp_h": 4.95037687427816,
+    "B": 2.4333333333333336,
+    "breached": true,
+    "t_breach_phys_s": 7860.0,
+    "obs": {
+     "Qp": 1.8,
+     "B": 6.2,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "t_end",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.5907538255795041,
+    "Qp_ok": false,
+    "B_rel": -0.6075268817204301,
+    "B_ok": false,
+    "balance_rel": 2.2708520407798737e-11,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 0.6461394319346019,
+    "Qp": 1.0633568860431073,
+    "Tp_h": 24.59202275241815,
+    "B": 2.4333333333333336,
+    "breached": true,
+    "t_breach_phys_s": 36720.0,
+    "obs": {
+     "Qp": 1.8,
+     "B": 6.2,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 1.44242247264423,
+    "Qp_ok": true,
+    "B_rel": -0.6075268817204301,
+    "B_ok": false,
+    "balance_rel": 1.7543555847314846e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 0.5032821650769063,
+    "Qp": 2.5963604507596143,
+    "Tp_h": 2.5620375724796496,
+    "B": 2.4333333333333336,
+    "breached": true,
+    "t_breach_phys_s": 4200.0,
+    "obs": {
+     "Qp": 1.8,
+     "B": 6.2,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   }
+  },
+  "E2S1": {
+   "F_all": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.736844984578633,
+    "Qp_ok": true,
+    "B_rel": -0.06509539842873162,
+    "B_ok": true,
+    "balance_rel": 2.8091016770678662e-14,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.09749297615454627,
+    "Qp": 1.6947434645308557,
+    "Tp_h": 2.4542346752175805,
+    "B": 3.0851851851851855,
+    "breached": true,
+    "t_breach_phys_s": 5940.0,
+    "obs": {
+     "Qp": 2.3,
+     "B": 3.3,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.5028072638373904,
+    "Qp_ok": false,
+    "B_rel": -0.6150392817059482,
+    "B_ok": false,
+    "balance_rel": 2.958041456444981e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 0.8509960593262578,
+    "Qp": 1.1564567068259979,
+    "Tp_h": 9.398055932653119,
+    "B": 1.2703703703703704,
+    "breached": true,
+    "t_breach_phys_s": 17220.0,
+    "obs": {
+     "Qp": 2.3,
+     "B": 3.3,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.5960015873716958,
+    "Qp_ok": false,
+    "B_rel": -0.06509539842873162,
+    "B_ok": true,
+    "balance_rel": 1.116361715828707e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 0.2720560277834437,
+    "Qp": 1.3708036509549004,
+    "Tp_h": 1.6150531207830259,
+    "B": 3.0851851851851855,
+    "breached": true,
+    "t_breach_phys_s": 4200.0,
+    "obs": {
+     "Qp": 2.3,
+     "B": 3.3,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   }
+  },
+  "E2S3": {
+   "F_all": {
+    "stop_cause": "t_end",
+    "censored": false,
+    "model_breached_within_test": false,
+    "no_breach_ok": true,
+    "test_duration_s": 261960.0,
+    "B_rel": -1.0,
+    "B_ok": false,
+    "balance_rel": 1.3921929948658112e-12,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 1.0,
+    "Qp": 0.28716092732066567,
+    "Tp_h": 27.77777777777778,
+    "B": 0.0,
+    "breached": false,
+    "t_breach_phys_s": null,
+    "obs": {
+     "Qp": null,
+     "B": 2.4,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": true,
+     "duration_s": 261960.0
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "t_end",
+    "censored": false,
+    "model_breached_within_test": false,
+    "no_breach_ok": true,
+    "test_duration_s": 261960.0,
+    "B_rel": -1.0,
+    "B_ok": false,
+    "balance_rel": 1.760689171226262e-12,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 1.0,
+    "Qp": 0.28711254439939177,
+    "Tp_h": 27.77777777777778,
+    "B": 0.0,
+    "breached": false,
+    "t_breach_phys_s": null,
+    "obs": {
+     "Qp": null,
+     "B": 2.4,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": true,
+     "duration_s": 261960.0
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "t_end",
+    "censored": false,
+    "model_breached_within_test": false,
+    "no_breach_ok": true,
+    "test_duration_s": 261960.0,
+    "B_rel": -0.1682098765432098,
+    "B_ok": true,
+    "balance_rel": 2.268245520317841e-12,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.02829456256668188,
+    "Qp": 0.28723835820285126,
+    "Tp_h": 27.77777777777778,
+    "B": 1.9962962962962965,
+    "breached": false,
+    "t_breach_phys_s": null,
+    "obs": {
+     "Qp": null,
+     "B": 2.4,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": true,
+     "duration_s": 261960.0
+    }
+   }
+  },
+  "IMPACT_1-02": {
+   "F_all": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 1.127436835884332,
+    "Qp_ok": true,
+    "Tp_ratio": 0.9659317402144114,
+    "Tp_ok": true,
+    "balance_rel": 5.585027089964875e-12,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.01558868933818911,
+    "Qp": 439.7003659948895,
+    "Tp_h": 4.926251875093498,
+    "B": 39.76438356164384,
+    "breached": true,
+    "t_breach_phys_s": 8820.0,
+    "obs": {
+     "Qp": 390.0,
+     "B": null,
+     "Tp_h": 5.1,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "F_all_inflowWP2": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 1.0376172129731223,
+    "Qp_ok": true,
+    "Tp_ratio": 0.9688666049739272,
+    "Tp_ok": true,
+    "balance_rel": 2.5938698734730024e-12,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.00236395096311823,
+    "Qp": 404.6707130595177,
+    "Tp_h": 4.941219685367028,
+    "B": 35.88493150684931,
+    "breached": true,
+    "t_breach_phys_s": 8820.0,
+    "obs": {
+     "Qp": 390.0,
+     "B": null,
+     "Tp_h": 5.1,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 1.4186960154257144,
+    "Qp_ok": true,
+    "Tp_ratio": 1.005504818359925,
+    "Tp_ok": true,
+    "balance_rel": 1.186790423646845e-11,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.12234691112078676,
+    "Qp": 553.2914460160287,
+    "Tp_h": 5.128074573635616,
+    "B": 70.8,
+    "breached": true,
+    "t_breach_phys_s": 12840.0,
+    "obs": {
+     "Qp": 390.0,
+     "B": null,
+     "Tp_h": 5.1,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 1.120751151093476,
+    "Qp_ok": true,
+    "Tp_ratio": 0.9820847803852109,
+    "Tp_ok": true,
+    "balance_rel": 3.627667813115593e-12,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.01332260296389755,
+    "Qp": 437.0929489264557,
+    "Tp_h": 5.008632379964575,
+    "B": 51.4027397260274,
+    "breached": true,
+    "t_breach_phys_s": 8280.0,
+    "obs": {
+     "Qp": 390.0,
+     "B": null,
+     "Tp_h": 5.1,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   }
+  },
+  "IMPACT_2C-02": {
+   "F_all": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.4249067996617004,
+    "Qp_ok": false,
+    "Tp_ratio": 2.3286682946002966,
+    "Tp_ok": false,
+    "B_rel": -0.2876712328767123,
+    "B_ok": true,
+    "balance_rel": 4.170850127060295e-14,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 1.5298208747720126,
+    "Qp": 49.71409556041895,
+    "Tp_h": 5.705237321770727,
+    "B": 10.684931506849315,
+    "breached": true,
+    "t_breach_phys_s": 420.0,
+    "obs": {
+     "Qp": 117.0,
+     "B": 15.0,
+     "Tp_h": 2.45,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.4249067996617004,
+    "Qp_ok": false,
+    "Tp_ratio": 2.3286682946002966,
+    "Tp_ok": false,
+    "B_rel": -0.2876712328767123,
+    "B_ok": true,
+    "balance_rel": 4.170850127060295e-14,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 1.5298208747720126,
+    "Qp": 49.71409556041895,
+    "Tp_h": 5.705237321770727,
+    "B": 10.684931506849315,
+    "breached": true,
+    "t_breach_phys_s": 420.0,
+    "obs": {
+     "Qp": 117.0,
+     "B": 15.0,
+     "Tp_h": 2.45,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.7094026898858956,
+    "Qp_ok": true,
+    "Tp_ratio": 1.5705951319377383,
+    "Tp_ok": true,
+    "B_rel": -0.06849315068493157,
+    "B_ok": true,
+    "balance_rel": 4.1042683158472226e-14,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.3263794031745684,
+    "Qp": 83.00011471664979,
+    "Tp_h": 3.847958073247459,
+    "B": 13.972602739726026,
+    "breached": true,
+    "t_breach_phys_s": 420.0,
+    "obs": {
+     "Qp": 117.0,
+     "B": 15.0,
+     "Tp_h": 2.45,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   }
+  },
+  "LaurelRun": {
+   "F_all": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.5217257952046402,
+    "Qp_ok": false,
+    "B_rel": -0.22070015220700162,
+    "B_ok": true,
+    "balance_rel": 1.0130866931407806e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 0.4720059964638338,
+    "Qp": 547.8120849648723,
+    "Tp_h": 2.6914829370875473,
+    "B": 27.353424657534244,
+    "breached": true,
+    "t_breach_phys_s": 660.0,
+    "obs": {
+     "Qp": 1050.0,
+     "B": 35.1,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.5217257952046402,
+    "Qp_ok": false,
+    "B_rel": -0.22070015220700162,
+    "B_ok": true,
+    "balance_rel": 1.0130866931407806e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 0.4720059964638338,
+    "Qp": 547.8120849648723,
+    "Tp_h": 2.6914829370875473,
+    "B": 27.353424657534244,
+    "breached": true,
+    "t_breach_phys_s": 660.0,
+    "obs": {
+     "Qp": 1050.0,
+     "B": 35.1,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.27661056209980345,
+    "Qp_ok": false,
+    "B_rel": -0.22070015220700162,
+    "B_ok": true,
+    "balance_rel": 9.961835584260273e-14,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 1.7003053929032406,
+    "Qp": 290.4410902047936,
+    "Tp_h": 3.1580681721220367,
+    "B": 27.353424657534244,
+    "breached": true,
+    "t_breach_phys_s": 660.0,
+    "obs": {
+     "Qp": 1050.0,
+     "B": 35.1,
+     "Tp_h": null,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   }
+  },
+  "Poerua": {
+   "F_all": {
+    "stop_cause": "t_end",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.017631191805801295,
+    "Qp_ok": false,
+    "B_rel": -1.0,
+    "B_ok": false,
+    "balance_rel": 3.188051563786939e-12,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 17.30613599009403,
+    "Qp": 44.07797951450324,
+    "Tp_h": 0.2562791813231187,
+    "B": 0.0,
+    "breached": false,
+    "t_breach_phys_s": null,
+    "obs": {
+     "Qp": 2500.0,
+     "B": 125.0,
+     "Tp_h": null,
+     "Tf_h": 0.75,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "t_end",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.017631191805801295,
+    "Qp_ok": false,
+    "B_rel": -1.0,
+    "B_ok": false,
+    "balance_rel": 3.188051563786939e-12,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 17.30613599009403,
+    "Qp": 44.07797951450324,
+    "Tp_h": 0.2562791813231187,
+    "B": 0.0,
+    "breached": false,
+    "t_breach_phys_s": null,
+    "obs": {
+     "Qp": 2500.0,
+     "B": 125.0,
+     "Tp_h": null,
+     "Tf_h": 0.75,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "t_end",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.017631191805801295,
+    "Qp_ok": false,
+    "B_rel": -1.0,
+    "B_ok": false,
+    "balance_rel": 3.188051563786939e-12,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 17.30613599009403,
+    "Qp": 44.07797951450324,
+    "Tp_h": 0.2562791813231187,
+    "B": 0.0,
+    "breached": false,
+    "t_breach_phys_s": null,
+    "obs": {
+     "Qp": 2500.0,
+     "B": 125.0,
+     "Tp_h": null,
+     "Tf_h": 0.75,
+     "no_breach": false,
+     "duration_s": null
+    }
+   }
+  },
+  "Yigong": {
+   "F_all": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.1253831126533074,
+    "Qp_ok": false,
+    "Tp_ratio": 3.0800738648620634,
+    "Tp_ok": false,
+    "B_rel": 0.45061728395061745,
+    "B_ok": true,
+    "balance_rel": 1.650286334107918e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 5.779935909013598,
+    "Qp": 11787.642569875388,
+    "Tp_h": 19.00405574619893,
+    "B": 626.6666666666667,
+    "breached": true,
+    "t_breach_phys_s": 1380.0,
+    "obs": {
+     "Qp": 94013.0,
+     "B": 432.0,
+     "Tp_h": 6.17,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_1": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.1253831126533074,
+    "Qp_ok": false,
+    "Tp_ratio": 3.0800738648620634,
+    "Tp_ok": false,
+    "B_rel": 0.45061728395061745,
+    "B_ok": true,
+    "balance_rel": 1.650286334107918e-13,
+    "balance_ok": true,
+    "case_pass": false,
+    "J": 5.779935909013598,
+    "Qp": 11787.642569875388,
+    "Tp_h": 19.00405574619893,
+    "B": 626.6666666666667,
+    "breached": true,
+    "t_breach_phys_s": 1380.0,
+    "obs": {
+     "Qp": 94013.0,
+     "B": 432.0,
+     "Tp_h": 6.17,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   },
+   "LOO_2": {
+    "stop_cause": "post_peak",
+    "censored": false,
+    "no_breach_ok": null,
+    "Qp_ratio": 0.7518120002147225,
+    "Qp_ok": true,
+    "Tp_ratio": 1.87595022724723,
+    "Tp_ok": true,
+    "B_rel": 0.14197530864197538,
+    "B_ok": true,
+    "balance_rel": 4.4710669248711806e-14,
+    "balance_ok": true,
+    "case_pass": true,
+    "J": 0.4973214671307544,
+    "Qp": 70680.1015761867,
+    "Tp_h": 11.574612902115408,
+    "B": 493.33333333333337,
+    "breached": true,
+    "t_breach_phys_s": 480.0,
+    "obs": {
+     "Qp": 94013.0,
+     "B": 432.0,
+     "Tp_h": 6.17,
+     "Tf_h": null,
+     "no_breach": false,
+     "duration_s": null
+    }
+   }
+  }
+ },
+ "walsh": {
+  "WalshS1__H16.json": {
+   "id": "WalshS1",
+   "set": "H16",
+   "tier": "seen-validation",
+   "grid_divisor": 16,
+   "Qp": 0.27512734427626445,
+   "t_peak_from_start_s": 91.0,
+   "t_peak_from_5pct_s": 44.0,
+   "B_at_peak": 1.6466666666666665,
+   "B_final": 1.773333333333333,
+   "balances": [
+    -3.907985046680551e-13,
+    4.618527782440651e-14,
+    -1.1075409106795436e-14
+   ],
+   "simulated_s": 600.0,
+   "summary_file": "WalshS1_H16_pilot0.54m_stage4_H16_summary.json",
+   "cmd": [
+    "D:\\My Projects\\Dam-Breach-Studio\\python\\calibration\\diag_walsh.py",
+    "--case",
+    "WalshS1",
+    "--model",
+    "cal-2",
+    "--fast",
+    "--grid",
+    "16",
+    "--t-end",
+    "600.0",
+    "--log-every",
+    "1",
+    "--section-every",
+    "600",
+    "--pilot-channel",
+    "--pilot-width",
+    "0.54",
+    "--max-wall",
+    "86400",
+    "--out",
+    "D:\\My Projects\\Dam-Breach-Studio\\runs\\stage4\\_walsh",
+    "--suffix",
+    "_stage4_H16"
+   ]
+  },
+  "WalshS1__H24.json": {
+   "id": "WalshS1",
+   "set": "H24",
+   "tier": "seen-validation",
+   "grid_divisor": 24,
+   "Qp": 0.3769306550893501,
+   "t_peak_from_start_s": 51.0,
+   "t_peak_from_5pct_s": 34.0,
+   "B_at_peak": 1.9670588235294115,
+   "B_final": 1.9670588235294115,
+   "balances": [
+    -1.936228954946273e-13,
+    2.0250467969162855e-13,
+    -2.3431138688914492e-14
+   ],
+   "simulated_s": 600.0,
+   "summary_file": "WalshS1_H24_pilot0.54m_stage4_H24_summary.json",
+   "cmd": [
+    "D:\\My Projects\\Dam-Breach-Studio\\python\\calibration\\diag_walsh.py",
+    "--case",
+    "WalshS1",
+    "--model",
+    "cal-2",
+    "--fast",
+    "--grid",
+    "24",
+    "--t-end",
+    "600.0",
+    "--log-every",
+    "1",
+    "--section-every",
+    "600",
+    "--pilot-channel",
+    "--pilot-width",
+    "0.54",
+    "--max-wall",
+    "86400",
+    "--out",
+    "D:\\My Projects\\Dam-Breach-Studio\\runs\\stage4\\_walsh",
+    "--suffix",
+    "_stage4_H24"
+   ]
+  },
+  "WalshS3__H16.json": {
+   "id": "WalshS3",
+   "set": "H16",
+   "tier": "seen-validation",
+   "grid_divisor": 16,
+   "Qp": 0.34305201657616885,
+   "t_peak_from_start_s": 206.0,
+   "t_peak_from_5pct_s": 43.0,
+   "B_at_peak": 1.6466666666666665,
+   "B_final": 1.9633333333333332,
+   "balances": [
+    -9.592326932761353e-14,
+    7.105427357601002e-14,
+    -8.1654053150645e-15
+   ],
+   "simulated_s": 600.0,
+   "summary_file": "WalshS3_H16_pilot0.37m_stage4_H16_summary.json",
+   "cmd": [
+    "D:\\My Projects\\Dam-Breach-Studio\\python\\calibration\\diag_walsh.py",
+    "--case",
+    "WalshS3",
+    "--model",
+    "cal-2",
+    "--fast",
+    "--grid",
+    "16",
+    "--t-end",
+    "600.0",
+    "--log-every",
+    "1",
+    "--section-every",
+    "600",
+    "--pilot-channel",
+    "--pilot-width",
+    "0.37",
+    "--max-wall",
+    "86400",
+    "--out",
+    "D:\\My Projects\\Dam-Breach-Studio\\runs\\stage4\\_walsh",
+    "--suffix",
+    "_stage4_H16"
+   ]
+  },
+  "WalshS3__H24.json": {
+   "id": "WalshS3",
+   "set": "H24",
+   "tier": "seen-validation",
+   "grid_divisor": 24,
+   "Qp": 0.49235353987946423,
+   "t_peak_from_start_s": 122.0,
+   "t_peak_from_5pct_s": 29.0,
+   "B_at_peak": 1.926078431372549,
+   "B_final": 2.09,
+   "balances": [
+    2.717825964282383e-13,
+    -1.616484723854228e-13,
+    -2.5644381675860473e-14
+   ],
+   "simulated_s": 600.0,
+   "summary_file": "WalshS3_H24_pilot0.37m_stage4_H24_summary.json",
+   "cmd": [
+    "D:\\My Projects\\Dam-Breach-Studio\\python\\calibration\\diag_walsh.py",
+    "--case",
+    "WalshS3",
+    "--model",
+    "cal-2",
+    "--fast",
+    "--grid",
+    "24",
+    "--t-end",
+    "600.0",
+    "--log-every",
+    "1",
+    "--section-every",
+    "600",
+    "--pilot-channel",
+    "--pilot-width",
+    "0.37",
+    "--max-wall",
+    "86400",
+    "--out",
+    "D:\\My Projects\\Dam-Breach-Studio\\runs\\stage4\\_walsh",
+    "--suffix",
+    "_stage4_H24"
+   ]
+  },
+  "WalshS5__H16.json": {
+   "id": "WalshS5",
+   "set": "H16",
+   "tier": "seen-validation",
+   "grid_divisor": 16,
+   "Qp": 0.3323588940867836,
+   "t_peak_from_start_s": 122.0,
+   "t_peak_from_5pct_s": 45.0,
+   "B_at_peak": 1.8366666666666664,
+   "B_final": 1.8366666666666664,
+   "balances": [
+    1.509903313490213e-13,
+    -1.106670310946356e-12,
+    -8.80685011706831e-15
+   ],
+   "simulated_s": 600.0,
+   "summary_file": "WalshS5_H16_pilot0.46m_stage4_H16_summary.json",
+   "cmd": [
+    "D:\\My Projects\\Dam-Breach-Studio\\python\\calibration\\diag_walsh.py",
+    "--case",
+    "WalshS5",
+    "--model",
+    "cal-2",
+    "--fast",
+    "--grid",
+    "16",
+    "--t-end",
+    "600.0",
+    "--log-every",
+    "1",
+    "--section-every",
+    "600",
+    "--pilot-channel",
+    "--pilot-width",
+    "0.46",
+    "--max-wall",
+    "86400",
+    "--out",
+    "D:\\My Projects\\Dam-Breach-Studio\\runs\\stage4\\_walsh",
+    "--suffix",
+    "_stage4_H16"
+   ]
+  },
+  "WalshS5__H24.json": {
+   "id": "WalshS5",
+   "set": "H24",
+   "tier": "seen-validation",
+   "grid_divisor": 24,
+   "Qp": 0.5474421028682163,
+   "t_peak_from_start_s": 67.0,
+   "t_peak_from_5pct_s": 27.0,
+   "B_at_peak": 1.7621568627450979,
+   "B_final": 2.0080392156862743,
+   "balances": [
+    -3.6415315207705135e-13,
+    -1.438849039914203e-13,
+    -2.09986582701098e-14
+   ],
+   "simulated_s": 600.0,
+   "summary_file": "WalshS5_H24_pilot0.46m_stage4_H24_summary.json",
+   "cmd": [
+    "D:\\My Projects\\Dam-Breach-Studio\\python\\calibration\\diag_walsh.py",
+    "--case",
+    "WalshS5",
+    "--model",
+    "cal-2",
+    "--fast",
+    "--grid",
+    "24",
+    "--t-end",
+    "600.0",
+    "--log-every",
+    "1",
+    "--section-every",
+    "600",
+    "--pilot-channel",
+    "--pilot-width",
+    "0.46",
+    "--max-wall",
+    "86400",
+    "--out",
+    "D:\\My Projects\\Dam-Breach-Studio\\runs\\stage4\\_walsh",
+    "--suffix",
+    "_stage4_H24"
+   ]
+  }
+ },
+ "no_observation_row": [],
+ "primary": {
+  "limits": {
+   "Qp_ok": {
+    "label": "peak within x1.5",
+    "n": 7,
+    "met": 2,
+    "passes": false
+   },
+   "Tp_ok": {
+    "label": "time to peak within x2",
+    "n": 3,
+    "met": 1,
+    "passes": false
+   },
+   "B_ok": {
+    "label": "final width within +/-50 %",
+    "n": 7,
+    "met": 4,
+    "passes": false
+   },
+   "no_breach_ok": {
+    "label": "no breach reproduced",
+    "n": 1,
+    "met": 1,
+    "passes": true
+   },
+   "balance_ok": {
+    "label": "balance < 1e-6 of volume released",
+    "n": 8,
+    "met": 8,
+    "passes": true
+   },
+   "drawdown": {
+    "label": "lake drawdown within +/-25 %",
+    "n": 0,
+    "met": 0,
+    "passes": null,
+    "note": "no drawdown observations in observed_validation.csv"
+   }
+  },
+  "cases_passing": 2,
+  "cases_scored": 8,
+  "J_total": 27.215899963914726
+ },
+ "loo_envelope": {
+  "E1S2": {
+   "Qp_ratio": [
+    0.5907538255795041,
+    2.2336474404325934
+   ],
+   "Tp_ratio": null,
+   "B_rel": [
+    -0.6075268817204301,
+    -0.6075268817204301
+   ]
+  },
+  "E2S1": {
+   "Qp_ratio": [
+    0.5028072638373904,
+    0.736844984578633
+   ],
+   "Tp_ratio": null,
+   "B_rel": [
+    -0.6150392817059482,
+    -0.06509539842873162
+   ]
+  },
+  "E2S3": {
+   "Qp_ratio": null,
+   "Tp_ratio": null,
+   "B_rel": [
+    -1.0,
+    -0.1682098765432098
+   ]
+  },
+  "IMPACT_1-02": {
+   "Qp_ratio": [
+    1.120751151093476,
+    1.4186960154257144
+   ],
+   "Tp_ratio": [
+    0.9659317402144114,
+    1.005504818359925
+   ],
+   "B_rel": null
+  },
+  "IMPACT_2C-02": {
+   "Qp_ratio": [
+    0.4249067996617004,
+    0.7094026898858956
+   ],
+   "Tp_ratio": [
+    1.5705951319377383,
+    2.3286682946002966
+   ],
+   "B_rel": [
+    -0.2876712328767123,
+    -0.06849315068493157
+   ]
+  },
+  "LaurelRun": {
+   "Qp_ratio": [
+    0.27661056209980345,
+    0.5217257952046402
+   ],
+   "Tp_ratio": null,
+   "B_rel": [
+    -0.22070015220700162,
+    -0.22070015220700162
+   ]
+  },
+  "Poerua": {
+   "Qp_ratio": [
+    0.017631191805801295,
+    0.017631191805801295
+   ],
+   "Tp_ratio": null,
+   "B_rel": [
+    -1.0,
+    -1.0
+   ]
+  },
+  "Yigong": {
+   "Qp_ratio": [
+    0.1253831126533074,
+    0.7518120002147225
+   ],
+   "Tp_ratio": [
+    1.87595022724723,
+    3.0800738648620634
+   ],
+   "B_rel": [
+    0.14197530864197538,
+    0.45061728395061745
+   ]
+  }
+ }
+}
