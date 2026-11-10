@@ -167,3 +167,25 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
   hydraulics and before C5, C1 + C2 added about 23 % (E2S2 136 -> 167 s).
   Checked: tests/c5_fast_morph_check.py (part 1 kernels, part 2 full runs; run_c5_check.ps1); all V3.2 and V3.3
   suites pass with NumPy and Numba.
+
+## V3.4 (in progress, from 2026-11-10): fixes from ENGINE_FINDINGS_2026-11-10.md
+
+- F1 (`hydrostatic_reconstruction`, default "audusse" = V3.3 bit for bit; "chen_noelle"): hydrostatic reconstruction of
+  Chen & Noelle (2017, SIAM J. Numer. Anal. 55:758-784, Sect. 2.3). Face bed z_f = min(max(zL, zR), min(wL, wR)),
+  face depths h_f = min(w - z_f, h), cell-side sources -g/dx (h + h_f)/2 (z_f - z_cell), written as corrections of
+  the HLL face flux (NumPy `Hydrodynamics._face_flux` and Numba `fast_hydro._face`). The Audusse scheme clips the
+  bed-slope force where the bed step between cells exceeds the water depth (thin flow on steep dam faces); Chen &
+  Noelle keep the full gravity force and are identical to Audusse for water at rest. Spatial order 1 only (order 2
+  raises).
+  Checked (tests/v3_4_tests.py, 11 checks, NumPy and Numba):
+  - Steady normal flow down a 1:2.2 plane: velocity 91 % / 94 % of exact at 13.3 m / 1 m cells (Audusse 25 % /
+    52 %); bed shear 81-87 % (Audusse 4-22 %).
+  - Lake at rest over steps, dry islands and a perched puddle: |u| < 2e-14 m/s, level error 3e-16 m.
+  - Bore run-up and run-down on a beach: depth >= 0, mass error 1e-15.
+  - The default reproduces the V3.3 engine bit for bit.
+  - All V3.2 / V3.3 suites pass with the default, NumPy and Numba.
+  Effect on full runs (diagnostic, cal-2 factors, which were fitted to compensate the Audusse error):
+  - Castlewood H/6 / 9 / 12: 2,188 / 367 / 2,386 m3/s. H/9 still chokes (F2, the headcut under the lake, not yet
+    fixed).
+  - Laurel Run: 350 / 795 / 935 m3/s.
+  Grid convergence is to be judged with F1-F3 together at neutral factors; the cal-2 factors are not valid with F1.

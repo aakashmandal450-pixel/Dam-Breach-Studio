@@ -157,11 +157,19 @@ def _slopes(aP, axis, out):
 
 
 @njit(cache=True)
-def _face(hL, unL, utL, zL, hR, unR, utR, zR, hcL, hcR, g):
-    """Hydrostatic reconstruction + HLL at one face. Returns (Fh, FnL, FnR, Ft) as in Hydrodynamics._face_flux."""
-    zf = max(zL, zR)
-    hLs = max(hL + zL - zf, 0.0)
-    hRs = max(hR + zR - zf, 0.0)
+def _face(hL, unL, utL, zL, hR, unR, utR, zR, hcL, hcR, g, hr):
+    """Hydrostatic reconstruction + HLL at one face. Returns (Fh, FnL, FnR, Ft) as in Hydrodynamics._face_flux.
+    hr = 0: Audusse et al. (2004); hr = 1: Chen & Noelle (2017) (V3.4 F1)."""
+    if hr == 1:
+        wL = hL + zL
+        wR = hR + zR
+        zf = min(max(zL, zR), min(wL, wR))
+        hLs = min(wL - zf, hL)
+        hRs = min(wR - zf, hR)
+    else:
+        zf = max(zL, zR)
+        hLs = max(hL + zL - zf, 0.0)
+        hRs = max(hR + zR - zf, 0.0)
     # _hll_normal
     cL = math.sqrt(g * hLs)
     cR = math.sqrt(g * hRs)
@@ -192,14 +200,18 @@ def _face(hL, unL, utL, zL, hR, unR, utR, zR, hcL, hcR, g):
         Fh = (sR * FLh - sL * FRh + sL * sR * (hRs - hLs)) / den
         Fn = (sR * FLn - sL * FRn + sL * sR * (hRs * unR - hLs * unL)) / den
         Ft = (sR * FLt - sL * FRt + sL * sR * (hRs * utR - hLs * utL)) / den
-    FnL = Fn + 0.5 * g * (hcL ** 2 - hLs ** 2)
-    FnR = Fn + 0.5 * g * (hcR ** 2 - hRs ** 2)
+    if hr == 1:
+        FnL = Fn + g * 0.5 * (hcL + hLs) * (zf - zL)
+        FnR = Fn - g * 0.5 * (hRs + hcR) * (zR - zf)
+    else:
+        FnL = Fn + 0.5 * g * (hcL ** 2 - hLs ** 2)
+        FnR = Fn + 0.5 * g * (hcR ** 2 - hRs ** 2)
     return Fh, FnL, FnR, Ft
 
 
 @njit(cache=True)
 def _fluxes(hP, uP, vP, zP, g, order, Fh_x, FnL_x, FnR_x, Ft_x, Gh_y, GnL_y, GnR_y, Gt_y,
-            s_eta, s_z, s_u, s_v, etaP):
+            s_eta, s_z, s_u, s_v, etaP, hr):
     nx2, ny2 = hP.shape
     nx, ny = nx2 - 2, ny2 - 2
     for i in range(nx2):
@@ -228,7 +240,7 @@ def _fluxes(hP, uP, vP, zP, g, order, Fh_x, FnL_x, FnR_x, Ft_x, Gh_y, GnL_y, GnR
                 zL, zR = zP[a, jj], zP[b, jj]
                 uL, uR = uP[a, jj], uP[b, jj]
                 vL, vR = vP[a, jj], vP[b, jj]
-            r = _face(hL, uL, vL, zL, hR, uR, vR, zR, hP[a, jj], hP[b, jj], g)
+            r = _face(hL, uL, vL, zL, hR, uR, vR, zR, hP[a, jj], hP[b, jj], g, hr)
             Fh_x[f, j] = r[0]; FnL_x[f, j] = r[1]; FnR_x[f, j] = r[2]; Ft_x[f, j] = r[3]
     # ---- y faces (nx, ny+1): normal = v, tangential = u
     if order == 2:
@@ -253,7 +265,7 @@ def _fluxes(hP, uP, vP, zP, g, order, Fh_x, FnL_x, FnR_x, Ft_x, Gh_y, GnL_y, GnR
                 zL, zR = zP[ii, a], zP[ii, b]
                 vL, vR = vP[ii, a], vP[ii, b]
                 uL, uR = uP[ii, a], uP[ii, b]
-            r = _face(hL, vL, uL, zL, hR, vR, uR, zR, hP[ii, a], hP[ii, b], g)
+            r = _face(hL, vL, uL, zL, hR, vR, uR, zR, hP[ii, a], hP[ii, b], g, hr)
             Gh_y[i, f] = r[0]; GnL_y[i, f] = r[1]; GnR_y[i, f] = r[2]; Gt_y[i, f] = r[3]
 
 
@@ -369,8 +381,13 @@ def _fast_step(self, mesh, res_level: float, dt_limit: float, *, wave_boundary=N
 
     Fh_x, FnL_x, FnR_x, Ft_x = b["Fx"]
     Gh_y, GnL_y, GnR_y, Gt_y = b["Gy"]
+    hr_mode = getattr(cfg, "hydrostatic_reconstruction", "audusse")
+    if hr_mode not in ("audusse", "chen_noelle"):
+        raise ValueError("hydrostatic_reconstruction must be 'audusse' or 'chen_noelle'")
+    if hr_mode == "chen_noelle" and cfg.spatial_order != 1:
+        raise ValueError("hydrostatic_reconstruction='chen_noelle' is implemented for spatial_order 1 only")
     _fluxes(hP, uP, vP, zP, g, int(cfg.spatial_order), Fh_x, FnL_x, FnR_x, Ft_x, Gh_y, GnL_y, GnR_y, Gt_y,
-            b["s_eta"], b["s_z"], b["s_u"], b["s_v"], b["etaP"])
+            b["s_eta"], b["s_z"], b["s_u"], b["s_v"], b["etaP"], 1 if hr_mode == "chen_noelle" else 0)
 
     if inflow_available is not None:     # same code as the NumPy step
         V_avail = max(inflow_available[0] + inflow_available[1] * dt, 0.0)

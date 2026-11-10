@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $root "tmp") | Out-Null
 $log = Join-Path ([Environment]::GetFolderPath("Desktop")) "v33_tests_$(Get-Date -Format yyyyMMdd_HHmm).txt"
 "V3.3 test run  $(Get-Date -Format s)   python: $(python --version 2>&1)" | Tee-Object -FilePath $log
 $suites = @("tests\v3_engine_regression.py", "tests\v3_2_feature_tests.py", "tests\v3_2_1_reservoir_tests.py",
-            "tests\v3_2_2_step0_tests.py", "tests\v3_3_tests.py")
+            "tests\v3_2_2_step0_tests.py", "tests\v3_3_tests.py", "tests\v3_4_tests.py")
 $summary = @(); $overall = 0
 foreach ($backend in @("NumPy", "Numba")) {
     foreach ($s in $suites) {

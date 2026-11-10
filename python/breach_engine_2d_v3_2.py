@@ -159,6 +159,11 @@ class EngineConfig:
     friction_model: str = "chezy"         # "chezy" or "manning"
     manning_n: float = 0.035
     spatial_order: int = 1                # 1 or MUSCL 2 (minmod)
+    # V3.4 F1: hydrostatic reconstruction at cell faces. "audusse" (Audusse et al. 2004; V3.3 and earlier) clips
+    # the bed-slope force where the bed step between two cells exceeds the water depth (thin flow on steep faces).
+    # "chen_noelle" (Chen & Noelle 2017, SIAM J. Numer. Anal. 55:758-784) puts the face bed at the lower water
+    # surface there and keeps the full gravity force; identical to Audusse for water at rest. Spatial order 1 only.
+    hydrostatic_reconstruction: str = "audusse"
     cfl_interior_only: bool = False       # True excludes imposed ghost states from the CFL estimate (v2 includes them)
     # --- morphology (quasi-steady coupling)
     dt_morpho_factor: int = 5             # morph update every N flow steps
@@ -651,14 +656,26 @@ class Hydrodynamics:
 
     def _face_flux(self, hL, unL, utL, zL, hR, unR, utR, zR,
                    hL_cell=None, hR_cell=None):
-        """Hydrostatic reconstruction (Audusse et al. 2004) + HLL."""
+        """Hydrostatic reconstruction + HLL. cfg.hydrostatic_reconstruction selects Audusse et al. (2004) or
+        Chen & Noelle (2017)."""
         g = self.cfg.g
+        hcL = hL if hL_cell is None else hL_cell
+        hcR = hR if hR_cell is None else hR_cell
+        if self.cfg.hydrostatic_reconstruction == "chen_noelle":
+            # Chen & Noelle (2017), Sect. 2.3: z_f = min(max(zL, zR), min(wL, wR)); h_f = min(w - z_f, h);
+            # cell-side sources -g/dx (h + h_f)/2 (z_f - z_cell), written here as corrections of the face flux.
+            wL, wR = hL + zL, hR + zR
+            zf = np.minimum(np.maximum(zL, zR), np.minimum(wL, wR))
+            hLs = np.minimum(wL - zf, hL)
+            hRs = np.minimum(wR - zf, hR)
+            Fh, Fn, Ft = _hll_normal(hLs, unL, utL, hRs, unR, utR, g)
+            FnL = Fn + g * 0.5 * (hcL + hLs) * (zf - zL)    # flux seen by the left cell
+            FnR = Fn - g * 0.5 * (hRs + hcR) * (zR - zf)    # flux seen by the right cell
+            return Fh, FnL, FnR, Ft
         zf = np.maximum(zL, zR)
         hLs = np.maximum(hL + zL - zf, 0.0)
         hRs = np.maximum(hR + zR - zf, 0.0)
         Fh, Fn, Ft = _hll_normal(hLs, unL, utL, hRs, unR, utR, g)
-        hcL = hL if hL_cell is None else hL_cell
-        hcR = hR if hR_cell is None else hR_cell
         # Hydrostatic correction uses cell-average depths, while the HLL flux
         # uses MUSCL-reconstructed face states; this preserves lake-at-rest.
         FnL = Fn + 0.5 * g * (hcL**2 - hLs**2)   # flux seen by the left cell
@@ -697,6 +714,10 @@ class Hydrodynamics:
         cfg, g = self.cfg, self.cfg.g
         nx, ny, dx, dy = mesh.nx, mesh.ny, mesh.dx, mesh.dy
         h, u, v, z = mesh.h, mesh.u, mesh.v, mesh.z_b
+        if cfg.hydrostatic_reconstruction not in ("audusse", "chen_noelle"):
+            raise ValueError("hydrostatic_reconstruction must be 'audusse' or 'chen_noelle'")
+        if cfg.hydrostatic_reconstruction == "chen_noelle" and cfg.spatial_order != 1:
+            raise ValueError("hydrostatic_reconstruction='chen_noelle' is implemented for spatial_order 1 only")
 
         pad = lambda a: np.pad(a, 1, mode="edge")
         hP, uP, vP, zP = pad(h), pad(u), pad(v), pad(z)
