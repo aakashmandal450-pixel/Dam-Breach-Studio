@@ -8,6 +8,10 @@ F1: hydrostatic reconstruction of Chen & Noelle (2017), cfg.hydrostatic_reconstr
     - a bore running up and down a beach: no negative depth, no NaN, mass conserved to 1e-12;
     - the default ("audusse") reproduces V3.3 bit for bit on the beach test;
     - bad option values and spatial order 2 are rejected.
+F2: headcut only at a free overfall, cfg.headcut_overfall = "free" (scarp mode):
+    - a free scarp (+x, -x, +y) erodes exactly as with "any" (V3.3); a scarp drowned 0.5 m above its top does not;
+    - switch at the scarp top (tailwater 1 cm below: active, 1 cm above: inactive);
+    - Numba kernel equal to the NumPy reference on 40 random beds; bad options rejected.
 Runs with NumPy (python tests/v3_4_tests.py) and Numba (python tests/run_with_fast.py tests/v3_4_tests.py).
 """
 from __future__ import annotations
@@ -140,6 +144,87 @@ for bad, label in ((dict(hydrostatic_reconstruction="xyz"), "bad name"),
         check(f"F1 option rejected: {label}", False)
     except ValueError:
         check(f"F1 option rejected: {label}", True)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# F2: headcut only at a free overfall (headcut_overfall = "free")
+# ---------------------------------------------------------------------------------------------------------------------
+H_SC = 0.3
+
+
+def scarp(ds=0.1, tail=None, axis=0, reverse=False):
+    """Flat top at H, 1:2 scarp, flat foot at 0. tail = water-surface level everywhere it is above the bed
+    (None: a 2 cm film everywhere, i.e. a free overfall)."""
+    n = int(round(6.0 / ds))
+    x = (np.arange(n) + 0.5) * ds
+    line = np.clip(H_SC - 0.5 * (x - 2.0), 0.0, H_SC)
+    if reverse:
+        line = line[::-1]
+    zb = np.tile(line[:, None], (1, 4)) if axis == 0 else np.tile(line[None, :], (4, 1))
+    m = eng.create_prism_mesh(zb.shape[0] * ds, zb.shape[1] * ds, zb.shape[0], zb.shape[1], zb.copy(), 0.0)
+    m.h = np.full_like(zb, 0.02) if tail is None else np.maximum(tail - zb, 0.0)
+    qq = np.full_like(zb, 0.05 * (-1.0 if reverse else 1.0))
+    qx, qy = (qq, np.zeros_like(zb)) if axis == 0 else (np.zeros_like(zb), qq)
+    return m, qx, qy
+
+
+def hc_volume(m, qx, qy, overfall, steps=1):
+    cfg = eng.EngineConfig(headcut_mode="scarp", headcut_min_slope=0.3, headcut_seg_slope=0.1, h_dry=1e-3,
+                           headcut_overfall=overfall)     # sampled slope of the 1:2 scarp is just under 0.5
+    hc = eng.Headcut(cfg, eng.MaterialProps(porosity=0.35))
+    return sum(hc.migrate(m, qx, 0.5, qy=qy) for _ in range(steps))
+
+
+for axis, rev in ((0, False), (0, True), (1, False)):
+    lab = {(0, False): "+x", (0, True): "-x", (1, False): "+y"}[(axis, rev)]
+    v_any = hc_volume(*scarp(axis=axis, reverse=rev), "any")
+    v_free = hc_volume(*scarp(axis=axis, reverse=rev), "free")
+    check(f"F2 free overfall ({lab}): 'free' erodes exactly as 'any' (V3.3)", v_free == v_any and v_any > 0,
+          f"{v_free:.6g} vs {v_any:.6g} m3")
+    v_any_d = hc_volume(*scarp(tail=H_SC + 0.5, axis=axis, reverse=rev), "any")
+    v_free_d = hc_volume(*scarp(tail=H_SC + 0.5, axis=axis, reverse=rev), "free")
+    check(f"F2 scarp drowned 0.5 m above its top ({lab}): 'any' erodes, 'free' does not",
+          v_any_d > 0 and v_free_d == 0.0, f"any {v_any_d:.3g} m3, free {v_free_d:.3g} m3")
+v_below = hc_volume(*scarp(tail=H_SC - 0.01), "free")
+v_above = hc_volume(*scarp(tail=H_SC + 0.01), "free")
+check("F2 switch: tailwater 1 cm below the scarp top -> active; 1 cm above -> inactive", v_below > 0 and v_above == 0.0,
+      f"{v_below:.3g} / {v_above:.3g} m3")
+
+# NumPy reference vs Numba kernel on random beds (only when the Numba morphology is active)
+try:
+    import fast_morph as FM
+    fm_on = FM._ENABLED
+except Exception:
+    fm_on = False
+if fm_on:
+    import copy
+    worst, nact = 0.0, 0
+    for seed in range(40):
+        r = np.random.default_rng(seed)
+        nxr, nyr = 33, 27
+        zr = np.cumsum(r.normal(0, 0.08, (nxr, nyr)), axis=0) * 0.3 + np.where(r.random((nxr, nyr)) < 0.1,
+                                                                                 r.uniform(0, 0.6, (nxr, nyr)), 0)
+        m0 = eng.create_prism_mesh(nxr * 0.1, nyr * 0.13, nxr, nyr, zr.copy(), 0.0)
+        m0.h = np.where(r.random((nxr, nyr)) < 0.6, r.uniform(0.002, 0.5, (nxr, nyr)), 0.0)
+        qx0, qy0 = r.normal(0, 0.05, (nxr, nyr)), r.normal(0, 0.05, (nxr, nyr))
+        cfg = eng.EngineConfig(h_dry=1e-3, headcut_mode="scarp", headcut_C=0.3, headcut_seg_slope=0.1,
+                               headcut_min_slope=0.2, headcut_overfall="free")
+        hc = eng.Headcut(cfg, eng.MaterialProps(porosity=0.35))
+        a, b = copy.deepcopy(m0), copy.deepcopy(m0)
+        va = FM._ORIG["scarp"](hc, a, qx0, qy0, 0.7)
+        vb = FM._fast_migrate_scarp(hc, b, qx0, qy0, 0.7)
+        nact += va > 0
+        worst = max(worst, float(np.max(np.abs(a.z_b - b.z_b))), abs(va - vb) / max(abs(va), 1e-30))
+    check("F2 Numba kernel = NumPy reference ('free', 40 random beds)", worst < 1e-12 and nact >= 30,
+          f"max diff {worst:.1e}, active in {nact}/40")
+
+for bad, label in ((dict(headcut_mode="scarp", headcut_overfall="xyz"), "bad name"),
+                   (dict(headcut_mode="cell", headcut_overfall="free"), "'free' with cell mode")):
+    try:
+        m, qx, qy = scarp()
+        eng.Headcut(eng.EngineConfig(**bad), eng.MaterialProps()).migrate(m, qx, 0.5, qy=qy)
+        check(f"F2 option rejected: {label}", False)
+    except ValueError:
+        check(f"F2 option rejected: {label}", True)
 
 print(f"\nV3.4 checks: {N_PASS} of {N_ALL} passed")
 sys.exit(0 if N_PASS == N_ALL else 1)

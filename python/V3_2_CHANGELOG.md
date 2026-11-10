@@ -189,3 +189,20 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
     fixed).
   - Laurel Run: 350 / 795 / 935 m3/s.
   Grid convergence is to be judged with F1-F3 together at neutral factors; the cal-2 factors are not valid with F1.
+- F2 (`headcut_overfall`, default "any" = V3.3; "free"): the C1 scarp headcut retreats only at a free overfall,
+  i.e. where the water surface at the foot (z + h) is below the bed at the scarp top. A scarp drowned by its
+  tailwater (the upstream face under the lake) no longer retreats by the energy law. Under V3.3 it did: in deep,
+  slow lake water q = h u is large, so the face was dug, the material settled at the breach entrance and the breach
+  sealed itself (Castlewood H/9: outflow 259 -> 0 m3/s with the crest cut 14 m deep; Yigong: 12,050 -> 18 m3/s).
+  NumPy `Headcut._migrate_scarp` and Numba `fast_morph._scarp`; scarp mode only ("free" with cell mode raises).
+  Checked (tests/v3_4_tests.py, 10 checks, NumPy and Numba):
+  - A free scarp (+x, -x, +y) erodes exactly as with "any"; a scarp drowned 0.5 m above its top does not.
+  - Switch at the scarp top (tailwater 1 cm below: active, 1 cm above: inactive).
+  - Numba equals NumPy on 40 random beds (1.4e-15); bad options are rejected.
+  - All earlier suites pass with the defaults.
+  Effect on full runs (diagnostic):
+  - Castlewood H/9 at cal-2 factors, F2 only: 374 -> 1,909 m3/s (no choking).
+  - F1 + F2 at neutral factors (f = 1), H/6 / 9 / 12: Castlewood 775 / 727 / 921 m3/s (B 60 / 40 / 42 m); Laurel
+    Run 329 / 329 / 531 m3/s (B 154 / 31 / 27 m).
+  - The erratic, choke-driven grid dependence is gone (V3.3: 2,119 / 374 / 345 and 609 / 1,046 / 1,184), but peaks
+    still rise from H/9 to H/12. Next: F3 (Ls without the dx floor, non-cohesive) and the cohesive case (Laurel Run).

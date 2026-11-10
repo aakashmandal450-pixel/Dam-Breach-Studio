@@ -167,7 +167,7 @@ def _hc_rate(q, H, method, C, A0, has_max, max_rate, retard, sites_thr, sites_co
 
 @njit(cache=True)
 def _scarp(z, h, qx, qy, S, zfl, dx, dy, dt, seg_slope, min_slope, min_height, h_dry, p, floor_on,
-           method, C, A0, has_max, max_rate, retard, sites_thr, sites_coef):
+           method, C, A0, has_max, max_rate, retard, sites_thr, sites_coef, free_only):
     nx, ny = z.shape
     nmax = 4 * nx * ny
     rti = np.empty(nmax, np.int64)
@@ -219,10 +219,16 @@ def _scarp(z, h, qx, qy, S, zfl, dx, dy, dt, seg_slope, min_slope, min_height, h
                 if axis == 0:
                     q = qx[t0, col] * sign
                     hfoot = h[f0, col]
+                    zfoot = z[f0, col]
+                    ztop = z[t0, col]
                 else:
                     q = qy[col, t0] * sign
                     hfoot = h[col, f0]
+                    zfoot = z[col, f0]
+                    ztop = z[col, t0]
                 if not ((Hs / Ls >= min_slope) and (Hs >= min_height) and (hfoot > h_dry) and (q > 1e-6)):
+                    continue
+                if free_only and not (zfoot + hfoot < ztop):     # V3.4 F2: free overfall only
                     continue
                 R = _hc_rate(q, Hs, method, C, A0, has_max, max_rate, retard, sites_thr, sites_coef)
                 f = min(R * dt / dsafe, 1.0)
@@ -294,7 +300,7 @@ def _fast_migrate_scarp(self, mesh, qx, qy, dt):
                        float(cfg.h_dry), float(mat.porosity), bool(cfg.z_floor_enabled), code,
                        float(cfg.headcut_C), float(cfg.headcut_threshold_A0), cfg.headcut_max_rate is not None,
                        float(cfg.headcut_max_rate or 0.0), float(cfg.headcut_retardation), float(sites_thr),
-                       float(sites_coef))
+                       float(sites_coef), getattr(cfg, "headcut_overfall", "any") == "free")
     if hi < 0:
         return 0.0
     mesh.headcut_i = int(hi)

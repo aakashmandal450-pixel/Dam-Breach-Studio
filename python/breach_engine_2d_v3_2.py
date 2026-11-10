@@ -229,6 +229,10 @@ class EngineConfig:
                                           #     "scarp" (runs of steep drops in x and y, rate from the scarp height)
     headcut_seg_slope: float = 0.1        # C1: a drop belongs to a scarp if its cell-to-cell slope >= this
     headcut_min_height: float = 0.0       # C1: minimum scarp height [m] (0 = no cell-size dependent floor)
+    # V3.4 F2: "any" (V3.3) lets a scarp retreat whatever the water level at its foot; "free" only at a free
+    # overfall, i.e. where the water surface at the foot is below the bed at the top of the scarp. A scarp drowned by
+    # its tailwater (e.g. the upstream face under the lake) does not retreat by the energy law. Scarp mode only.
+    headcut_overfall: str = "any"
     lateral_noncohesive: str = "excess_shear"  # C3: "excess_shear" (V3.2.2) or "off": no lateral law for non-cohesive
                                                #     (and 'mixed') material; banks retreat by toe erosion + collapse
     lateral_directions: str = "y"         # C4: "y" (V3.2.2: banks facing y only) or "xy" (also banks facing x)
@@ -1303,6 +1307,8 @@ class Headcut:
             q = Q[top, col]
             ok = (Hs / Ls >= cfg.headcut_min_slope) & (Hs >= cfg.headcut_min_height) & \
                  (Hh[foot, col] > cfg.h_dry) & (q > 1e-6)
+            if cfg.headcut_overfall == "free":           # F2: tailwater surface below the scarp top
+                ok &= Z[foot, col] + Hh[foot, col] < Z[top, col]
             if not np.any(ok):
                 continue
             top, last, col, Hs, q = top[ok], e_i[ok], col[ok], Hs[ok], q[ok]
@@ -1345,6 +1351,10 @@ class Headcut:
 
     def migrate(self, mesh: MeshState, qx: np.ndarray, dt: float, qy: Optional[np.ndarray] = None) -> float:
         mode = self.cfg.headcut_mode
+        if self.cfg.headcut_overfall not in ("any", "free"):
+            raise ValueError("headcut_overfall must be 'any' or 'free'")
+        if self.cfg.headcut_overfall == "free" and mode != "scarp":
+            raise ValueError("headcut_overfall='free' needs headcut_mode='scarp'")
         if mode == "scarp":
             return self._migrate_scarp(mesh, qx, np.zeros_like(qx) if qy is None else qy, dt)
         if mode != "cell":
