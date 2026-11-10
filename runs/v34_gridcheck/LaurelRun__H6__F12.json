@@ -1,0 +1,18 @@
+{
+ "id": "LaurelRun",
+ "grid": 6,
+ "setup": "F12",
+ "Qp": 329.31608605849976,
+ "Tp_h": 1.0998773172887244,
+ "B": 153.6,
+ "max_lowering_m": 12.8,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 473.0,
+ "max_balance": 1.3293174561113119e-08,
+ "cells": [
+  51,
+  73,
+  2.1333333333333333
+ ]
+}

@@ -1,0 +1,8 @@
+V3.4 grid check (neutral factors f = 1, cal-2 options + fixes); peak Qp [m3/s], width B [m], Tp [h]
+case        setup                    H/6                     H/9                    H/12   H9->H12 Qp   verdict
+Castlewood  F12       776 B   60 T1.02       727 B   40 T1.02       921 B   42 T1.03       +26.6 %   NOT converged
+Castlewood  F123      744 B   53 T0.76       809 B   42 T1.10      1160 B   44 T1.05       +43.4 %   NOT converged
+LaurelRun   F12       329 B  154 T1.10       329 B   31 T0.77       531 B   26 T0.71       +61.5 %   NOT converged
+LaurelRun   F123      329 B  154 T1.10       401 B   21 T0.76       509 B   22 T0.66       +26.9 %   NOT converged
+max |balance error| over all runs: 2.5e-07 m3   (* = censored)
+Reference, V3.3 as calibrated (cal-2 factors), Qp at H/6 / 9 / 12: Castlewood 2,119 / 374 / 345; Laurel Run 609 / 1,046 / 1,184 m3/s

@@ -1,0 +1,13 @@
+{
+ "id": "Castlewood",
+ "grid": 12,
+ "variant": "noheadcut",
+ "Qp": 459.42905365849174,
+ "Tp_h": 4.125721717058713,
+ "B": 26.493103448275864,
+ "max_lowering_m": 16.437981190403594,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 3728.953125,
+ "max_balance": 4.2747706174850464e-07
+}

@@ -1,0 +1,7 @@
+V3.4 isolation test: Castlewood, neutral factors, F1+F2+F3; Qp [m3/s], B [m], Tp [h]
+variant                         H/9                     H/12   H9->H12 Qp   verdict
+base            809 B   42 T 1.10      1160 B   44 T 1.05      +43.4 %   NOT converged
+repose          837 B   49 T 1.08       889 B   44 T 1.25       +6.2 %   converged (<10 %)
+noheadcut       403 B   31 T 4.37       459 B   26 T 4.13      +14.1 %   NOT converged
+both            403 B   31 T 4.37       459 B   26 T 4.12      +14.0 %   NOT converged
+max |balance error|: 4.3e-07 m3   (* = censored)
