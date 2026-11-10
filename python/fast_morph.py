@@ -105,7 +105,10 @@ def _collapse(z, S, h, dx, dy, all_pairs, c, gamma, phi_mat, phi_dry, phi_wet, h
     nx, ny = z.shape
     minfs = np.full(1, np.inf)
     total = 0.0
+    passes = 0
+    moved = 0.0
     for _ in range(max(iters, 1)):
+        passes += 1
         moved = 0.0
         # axis 1 (pairs along y, ds = dy), then axis 0 (pairs along x, ds = dx); even then odd pairs
         for start in range(2):
@@ -121,7 +124,7 @@ def _collapse(z, S, h, dx, dy, all_pairs, c, gamma, phi_mat, phi_dry, phi_wet, h
         total += moved
         if moved < 1e-9:
             break
-    return total, minfs[0]
+    return total, minfs[0], passes, moved >= 1e-9
 
 
 def _fast_check_and_collapse(self, mesh):
@@ -136,12 +139,14 @@ def _fast_check_and_collapse(self, mesh):
     if not (mesh.z_b.flags.c_contiguous and mesh.S.flags.c_contiguous):
         mesh.z_b = np.ascontiguousarray(mesh.z_b)
         mesh.S = np.ascontiguousarray(mesh.S)
-    total, minfs = _collapse(mesh.z_b, mesh.S, np.ascontiguousarray(mesh.h, dtype=np.float64),
+    limit = self.pass_limit()
+    total, minfs, passes, moving = _collapse(mesh.z_b, mesh.S, np.ascontiguousarray(mesh.h, dtype=np.float64),
                              float(mesh.dx), float(mesh.dy), mode == "all_pairs", float(m.cohesion),
                              float(self.gamma), float(np.deg2rad(m.phi)), float(phi_dry), float(phi_wet), float(hsw),
                              float(cfg.h_dry), float(m.porosity), float(max(cfg.bank_fs_trigger, 1e-6)),
-                             float(max(cfg.bank_fs_target, 1e-6)), int(cfg.collapse_iterations))
+                             float(max(cfg.bank_fs_target, 1e-6)), int(limit))
     self.last_min_fs = min(self.last_min_fs, float(minfs))
+    self.record_passes(int(passes), bool(moving), limit)
     return total * mesh.dx * mesh.dy
 
 

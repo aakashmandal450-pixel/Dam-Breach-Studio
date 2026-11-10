@@ -177,6 +177,14 @@ class EngineConfig:
     headcut_enabled: bool = True
     bank_collapse_enabled: bool = True
     collapse_iterations: int = 3
+    # V3.4 F4: False (V3.3) makes exactly collapse_iterations passes per morph step. A pass moves material one cell,
+    # so with a morph interval fixed in seconds the collapse front travels collapse_iterations * dx per interval:
+    # slower in metres on a finer grid (narrower, deeper channels and higher peaks). True repeats the passes until
+    # no pair moves (every pair at or below its critical angle), as in the avalanching of Roelvink et al. (2009)
+    # and Volz et al. (2012); collapse_max_passes is then only a safety cap, and BankStability.stats counts how
+    # often it is reached.
+    collapse_to_repose: bool = False
+    collapse_max_passes: int = 500
     # --- headcut
     headcut_C: float = 0.05               # m/s per (m3/s)^(1/3)
     headcut_method: str = "energy"       # energy, temple, sites
@@ -1082,9 +1090,13 @@ LateralForceBalance = LateralErosion   # backwards-compatible name
 # =============================================================================
 
 class BankStability:
+    # V3.4 F4 bookkeeping (per process): collapse calls, passes used, and calls that ended at the pass limit
+    stats: Dict[str, int] = {"calls": 0, "passes": 0, "max_passes": 0, "limit_hits": 0}
+
     def __init__(self, mat: MaterialProps, cfg: EngineConfig):
         self.mat, self.cfg = mat, cfg
         self.last_min_fs = float("inf")
+        self.last_passes = 0
         if cfg.bank_stability != BankStabilityMethod.CRITICAL_DEPTH:
             # Do not silently substitute a different stability method. A run
             # labelled Bishop or Spencer would otherwise produce Culmann
@@ -1192,7 +1204,10 @@ class BankStability:
         """Returns collapsed bulk volume [m3]. Mass is conserved."""
         total = 0.0
         self.last_min_fs = float("inf")
-        for _ in range(max(self.cfg.collapse_iterations, 1)):
+        limit = self.pass_limit()
+        passes, moved = 0, 0.0
+        for _ in range(limit):
+            passes += 1
             moved = 0.0
             for axis, ds in ((1, mesh.dy), (0, mesh.dx)):
                 n = mesh.z_b.shape[axis]
@@ -1207,7 +1222,25 @@ class BankStability:
             total += moved
             if moved < 1e-9:
                 break
+        self.record_passes(passes, moved >= 1e-9, limit)
         return total * mesh.dx * mesh.dy
+
+    def pass_limit(self) -> int:
+        """Passes allowed per call: collapse_iterations (V3.3), or the safety cap when collapsing to repose (F4)."""
+        cfg = self.cfg
+        if cfg.collapse_to_repose:
+            if cfg.collapse_max_passes < 1:
+                raise ValueError("collapse_max_passes must be >= 1")
+            return int(cfg.collapse_max_passes)
+        return max(int(cfg.collapse_iterations), 1)
+
+    def record_passes(self, passes: int, still_moving: bool, limit: int) -> None:
+        self.last_passes = int(passes)
+        st = BankStability.stats
+        st["calls"] += 1
+        st["passes"] += int(passes)
+        st["max_passes"] = max(st["max_passes"], int(passes))
+        st["limit_hits"] += int(still_moving and passes >= limit)
 
 
 # =============================================================================
@@ -1575,6 +1608,7 @@ class Morphology:
         self.last_diag = {"lateral_m3": lat, "headcut_m3": hc, "collapsed_m3": col,
                           "toe_scour_m3": toe, "transport_net_erosion_m3": trans,
                           "min_bank_FS": float(min(self.bank.last_min_fs, 1e6)),
+                          "collapse_passes": int(self.bank.last_passes),
                           "max_S": float(np.max(mesh.S))}
         return self.last_diag
 

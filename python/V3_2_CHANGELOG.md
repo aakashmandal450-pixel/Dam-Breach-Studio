@@ -215,3 +215,26 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
   - without, 181 / 185 um (2 %), in both adaptation-length modes;
   - identical to the floor version where the floor is inactive.
   Grid check of the fixes on Castlewood and Laurel Run: `calibration/v34_grid_check.py`, `run_v34_f3.ps1`.
+- Isolation test (`calibration/v34_isolation.py`, `run_v34_isolation.ps1`; Castlewood, neutral factors, F1+F2+F3,
+  H/9 -> H/12 peak): base 809 -> 1,160 m3/s (+43 %); collapse to repose 837 -> 889 (+6 %); no headcut 403 -> 459
+  (+14 %); both 403 -> 459 (+14 %). The fixed 3 collapse passes per morph step carry most of the remaining grid
+  dependence, and only where the headcut makes scarps. A 14 % residual remains without the headcut.
+- F4 (`collapse_to_repose`, default False = V3.3; `collapse_max_passes`, default 500): the collapse passes are
+  repeated until no pair moves, instead of exactly `collapse_iterations` (3) passes per morph step. A pass moves
+  material one cell and the morph interval is fixed in seconds (H/20 in the calibration runner), so with a fixed
+  pass count the collapse front travels 3 dx per interval: slower in metres on a finer grid. Avalanching to the
+  critical angle each step follows Roelvink et al. (2009) and Volz et al. (2012). `collapse_max_passes` is a safety
+  cap only; `BankStability.stats` counts calls, passes and calls that ended at the cap, and the morph diagnostics
+  carry `collapse_passes`. NumPy `BankStability.check_and_collapse` and the Numba kernel `fast_morph._collapse`.
+  Checked (tests/v3_4_tests.py, 9 checks NumPy, 10 with Numba): a 4 m vertical sand bank, one call:
+  - 3 passes: crest retreat 2.50 m at dx 1 m, 0.88 m at dx 0.25 m;
+  - to repose: 2.50 / 2.88 m (exact 3.08 m, within one coarse cell), no pair steeper than tan(phi), volume
+    conserved, independent of the cap, cap hits counted;
+  - off = V3.3 exactly; Numba kernel equal to NumPy on 20 random beds.
+  Grid check with F1+F2+F3+F4: setup `F1234` in `calibration/v34_grid_check.py`, launcher `run_v34_f4.ps1`.
+  Result (neutral factors, Qp at H/6 / 9 / 12, `runs/v34_gridcheck/*F1234*`; no collapse call ended at the cap,
+  at most 18 passes per call):
+  - Castlewood (non-cohesive) 749 / 837 / 889 m3/s, H/9 -> H/12 +6 % (F123: +43 %): converged at the 10 % target.
+    Width 53 / 49 / 44 m and time to peak 0.97 / 1.08 / 1.25 h still drift.
+  - Laurel Run (cohesive) 329 / 401 / 512 m3/s, +28 % (F123: +27 %): not converged; F4 has no effect there, so the
+    cohesive grid dependence has another cause (open).

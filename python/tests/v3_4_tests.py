@@ -15,6 +15,12 @@ F2: headcut only at a free overfall, cfg.headcut_overfall = "free" (scarp mode):
 F3: adaptation length without the dx floor, cfg.adaptation_dx_floor = False:
     - uniform flow over an erodible bed: pickup within 5 % at dx 1 m and 0.25 m (with the floor: x1.9), both
       adaptation-length modes; identical to the floor version where the floor is inactive.
+F4: slope collapse to the repose angle every morph step, cfg.collapse_to_repose = True:
+    - a 4 m vertical sand bank, one call: with 3 passes (V3.3) the collapse reaches less far at dx 0.25 m than at
+      1 m; to repose the crest retreat is the same on both grids and equal to the exact value, no pair is steeper
+      than tan(phi), volume is conserved;
+    - independent of the safety cap when the cap is not reached; calls ending at the cap are counted;
+    - off (default) = V3.3; Numba kernel equal to the NumPy reference; bad cap rejected.
 Runs with NumPy (python tests/v3_4_tests.py) and Numba (python tests/run_with_fast.py tests/v3_4_tests.py).
 """
 from __future__ import annotations
@@ -254,6 +260,89 @@ for mode in ("depth_scaled", "fixed"):
     check(f"F3 ({mode}) without the floor: pickup within 5 % at dx 1 and 0.25 m", abs(b4 / b1 - 1) < 0.05,
           f"{b1 * 1e6:.1f} / {b4 * 1e6:.1f} um")
     check(f"F3 ({mode}): no floor = floor where the floor is inactive (dx 0.25 m <= Ls)", a4 == b4, f"{a4:.6e} / {b4:.6e}")
+
+# ---------------------------------------------------------------------------------------------------------------------
+# F4: slope collapse to the repose angle every morph step (collapse_to_repose = True)
+# ---------------------------------------------------------------------------------------------------------------------
+PHI_F4, H_BANK = 33.0, 4.0
+
+
+def bank(dx, **opts):
+    """A dry vertical bank 4 m high in sand (c = 0, phi 33 deg), 24 m long, one collapse call.
+    Returns the mesh, the bank object and the bulk volume before the call."""
+    n = int(round(24.0 / dx))
+    x = (np.arange(n) + 0.5) * dx
+    zb_ = np.tile(np.where(x < 12.0, H_BANK, 0.0)[:, None], (1, 3))
+    m = eng.create_prism_mesh(24.0, 3 * dx, n, 3, zb_.copy(), 0.0)
+    cfg = eng.EngineConfig(h_dry=1e-3, collapse_mode="all_pairs", **opts)
+    bs = eng.BankStability(eng.MaterialProps(material_class="noncohesive", cohesion=0.0, phi=PHI_F4, porosity=0.35), cfg)
+    v0 = float(np.sum(m.z_b)) * m.dx * m.dy
+    bs.check_and_collapse(m)
+    return m, bs, v0, x
+
+
+def crest_retreat(m, x):
+    """Distance from the original bank line (x = 12 m) to the point where the bed is still within 1 cm of the top."""
+    z = m.z_b[:, 1]
+    lowered = x[z < H_BANK - 0.01]
+    return 12.0 - float(lowered.min()) if lowered.size else 0.0
+
+
+tanphi = float(np.tan(np.deg2rad(PHI_F4)))
+r3 = {dx: crest_retreat(*bank(dx)[0:4:3]) for dx in (1.0, 0.25)}
+check("F4 3 passes per call (V3.3): the collapse reaches less far on a finer grid (documents the defect)",
+      r3[1.0] > 2.5 * r3[0.25], f"crest retreat at dx 1 / 0.25 m: {r3[1.0]:.2f} / {r3[0.25]:.2f} m")
+out = {dx: bank(dx, collapse_to_repose=True, collapse_max_passes=100000) for dx in (1.0, 0.25)}
+rr = {dx: crest_retreat(o[0], o[3]) for dx, o in out.items()}
+exact = 0.5 * H_BANK / tanphi            # a repose slope through the mid-height of the bank conserves volume
+check("F4 to repose: crest retreat equal on both grids and to the exact value (within one coarse cell)",
+      abs(rr[1.0] - rr[0.25]) <= 1.0 and all(abs(v - exact) <= 1.0 for v in rr.values()),
+      f"dx 1 / 0.25 m: {rr[1.0]:.2f} / {rr[0.25]:.2f} m, exact {exact:.2f} m")
+for dx, (m, bs, v0, x) in out.items():
+    steep = float(np.max(np.abs(np.diff(m.z_b, axis=0)))) / dx
+    check(f"F4 to repose (dx {dx} m): no pair steeper than tan(phi); volume conserved",
+          steep <= tanphi + 2e-6 / dx and abs(float(np.sum(m.z_b)) * m.dx * m.dy - v0) < 1e-9 * v0,
+          f"max slope {steep:.5f} vs {tanphi:.5f}; passes {bs.last_passes}")
+ma = bank(0.25, collapse_to_repose=True, collapse_max_passes=100000)
+mb = bank(0.25, collapse_to_repose=True, collapse_max_passes=200000)
+check("F4 the result does not depend on the safety cap once the cap is not reached",
+      np.array_equal(ma[0].z_b, mb[0].z_b) and ma[1].last_passes == mb[1].last_passes < 100000,
+      f"passes {ma[1].last_passes}")
+h0 = eng.BankStability.stats["limit_hits"]
+bank(0.25, collapse_to_repose=True, collapse_max_passes=5)
+h1 = eng.BankStability.stats["limit_hits"]
+bank(1.0, collapse_to_repose=True, collapse_max_passes=100000)
+check("F4 a call that ends at the cap is counted (limit_hits); one that settles is not",
+      h1 == h0 + 1 and eng.BankStability.stats["limit_hits"] == h1, f"hits {h0} -> {h1}")
+d3, dd = bank(0.25), bank(0.25, collapse_to_repose=False, collapse_max_passes=7)
+m3 = bank(0.25, collapse_iterations=3)
+check("F4 default (off) = V3.3: exactly collapse_iterations passes, the cap is ignored",
+      np.array_equal(d3[0].z_b, dd[0].z_b) and np.array_equal(d3[0].z_b, m3[0].z_b) and d3[1].last_passes == 3,
+      f"passes {d3[1].last_passes}")
+try:
+    bank(1.0, collapse_to_repose=True, collapse_max_passes=0)
+    check("F4 option rejected: collapse_max_passes < 1", False)
+except ValueError:
+    check("F4 option rejected: collapse_max_passes < 1", True)
+if fm_on:
+    import copy
+    worst, npass = 0.0, True
+    for seed in range(20):
+        r = np.random.default_rng(100 + seed)
+        nxr, nyr = 29, 23
+        zr = np.cumsum(r.normal(0, 0.3, (nxr, nyr)), axis=0) + np.where(r.random((nxr, nyr)) < 0.1, 1.5, 0.0)
+        m0 = eng.create_prism_mesh(nxr * 0.2, nyr * 0.25, nxr, nyr, zr.copy(), 0.0)
+        m0.h = np.where(r.random((nxr, nyr)) < 0.5, r.uniform(0.002, 0.5, (nxr, nyr)), 0.0)
+        cfg = eng.EngineConfig(h_dry=1e-3, collapse_mode="all_pairs", collapse_to_repose=True, collapse_max_passes=100000)
+        ba = eng.BankStability(eng.MaterialProps(material_class="noncohesive", cohesion=0.0, phi=PHI_F4), cfg)
+        bb = eng.BankStability(eng.MaterialProps(material_class="noncohesive", cohesion=0.0, phi=PHI_F4), cfg)
+        a, b = copy.deepcopy(m0), copy.deepcopy(m0)
+        FM._ORIG["collapse"](ba, a)
+        FM._fast_check_and_collapse(bb, b)
+        worst = max(worst, float(np.max(np.abs(a.z_b - b.z_b))), float(np.max(np.abs(a.S - b.S))))
+        npass &= ba.last_passes == bb.last_passes
+    check("F4 Numba kernel = NumPy reference (to repose, 20 random beds, same number of passes)",
+          worst < 1e-9 and npass, f"max diff {worst:.1e}")
 
 print(f"\nV3.4 checks: {N_PASS} of {N_ALL} passed")
 sys.exit(0 if N_PASS == N_ALL else 1)

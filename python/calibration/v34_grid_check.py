@@ -4,6 +4,7 @@ Runs Castlewood (non-cohesive) and Laurel Run (cohesive) at grid divisors H/6, H
 (f_kd = C_h = f_t = 1, so no calibration compensation) and the cal-2 engine options plus:
     F12  = F1 (Chen-Noelle reconstruction) + F2 (headcut only at a free overfall)
     F123 = F12 + F3 (no dx floor on the adaptation length)
+    F1234 = F123 + F4 (slope collapse to the repose angle every morph step)
 Writes one JSON per run to runs/v34_gridcheck/ and a summary table (also to the Desktop when --desktop is given).
 Target for V3.4: peak within 10 % between H/9 and H/12.
 
@@ -29,6 +30,8 @@ GRIDS = (6, 9, 12)
 SETUPS = {
     "F12": {"hydrostatic_reconstruction": "chen_noelle", "headcut_overfall": "free"},
     "F123": {"hydrostatic_reconstruction": "chen_noelle", "headcut_overfall": "free", "adaptation_dx_floor": False},
+    "F1234": {"hydrostatic_reconstruction": "chen_noelle", "headcut_overfall": "free", "adaptation_dx_floor": False,
+              "collapse_to_repose": True},
 }
 NEUTRAL = {"f_kd": 1.0, "C_h": 1.0, "f_t": 1.0}
 
@@ -49,6 +52,8 @@ def worker(task):
         out = {"id": cid, "grid": gd, "setup": setup, "Qp": r["Qp"], "Tp_h": r["Tp_h"], "B": r["B"],
                "max_lowering_m": r["max_lowering_m"], "stop_cause": r["stop_cause"], "censored": r["censored"],
                "cpu_s": r["cpu_s"], "max_balance": max(abs(x) for x in r["balances"]), "cells": r["grid"]}
+        import breach_engine_2d_v3_2 as E
+        out["collapse"] = dict(getattr(E.BankStability, "stats", {}))   # calls, passes, max_passes, limit_hits
     except Exception as exc:          # recorded, run again to retry
         out = {"id": cid, "grid": gd, "setup": setup, "error": repr(exc)}
     path.write_text(json.dumps(out, indent=1))
@@ -79,6 +84,12 @@ def summary():
                 verdict = "converged (<10 %)" if abs(ch) < 0.10 else "NOT converged"
                 cells.append(f"   {ch * 100:+6.1f} %   {verdict}")
             rows.append(f"{cid:11s} {setup:5s} " + "  ".join(cells))
+            if SETUPS[setup].get("collapse_to_repose"):
+                st = [(g, res[g]["collapse"]) for g in GRIDS if res[g] and "collapse" in res[g]]
+                if st:
+                    rows.append("            collapse passes per call, mean / max (calls ended at the cap): " + ";  ".join(
+                        f"H/{g} {c['passes'] / max(c['calls'], 1):.1f} / {c['max_passes']} ({c['limit_hits']})"
+                        for g, c in st))
     bal = [json.loads(p.read_text()).get("max_balance", 0) for p in OUT.glob("*.json")]
     rows.append(f"max |balance error| over all runs: {max(bal) if bal else float('nan'):.1e} m3   (* = censored)")
     rows.append("Reference, V3.3 as calibrated (cal-2 factors), Qp at H/6 / 9 / 12: Castlewood 2,119 / 374 / 345; "
