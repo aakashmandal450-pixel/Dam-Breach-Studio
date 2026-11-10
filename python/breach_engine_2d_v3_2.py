@@ -202,6 +202,10 @@ class EngineConfig:
     bank_n_exp: Optional[float] = None     # bank erosion exponent (None -> material n_exp)
     adaptation_length_mode: str = "fixed"  # fixed or depth_scaled
     adaptation_depth_factor: float = 5.0   # Ls = max(factor*h, dx) when depth_scaled
+    # V3.4 F3: True (V3.3) floors the adaptation length at the cell size, Ls = max(Ls, dx), so where the flow is
+    # shallow the pickup rate scales as 1/dx (halving the cells doubles erosion). False uses Ls as defined
+    # (factor * h, or adaptation_length); the exponential relaxation 1 - exp(-dt u / Ls) is stable without the floor.
+    adaptation_dx_floor: bool = True
     active_layer_cap_m: Optional[float] = None  # numerical cap on solids in transport (bulk m); not a physical active layer
     detachment_load_saturation: bool = False    # entrainment scaled by (1 - S / (c_max h))
     detachment_max_concentration: float = 0.05  # solids volume fraction for the saturation law
@@ -1466,10 +1470,11 @@ class Morphology:
     # ---- transport + Exner over the accumulated interval --------------------
     def _transport_exner(self, mesh, h, qx, qy, tau, dt_total) -> None:
         cfg, p = self.cfg, self.mat.porosity
+        floor = mesh.dx if cfg.adaptation_dx_floor else 0.0          # V3.4 F3
         if cfg.adaptation_length_mode == "depth_scaled":
-            Ls = np.maximum(cfg.adaptation_depth_factor * np.maximum(h, cfg.h_dry), mesh.dx)
+            Ls = np.maximum(cfg.adaptation_depth_factor * np.maximum(h, cfg.h_dry), floor)
         else:
-            Ls = max(cfg.adaptation_length, mesh.dx)
+            Ls = max(cfg.adaptation_length, floor, 1e-12)
         wet = h > cfg.h_dry
         hs = np.maximum(h, cfg.h_dry)
         ux, uy = np.where(wet, qx / hs, 0.0), np.where(wet, qy / hs, 0.0)

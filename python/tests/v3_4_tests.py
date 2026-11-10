@@ -12,6 +12,9 @@ F2: headcut only at a free overfall, cfg.headcut_overfall = "free" (scarp mode):
     - a free scarp (+x, -x, +y) erodes exactly as with "any" (V3.3); a scarp drowned 0.5 m above its top does not;
     - switch at the scarp top (tailwater 1 cm below: active, 1 cm above: inactive);
     - Numba kernel equal to the NumPy reference on 40 random beds; bad options rejected.
+F3: adaptation length without the dx floor, cfg.adaptation_dx_floor = False:
+    - uniform flow over an erodible bed: pickup within 5 % at dx 1 m and 0.25 m (with the floor: x1.9), both
+      adaptation-length modes; identical to the floor version where the floor is inactive.
 Runs with NumPy (python tests/v3_4_tests.py) and Numba (python tests/run_with_fast.py tests/v3_4_tests.py).
 """
 from __future__ import annotations
@@ -225,6 +228,32 @@ for bad, label in ((dict(headcut_mode="scarp", headcut_overfall="xyz"), "bad nam
         check(f"F2 option rejected: {label}", False)
     except ValueError:
         check(f"F2 option rejected: {label}", True)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# F3: adaptation length without the cell-size floor (adaptation_dx_floor = False)
+# ---------------------------------------------------------------------------------------------------------------------
+def pickup(dx, floor, mode="depth_scaled"):
+    """Uniform 5 cm flow at 1.5 m/s over an erodible flat bed (D50 5 mm), one transport interval of 0.5 s:
+    mean bed lowering [m]. 5 h = 0.25 m, so the dx floor is active for dx = 1 m."""
+    n = int(round(8 / dx))
+    zb_ = np.zeros((n, 3))
+    m = eng.create_prism_mesh(8.0, 3 * dx, n, 3, zb_.copy(), 0.05)
+    m.z_floor = zb_ - 1.0
+    cfg = eng.EngineConfig(h_dry=1e-3, adaptation_length_mode=mode, adaptation_length=0.25, adaptation_dx_floor=floor)
+    mo = eng.Morphology(cfg, eng.MaterialProps(material_class="noncohesive", D50=0.005, porosity=0.35, phi=33.0))
+    z0 = m.z_b.copy()
+    mo._transport_exner(m, m.h, np.full_like(zb_, 0.075), np.zeros_like(zb_), np.full_like(zb_, 20.0), 0.5)
+    return float(np.mean(z0 - m.z_b))
+
+
+for mode in ("depth_scaled", "fixed"):
+    a1, a4 = pickup(1.0, True, mode), pickup(0.25, True, mode)
+    b1, b4 = pickup(1.0, False, mode), pickup(0.25, False, mode)
+    check(f"F3 ({mode}) with the dx floor (V3.3): pickup depends on dx (documents the defect)", a4 / a1 > 1.5,
+          f"dx 1 / 0.25 m: {a1 * 1e6:.1f} / {a4 * 1e6:.1f} um")
+    check(f"F3 ({mode}) without the floor: pickup within 5 % at dx 1 and 0.25 m", abs(b4 / b1 - 1) < 0.05,
+          f"{b1 * 1e6:.1f} / {b4 * 1e6:.1f} um")
+    check(f"F3 ({mode}): no floor = floor where the floor is inactive (dx 0.25 m <= Ls)", a4 == b4, f"{a4:.6e} / {b4:.6e}")
 
 print(f"\nV3.4 checks: {N_PASS} of {N_ALL} passed")
 sys.exit(0 if N_PASS == N_ALL else 1)

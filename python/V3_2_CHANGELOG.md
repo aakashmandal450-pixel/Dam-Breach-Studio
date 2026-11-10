@@ -206,3 +206,12 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
     Run 329 / 329 / 531 m3/s (B 154 / 31 / 27 m).
   - The erratic, choke-driven grid dependence is gone (V3.3: 2,119 / 374 / 345 and 609 / 1,046 / 1,184), but peaks
     still rise from H/9 to H/12. Next: F3 (Ls without the dx floor, non-cohesive) and the cohesive case (Laurel Run).
+- F3 (`adaptation_dx_floor`, default True = V3.3; False): the non-equilibrium adaptation length is no longer floored
+  at the cell size (V3.3: Ls = max(5 h, dx) or max(adaptation_length, dx)). With the floor, where 5 h < dx (shallow
+  flow on faces) the pickup rate scales as 1/dx, so halving the cells doubled erosion. The relaxation
+  1 - exp(-dt u / Ls) is stable without it. NumPy `Morphology._transport_exner` (no Numba kernel involved).
+  Checked (tests/v3_4_tests.py, 6 checks): uniform flow over an erodible bed, pickup at dx 1 / 0.25 m:
+  - with the floor, 99 / 185 um (x1.9);
+  - without, 181 / 185 um (2 %), in both adaptation-length modes;
+  - identical to the floor version where the floor is inactive.
+  Grid check of the fixes on Castlewood and Laurel Run: `calibration/v34_grid_check.py`, `run_v34_f3.ps1`.
