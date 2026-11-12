@@ -1,0 +1,13 @@
+{
+ "id": "LaurelRun",
+ "grid": 12,
+ "variant": "noheadcut",
+ "Qp": 140.29750574335372,
+ "Tp_h": 2.0553373235767927,
+ "B": 153.6,
+ "max_lowering_m": 12.8,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 4751.015625,
+ "max_balance": 1.1641532182693481e-07
+}
