@@ -4,6 +4,7 @@ Laurel Run, neutral factors (f = 1), cal-2 options + F1-F4, grid divisors H/9 an
     nocollapse  bank collapse switched off (peaks agree between the grids: 389 / 391 m3/s)
     pairs       F1-F4, Culmann on cell pairs (401 / 512 m3/s)
     wedge       F1-F5, Culmann on whole banks (297 / 438 m3/s)
+and the same three with F6 (sediment moved with the flow solver's face water flux): nocollapse_f6, pairs_f6, wedge_f6.
 Every SAMPLE_S seconds of model time each run records the outflow, the lake level, the bed and the depth along the
 crest line and along the breach axis, and the volumes moved by each process. Every whole-bank failure is recorded
 with its time, place, height, number of drops, angle and factor of safety (wedge variant).
@@ -34,6 +35,9 @@ VARIANTS = {
     "nocollapse": {"bank_collapse_enabled": False},
     "pairs": {},
     "wedge": {"collapse_mode": "bank_wedge"},
+    "nocollapse_f6": {"bank_collapse_enabled": False, "sediment_face_flux": "hydro"},
+    "pairs_f6": {"sediment_face_flux": "hydro"},
+    "wedge_f6": {"collapse_mode": "bank_wedge", "sediment_face_flux": "hydro"},
 }
 NEUTRAL = {"f_kd": 1.0, "C_h": 1.0, "f_t": 1.0}
 SRC = ("transport_net_erosion_m3", "headcut_m3", "lateral_m3", "collapsed_m3")
@@ -120,20 +124,24 @@ def xsec_stats(z0row, zrow, dy):
 def summary():
     import numpy as np
     rows = [f"V3.4 diagnostic run: {CASE}, neutral factors; model time in s",
-            "variant     grid      Qp    Tp[h]   B[m]   samples  bank failures"]
+            "variant        grid      Qp    Tp[h]   B[m]   samples  bank failures   highest rise[m]  cells risen >3 m  "
+            "risen volume[m3]"]
     data = {}
     for var in VARIANTS:
         for g in GRIDS:
             pj, pn = OUT / f"{CASE}__H{g}__{var}.json", OUT / f"{CASE}__H{g}__{var}.npz"
             if not pj.exists():
-                rows.append(f"{var:11s} H/{g:<4d} (not run)")
+                rows.append(f"{var:14s} H/{g:<4d} (not run)")
                 continue
             r = json.loads(pj.read_text())
             if "error" in r:
-                rows.append(f"{var:11s} H/{g:<4d} ERROR {r['error']}")
+                rows.append(f"{var:14s} H/{g:<4d} ERROR {r['error']}")
                 continue
-            rows.append(f"{var:11s} H/{g:<4d} {r['Qp']:7.0f} {r['Tp_h']:7.2f} {r['B']:6.0f} {r['samples']:8d} {r['events']:8d}")
-            data[(var, g)] = np.load(pn)
+            data[(var, g)] = d = np.load(pn)
+            rise = d["z_end"] - d["z0"]
+            rows.append(f"{var:14s} H/{g:<4d} {r['Qp']:7.0f} {r['Tp_h']:7.2f} {r['B']:6.0f} {r['samples']:8d} {r['events']:8d} "
+                        f"{float(rise.max()):17.2f} {int((rise > 3).sum()):17d} "
+                        f"{float(rise[rise > 0].sum()) * float(d['dx']) * float(d['dy']):17.0f}")
     for var in VARIANTS:
         if not all((var, g) in data for g in GRIDS):
             continue
@@ -160,13 +168,13 @@ def summary():
             fm = ("{:6.0f}|{:<6.0f}", "{:6.2f}|{:<6.2f}", "{:6.2f}|{:<6.2f}", "{:6.1f}|{:<6.1f}", "{:6.2f}|{:<6.2f}",
                   "{:7.0f}|{:<7.0f}", "{:6.0f}|{:<6.0f}", "{:6.0f}|{:<6.0f}", "{:6.0f}|{:<6.0f}")
             rows.append(f"{tt:7d}   " + "   ".join(f.format(x, y) for f, x, y in zip(fm, a, b)))
-    for g in GRIDS:
-        pe = OUT / f"{CASE}__H{g}__wedge__events.json"
+    for wv, g in [(w, g) for w in ("wedge", "wedge_f6") for g in GRIDS]:
+        pe = OUT / f"{CASE}__H{g}__{wv}__events.json"
         if not pe.exists():
             continue
         ev = json.loads(pe.read_text())
         rows.append("")
-        rows.append(f"--- wedge, H/{g}: {len(ev)} bank failures; the first 15 (dir 0/1 = bank drops toward +x/-x, 2/3 = +y/-y) ---")
+        rows.append(f"--- {wv}, H/{g}: {len(ev)} bank failures; the first 15 (dir 0/1 = bank drops toward +x/-x, 2/3 = +y/-y) ---")
         rows.append("   t[s]  dir  line  drops    H[m]  angle[deg]    FS   depth at toe[m]  volume[m3]")
         for e in ev[:15]:
             rows.append(f"{e['t']:7.0f} {e['dir']:4d} {e['line']:5d} {e['drops']:6d} {e['H']:7.2f} {e['beta_deg']:10.1f} "

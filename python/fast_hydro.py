@@ -403,6 +403,7 @@ def _fast_step(self, mesh, res_level: float, dt_limit: float, *, wave_boundary=N
             self.inflow_limit_events += 1
     Q_left = float(np.sum(Fh_x[0, :]) * dy)
     Q_right = float(np.sum(Fh_x[-1, :]) * dy)
+    self.last_face_flux = (Fh_x, Gh_y)          # V3.4 F6 (buffers: read before the next step)
 
     h_new, un, vn, sp = (np.empty((nx, ny)) for _ in range(4))
     _update(h, u, v, dt, dx, dy, Fh_x, FnL_x, FnR_x, Ft_x, Gh_y, GnL_y, GnR_y, Gt_y,

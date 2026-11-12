@@ -268,3 +268,43 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
     is whole-crest erosion with several channels, and the sheet erosion of the crest depends strongly on the grid.
   - The unit tests show the rule itself is grid-independent for a given bank, so the dependence comes from the bed
     the rule is given (when and where banks form) or from the crest sheet flow. Cause not yet identified.
+- Diagnostic run (`calibration/v34_diag_laurel.py`, `run_v34_diag_laurel.ps1`; Laurel Run H/9 and H/12, time series
+  and bank-failure log; `BankStability.event_log`, off by default). Findings:
+  - **Sediment towers.** Single dry cells beside the eroded slot rise far above the dam: 367 m (H/9) and 468 m (H/12)
+    with bank collapse off, about 9 m with the pair rule, up to 1.9 m with F5 (the collapse rules knock them down).
+    The first "bank failures" of the F5 runs (960 s at H/12, 1,523 s at H/9) are towers falling, so the F5 dam
+    result above is not a fair test of F5.
+  - With collapse off the two grids agree until about 1,500 s and part when the headcut breaks through the crest
+    (about 300 s earlier at H/12).
+- F6 (`sediment_face_flux`, default "centred" = V3.3; "hydro"; theory in
+  `validation/calibration/F6_THEORY_NOTE_2026-11-12.md`): the sediment store is moved with the water flux the flow
+  solver computed at each face, summed over the flow steps of the morph interval, instead of the mean of the two
+  cell-centre discharges. The centred mean is not zero at a dry bank, so sediment entered cells that no water
+  enters, could not leave (concentration 0 in a dry cell) and was added to the bed.
+  - `Hydrodynamics.last_face_flux` (NumPy and Numba step), `UltimateBreachEngine._acc_face` (also in checkpoints),
+    `Morphology.face_q`, `Morphology._advect` and the Numba kernel `fast_morph._advect_k`.
+  - Upwind concentration, positivity limiter and boundaries unchanged; pickup, deposition and the dry-cell settling
+    rule unchanged.
+  Checked (tests/v3_4_tests.py, 8 checks NumPy, 9 with Numba):
+  - no sediment enters a dry cell beside a wet one (centred: 1e-3 m per step); identical to centred in uniform flow;
+  - steady flow of the real solver over a hump: a uniform concentration changes by 4e-16 per step (centred: 3.6e-3);
+  - demo dam, 200 s breach run: towers up to 1.92 m on a 3 m dam with centred, 0.005 m with hydro, same depth of cut;
+  - solids conserved; Numba kernel equal to NumPy on 20 random fields.
+  Dam runs: variants `*_f6` in `calibration/v34_diag_laurel.py`, setups `F12346` / `F123456` in
+  `calibration/v34_grid_check.py`, launcher `run_v34_f6.ps1`.
+  Result of the dam runs with F6 (neutral factors; `runs/v34_diag_laurel/*_f6*`, `runs/v34_gridcheck/*F12346*`,
+  `*F123456*`):
+  - **Towers gone.** Laurel Run, highest rise of a cell above the starting bed: 0.18 m (H/9) and 0.17 m (H/12) in
+    all three bank variants (before: 367 / 468 m with collapse off).
+  - **Laurel Run: the bank rule no longer matters.** Collapse off, pair rule and whole-bank rule give identical
+    runs (no bank failure at all; 348 m3/s at H/9, 430 at H/12). All earlier "collapse" in this case was towers
+    falling. Peaks at H/6 / 9 / 12: 398 / 348 / 430 m3/s, H/9 -> H/12 +23.5 %: **not converged**. Channel width
+    agrees (32 / 34 m at half depth). The grids part at the headcut: it breaks through the crest about 300 s
+    earlier at H/12, and the crest is then cut 10 m deep in about 300 s at H/12 and about 750 s at H/9 (headcut
+    volume at 2,400 s: 2,014 / 4,873 m3), so the lake is higher at the peak (11.46 / 12.84 m).
+  - **Castlewood** (c = 15.5 kPa): pair rule + F6 661 / 777 / 918 m3/s (+18 %, not converged); whole-bank rule +
+    F6 715 / 725 / 761 m3/s (+5 %, **converged**; H/6 -> H/9 +1.4 %). Width 53 / 35 / 37 m and time to peak
+    1.11 / 1.29 / 0.96 h still drift. Deposits up to 4-5 m high (8-12 thousand m3) remain; not yet checked whether
+    they are real toe deposits.
+  - The earlier agreement of Laurel Run with collapse off (389 / 391 m3/s) was a coincidence of runs with towers.
+  Next: the grid dependence of the scarp headcut (C1 / F2) in the dam runs.

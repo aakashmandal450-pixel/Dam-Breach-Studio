@@ -1,0 +1,27 @@
+{
+ "id": "Castlewood",
+ "grid": 6,
+ "setup": "F123456",
+ "Qp": 715.0601670071702,
+ "Tp_h": 1.114905924793107,
+ "B": 52.62328767123288,
+ "max_lowering_m": 13.814134897284273,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 177.515625,
+ "max_balance": 4.895264282822609e-08,
+ "cells": [
+  41,
+  73,
+  3.5566666666666666
+ ],
+ "collapse": {
+  "calls": 13693,
+  "passes": 13713,
+  "max_passes": 3,
+  "limit_hits": 0,
+  "wedge_failures": 40,
+  "wedge_volume_m3": 1460.6623056601597,
+  "first_collapse_time_s": 256.7417515413361
+ }
+}

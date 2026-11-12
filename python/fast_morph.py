@@ -395,26 +395,42 @@ def _fast_apply_axis(self, mesh, tau, dt, axis):
 # ----------------------------------------------------------------------------------------------------------------
 
 @njit(cache=True)
-def _advect_k(S, h, qx, qy, dt, dx, dy, h_dry, limit, Fx, Fy, Snew):
+def _advect_k(S, h, qx, qy, dt, dx, dy, h_dry, limit, Fx, Fy, Snew, face, qfx, qfy):
     nx, ny = S.shape
     c = np.empty((nx, ny))
     for i in range(nx):
         for j in range(ny):
             c[i, j] = S[i, j] / max(h[i, j], h_dry) if h[i, j] > h_dry else 0.0
-    for j in range(ny):
-        q0 = qx[0, j]
-        Fx[0, j] = q0 * (c[0, j] if q0 < 0 else 0.0)
-        for i in range(1, nx):
-            qf = 0.5 * (qx[i - 1, j] + qx[i, j])
-            Fx[i, j] = qf * (c[i - 1, j] if qf > 0 else c[i, j])
-        qn = qx[nx - 1, j]
-        Fx[nx, j] = qn * (c[nx - 1, j] if qn > 0 else 0.0)
-    for i in range(nx):
-        Fy[i, 0] = 0.0 * 0.0
-        for j in range(1, ny):
-            rf = 0.5 * (qy[i, j - 1] + qy[i, j])
-            Fy[i, j] = rf * (c[i, j - 1] if rf > 0 else c[i, j])
-        Fy[i, ny] = 0.0 * 0.0
+    if face:                                    # V3.4 F6: the flow solver's own face discharges
+        for j in range(ny):
+            q0 = qfx[0, j]
+            Fx[0, j] = q0 * (c[0, j] if q0 < 0 else 0.0)
+            for i in range(1, nx):
+                qf = qfx[i, j]
+                Fx[i, j] = qf * (c[i - 1, j] if qf > 0 else c[i, j])
+            qn = qfx[nx, j]
+            Fx[nx, j] = qn * (c[nx - 1, j] if qn > 0 else 0.0)
+        for i in range(nx):
+            Fy[i, 0] = qfy[i, 0] * 0.0
+            for j in range(1, ny):
+                rf = qfy[i, j]
+                Fy[i, j] = rf * (c[i, j - 1] if rf > 0 else c[i, j])
+            Fy[i, ny] = qfy[i, ny] * 0.0
+    else:
+        for j in range(ny):
+            q0 = qx[0, j]
+            Fx[0, j] = q0 * (c[0, j] if q0 < 0 else 0.0)
+            for i in range(1, nx):
+                qf = 0.5 * (qx[i - 1, j] + qx[i, j])
+                Fx[i, j] = qf * (c[i - 1, j] if qf > 0 else c[i, j])
+            qn = qx[nx - 1, j]
+            Fx[nx, j] = qn * (c[nx - 1, j] if qn > 0 else 0.0)
+        for i in range(nx):
+            Fy[i, 0] = 0.0 * 0.0
+            for j in range(1, ny):
+                rf = 0.5 * (qy[i, j - 1] + qy[i, j])
+                Fy[i, j] = rf * (c[i, j - 1] if rf > 0 else c[i, j])
+            Fy[i, ny] = 0.0 * 0.0
     if limit:
         a = dt / dx
         b = dt / dy
@@ -442,6 +458,9 @@ def _advect_k(S, h, qx, qy, dt, dx, dy, h_dry, limit, Fx, Fy, Snew):
             Snew[i, j] = S[i, j] - a * (Fx[i + 1, j] - Fx[i, j]) - b * (Fy[i, j + 1] - Fy[i, j])
 
 
+_NOFACE = np.zeros((1, 1))
+
+
 def _fast_advect(self, mesh, h, qx, qy, dt):
     cfg = self.cfg
     nx, ny = mesh.nx, mesh.ny
@@ -449,9 +468,18 @@ def _fast_advect(self, mesh, h, qx, qy, dt):
     Fx = np.empty((nx + 1, ny))
     Fy = np.empty((nx, ny + 1))
     Snew = np.empty((nx, ny))
+    mode = cfg.sediment_face_flux
+    if mode == "hydro":
+        qfx, qfy = self._face_discharge(mesh)
+        qfx, qfy = np.ascontiguousarray(qfx, dtype=f64), np.ascontiguousarray(qfy, dtype=f64)
+    elif mode == "centred":
+        qfx, qfy = _NOFACE, _NOFACE
+    else:
+        raise ValueError("sediment_face_flux must be 'centred' or 'hydro'")
     _advect_k(np.ascontiguousarray(mesh.S, dtype=f64), np.ascontiguousarray(h, dtype=f64),
               np.ascontiguousarray(qx, dtype=f64), np.ascontiguousarray(qy, dtype=f64), float(dt), float(mesh.dx),
-              float(mesh.dy), float(cfg.h_dry), bool(cfg.positivity_fix and not cfg.legacy_negative_S), Fx, Fy, Snew)
+              float(mesh.dy), float(cfg.h_dry), bool(cfg.positivity_fix and not cfg.legacy_negative_S), Fx, Fy, Snew,
+              mode == "hydro", qfx, qfy)
     mesh.S = Snew
     return float((Fx[-1].sum() - Fx[0].sum()) * mesh.dy * dt)
 

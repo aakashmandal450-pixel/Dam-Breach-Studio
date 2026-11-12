@@ -29,6 +29,13 @@ F5: Culmann on whole banks with the wedge removed by volume, cfg.collapse_mode =
     - sweeps: one wall settles in one sweep; a chain of two walls stops by itself with every bank at FS >= 1, in
       the same number of sweeps on finer grids; independent of the cap; cap hits counted;
     - c = 0 acts as "all_pairs"; bad mode rejected; with the Numba backend the result equals NumPy.
+F6: sediment moved with the flow solver's face water flux, cfg.sediment_face_flux = "hydro":
+    - no sediment enters a dry cell beside a wet one (the centred average moves it in); identical to the centred
+      average in uniform flow; a uniform concentration stays uniform in a steady flow of the real solver over a hump
+      (it drifts with the centred average); solids conserved;
+    - a 200 s breach run of the demo dam: towers up to 1.9 m beside the slot with the centred average, none (< 5 cm)
+      with the solver's flux, same depth of cut, balances closed;
+    - missing face discharges and a bad option are rejected; Numba kernel equal to the NumPy reference.
 Runs with NumPy (python tests/v3_4_tests.py) and Numba (python tests/run_with_fast.py tests/v3_4_tests.py).
 """
 from __future__ import annotations
@@ -488,6 +495,147 @@ if fm_on:
         worst = max(worst, float(np.max(np.abs(a.z_b - b.z_b))), float(np.max(np.abs(a.S - b.S))))
     check("F5 with the Numba backend on: same result as NumPy (the whole-bank rule runs in NumPy)", worst == 0.0,
           f"max diff {worst:.1e}")
+
+# ---------------------------------------------------------------------------------------------------------------------
+# F6: sediment moves with the water flux of the flow solver (sediment_face_flux = "hydro"); F6_THEORY_NOTE_2026-11-12.md
+# ---------------------------------------------------------------------------------------------------------------------
+def morph6(mode, nx, ny, dx=1.0):
+    m = eng.create_prism_mesh(nx * dx, ny * dx, nx, ny, np.zeros((nx, ny)), 0.0)
+    cfg = eng.EngineConfig(h_dry=1e-3, sediment_face_flux=mode)
+    return m, eng.Morphology(cfg, eng.MaterialProps(material_class="cohesive", porosity=0.35))
+
+
+# 1. a wet cell whose flow points partly at a dry neighbour; the solver's face flux there is zero
+def dry_bank(mode):
+    m, mo = morph6(mode, 5, 3)
+    h = np.full((5, 3), 0.5); h[:, 2] = 0.0                       # column 2 is a dry bank
+    qx, qy = np.where(h > 0, 0.4, 0.0), np.where(h > 0, 0.1, 0.0)  # flow along x with a part toward the bank
+    m.S = np.where(h > 0, 0.01, 0.0)
+    fx = np.zeros((6, 3)); fx[:, :2] = 0.4                         # solver: water moves along the wet columns only
+    fy = np.zeros((5, 4)); fy[:, 1] = 0.1                          # between the wet columns; nothing into the bank
+    mo.face_q = (fx, fy)
+    mo._advect(m, h, qx, qy, 0.2)
+    return float(np.sum(m.S[:, 2]))
+
+
+s_c, s_h = dry_bank("centred"), dry_bank("hydro")
+check("F6 dry bank: 'centred' (V3.3) moves sediment into the dry cell (documents the defect), 'hydro' moves none",
+      s_c > 1e-6 and s_h == 0.0, f"solids in the dry column after one step: {s_c:.2e} / {s_h:.1e} m")
+
+
+# 2. uniform flow: both face discharges equal q, so the two routines agree exactly
+def blob(mode):
+    m, mo = morph6(mode, 30, 4)
+    h = np.full((30, 4), 0.8)
+    qx, qy = np.full((30, 4), 1.2), np.zeros((30, 4))
+    m.S = np.zeros((30, 4)); m.S[8:12, 1:3] = 0.02
+    mo.face_q = (np.full((31, 4), 1.2), np.zeros((30, 5)))
+    out = sum(mo._advect(m, h, qx, qy, 0.2) for _ in range(40))
+    return m.S.copy(), out
+
+
+(b_c, o_c), (b_h, o_h) = blob("centred"), blob("hydro")
+check("F6 uniform flow: 'hydro' = 'centred' exactly", np.array_equal(b_c, b_h) and o_c == o_h,
+      f"max diff {float(np.max(np.abs(b_c - b_h))):.1e}")
+
+
+# 3./4. a steady flow of the real solver over a hump with a side contraction: face fluxes summed over 20 steps
+def steady_flow():
+    nx, ny, dx = 48, 12, 0.5
+    x = (np.arange(nx) + 0.5) * dx
+    y = (np.arange(ny) + 0.5) * dx
+    zb_ = 0.02 * (nx * dx - x)[:, None] + 0.15 * np.exp(-((x[:, None] - 12.0) / 2.0) ** 2) * (1 + 0.8 * (y[None, :] / (ny * dx)))
+    m = eng.create_prism_mesh(nx * dx, ny * dx, nx, ny, zb_.copy(), 0.0)
+    cfg = eng.EngineConfig(h_dry=1e-3, friction_model="manning", manning_n=0.03, downstream_boundary="outfall",
+                           hydrostatic_reconstruction="chen_noelle")
+    hyd = eng.Hydrodynamics(cfg)
+    lvl = float(zb_[0].max()) + 0.4
+    t = 0.0
+    while t < 400.0:
+        t += hyd.step(m, lvl, 1.0)[0]
+    acc = {k: np.zeros((nx, ny)) for k in ("h", "qx", "qy")}
+    fx, fy, T = np.zeros((nx + 1, ny)), np.zeros((nx, ny + 1)), 0.0
+    for _ in range(20):
+        dt = hyd.step(m, lvl, 1.0)[0]
+        a, b = hyd.last_face_flux
+        fx += a * dt; fy += b * dt; T += dt
+        acc["h"] += m.h * dt; acc["qx"] += m.h * m.u * dt; acc["qy"] += m.h * m.v * dt
+    return m, cfg, {k: v / T for k, v in acc.items()}, (fx / T, fy / T)
+
+
+m6, cfg6, av6, fq6 = steady_flow()
+drift, bal = {}, {}
+for mode in ("centred", "hydro"):
+    cfg = eng.EngineConfig(h_dry=1e-3, sediment_face_flux=mode)
+    mo = eng.Morphology(cfg, eng.MaterialProps(material_class="cohesive", porosity=0.35))
+    mo.face_q = fq6
+    m6.S = 0.01 * av6["h"]                                        # the same concentration everywhere
+    s0 = float(np.sum(m6.S)) * m6.dx * m6.dy
+    out = mo._advect(m6, av6["h"], av6["qx"], av6["qy"], 0.02)
+    conc = m6.S[1:] / av6["h"][1:]                                # row 0 takes clear water from the reservoir
+    drift[mode] = float(np.max(np.abs(conc / 0.01 - 1.0)))
+    bal[mode] = abs(float(np.sum(m6.S)) * m6.dx * m6.dy - s0 + out) / s0
+check("F6 steady flow over a hump: a uniform concentration stays uniform with 'hydro'; it drifts with 'centred'",
+      drift["hydro"] < 1e-6 and drift["centred"] > 100 * drift["hydro"],
+      f"largest change of the concentration in one 0.02 s step: centred {drift['centred']:.1e}, hydro {drift['hydro']:.1e}")
+check("F6 conservation: change of the sediment in the grid = what crossed the open boundaries (both modes)",
+      max(bal.values()) < 1e-12, f"rel. error centred {bal['centred']:.1e}, hydro {bal['hydro']:.1e}")
+
+
+# 5. a short breach run of the demo dam (cohesive, pickup law, no bank collapse): towers beside the slot
+def demo6(mode):
+    mesh, res, _, _ = eng.make_demo_setup(nx=40, ny=20)
+    mat = eng.MaterialProps(material_class="cohesive", D50=3e-5, D90=1.2e-4, cohesion=25e3, phi=28.8, tau_c=0.15,
+                            n_exp=1.0, kd=3e-4)
+    cfg = eng.EngineConfig(transport=eng.TransportFormula.HANSON, bank_stability=eng.BankStabilityMethod.CRITICAL_DEPTH,
+                           friction_model="manning", manning_n=0.016, erosion_shear="total", dt_morpho_target=0.25,
+                           adaptation_length_mode="depth_scaled", adaptation_depth_factor=5.0,
+                           downstream_boundary="outfall", hydrostatic_reconstruction="chen_noelle",
+                           adaptation_dx_floor=False, bank_collapse_enabled=False, headcut_enabled=False,
+                           sediment_face_flux=mode)
+    z0 = mesh.z_b.copy()
+    e = eng.UltimateBreachEngine(mesh, res, mat, cfg)
+    e.run(200.0, Qin=5.0, verbose=False)
+    d = e.diagnostics_summary()
+    return e.mesh.z_b - z0, max(abs(d[k]) for k in ("water_balance_err_m3", "reservoir_balance_err_m3",
+                                                    "sediment_balance_err_m3"))
+
+
+(r_c, e_c), (r_h, e_h) = demo6("centred"), demo6("hydro")
+check("F6 breach run of the demo dam (200 s): 'centred' builds towers beside the slot (documents the defect)",
+      float(r_c.max()) > 1.0, f"highest rise {float(r_c.max()):.2f} m on a 3 m dam, {int((r_c > 0.3).sum())} cells above 0.3 m")
+check("F6 the same run with 'hydro': no cell rises more than 5 cm; the breach is cut as deep; balances closed",
+      float(r_h.max()) < 0.05 and abs(float(r_h.min()) / float(r_c.min()) - 1) < 0.1 and max(e_c, e_h) < 1e-9,
+      f"highest rise {float(r_h.max()):.3f} m; deepest cut {-float(r_h.min()):.2f} m (centred {-float(r_c.min()):.2f} m); "
+      f"balance {max(e_c, e_h):.1e} m3")
+try:
+    _m, _mo = morph6("hydro", 4, 3)
+    _mo._advect(_m, np.ones((4, 3)), np.ones((4, 3)), np.zeros((4, 3)), 0.1)
+    check("F6 'hydro' without the solver's face discharges is rejected", False)
+except ValueError:
+    check("F6 'hydro' without the solver's face discharges is rejected", True)
+try:
+    eng.UltimateBreachEngine(*eng.make_demo_setup()[:3], eng.EngineConfig(sediment_face_flux="xyz"))
+    check("F6 option rejected: bad sediment_face_flux", False)
+except ValueError:
+    check("F6 option rejected: bad sediment_face_flux", True)
+if fm_on:
+    worst = 0.0
+    for seed in range(20):
+        r = np.random.default_rng(300 + seed)
+        nxr, nyr = 23, 17
+        hh = np.where(r.random((nxr, nyr)) < 0.7, r.uniform(0.002, 0.8, (nxr, nyr)), 0.0)
+        fq = (r.normal(0, 0.3, (nxr + 1, nyr)), r.normal(0, 0.3, (nxr, nyr + 1)))
+        res_ = []
+        for fn in (FM._ORIG["advect"], FM._fast_advect):
+            m_, mo_ = morph6("hydro", nxr, nyr, 0.4)
+            m_.S = np.where(hh > 1e-3, r.uniform(0, 0.02, (nxr, nyr)), 0.0) if fn is FM._ORIG["advect"] else res_[0][2].copy()
+            s_in = m_.S.copy()
+            mo_.face_q = fq
+            o_ = fn(mo_, m_, hh, hh * 0.5, hh * 0.1, 0.05)
+            res_.append((m_.S.copy(), o_, s_in))
+        worst = max(worst, float(np.max(np.abs(res_[0][0] - res_[1][0]))), abs(res_[0][1] - res_[1][1]))
+    check("F6 Numba kernel = NumPy reference ('hydro', 20 random fields)", worst < 1e-15, f"max diff {worst:.1e}")
 
 print(f"\nV3.4 checks: {N_PASS} of {N_ALL} passed")
 sys.exit(0 if N_PASS == N_ALL else 1)

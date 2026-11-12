@@ -206,6 +206,11 @@ class EngineConfig:
     downstream_boundary: str = "transmissive"   # "transmissive" (edge copy), "wall", or "outfall" (dry ghost, free overfall)
     threshold_D: str = "D50"               # capacity threshold grain: D50, geometric, D90
     threshold_factor: float = 1.0          # multiplier on theta_c (capacity laws)
+    # V3.4 F6 (F6_THEORY_NOTE_2026-11-12.md): water discharge at the cell faces used to move the sediment store.
+    # "centred" (V3.3) = mean of the two cell-centre discharges; it is not zero at a dry bank, so sediment enters
+    # cells that no water enters and piles up there. "hydro" = the mass flux the flow solver computed at that face,
+    # summed over the flow steps of the morph interval: sediment crosses a face only with the water that crossed it.
+    sediment_face_flux: str = "centred"
     bank_threshold_factor: float = 1.0     # multiplier on bank critical shear
     bank_n_exp: Optional[float] = None     # bank erosion exponent (None -> material n_exp)
     adaptation_length_mode: str = "fixed"  # fixed or depth_scaled
@@ -847,6 +852,7 @@ class Hydrodynamics:
                 self.inflow_limit_events += 1
         Q_left = float(np.sum(Fh_x[0, :]) * dy)
         Q_right = float(np.sum(Fh_x[-1, :]) * dy)
+        self.last_face_flux = (Fh_x, Gh_y)      # V3.4 F6: water flux at the x- and y-faces of this step [m2/s]
 
         hu, hv = h * u, h * v
         h_new = h - dt / dx * (Fh_x[1:] - Fh_x[:-1]) - dt / dy * (Gh_y[:, 1:] - Gh_y[:, :-1])
@@ -1593,6 +1599,7 @@ class Morphology:
         self.headcut = Headcut(cfg, mat)
         self.transport = SedimentTransport(cfg, mat)
         self.sed_out_total = 0.0      # solids leaving through boundaries [m3]
+        self.face_q = None            # V3.4 F6: (x-face, y-face) water discharge of the morph interval [m2/s]
         self._transport_bed_change = 0.0   # net bulk bed lowering from transport/Exner [m3]
         self.chen_cap_applications = 0
         self.chen_cap_limited_cells = 0
@@ -1604,6 +1611,22 @@ class Morphology:
         cfg = self.cfg
         nx, ny = mesh.nx, mesh.ny
         c = np.where(h > cfg.h_dry, mesh.S / np.maximum(h, cfg.h_dry), 0.0)
+        if cfg.sediment_face_flux == "hydro":             # V3.4 F6: the flow solver's own face discharges
+            qfx, qfy = self._face_discharge(mesh)
+            cf = np.zeros((nx + 1, ny))
+            cf[1:-1] = np.where(qfx[1:-1] > 0, c[:-1], c[1:])
+            cf[0] = np.where(qfx[0] < 0, c[0], 0.0)       # clear-water inflow
+            cf[-1] = np.where(qfx[-1] > 0, c[-1], 0.0)
+            Fx = qfx * cf
+            cg = np.zeros((nx, ny + 1))                   # side walls: zero flux
+            cg[:, 1:-1] = np.where(qfy[:, 1:-1] > 0, c[:, :-1], c[:, 1:])
+            Fy = qfy * cg
+            if cfg.positivity_fix and not cfg.legacy_negative_S:
+                Fx, Fy = self._limit_outflow(mesh, Fx, Fy, dt)
+            mesh.S = mesh.S - dt / mesh.dx * (Fx[1:] - Fx[:-1]) - dt / mesh.dy * (Fy[:, 1:] - Fy[:, :-1])
+            return float((Fx[-1].sum() - Fx[0].sum()) * mesh.dy * dt)
+        if cfg.sediment_face_flux != "centred":
+            raise ValueError("sediment_face_flux must be 'centred' or 'hydro'")
         qf = np.zeros((nx + 1, ny))
         qf[1:-1] = 0.5 * (qx[:-1] + qx[1:])
         qf[0], qf[-1] = qx[0], qx[-1]
@@ -1621,6 +1644,16 @@ class Morphology:
             Fx, Fy = self._limit_outflow(mesh, Fx, Fy, dt)
         mesh.S = mesh.S - dt / mesh.dx * (Fx[1:] - Fx[:-1]) - dt / mesh.dy * (Fy[:, 1:] - Fy[:, :-1])
         return float((Fx[-1].sum() - Fx[0].sum()) * mesh.dy * dt)   # solids out
+
+    def _face_discharge(self, mesh):
+        """V3.4 F6: the face discharges for sediment_face_flux='hydro' (set by the engine before each morph step)."""
+        if self.face_q is None:
+            raise ValueError("sediment_face_flux='hydro' needs the face discharges of the flow solver "
+                             "(Morphology.face_q); they are set by UltimateBreachEngine")
+        qfx, qfy = self.face_q
+        if qfx.shape != (mesh.nx + 1, mesh.ny) or qfy.shape != (mesh.nx, mesh.ny + 1):
+            raise ValueError("Morphology.face_q does not match the mesh")
+        return qfx, qfy
 
     @staticmethod
     def _limit_outflow(mesh, Fx, Fy, dt):
@@ -1809,6 +1842,10 @@ class UltimateBreachEngine:
         self.next_print = 0.0
         self._acc_dt = 0.0
         self._acc = {k: np.zeros_like(mesh.h) for k in ("h", "qx", "qy", "tau")}
+        if cfg.sediment_face_flux not in ("centred", "hydro"):
+            raise ValueError("sediment_face_flux must be 'centred' or 'hydro'")
+        # V3.4 F6: face water flux x time step, summed over the morph interval
+        self._acc_face = (np.zeros((mesh.nx + 1, mesh.ny)), np.zeros((mesh.nx, mesh.ny + 1)))
         self._next_snapshot: Optional[float] = None
         self._next_checkpoint: Optional[float] = None
         self.timing = {"hydro_s": 0.0, "morph_s": 0.0, "wall_s": 0.0}
@@ -1961,7 +1998,8 @@ class UltimateBreachEngine:
                     S=self.mesh.S, tau_b=self.mesh.tau_b,
                     z_floor=self.mesh.z_floor, headcut_i=np.asarray(self.mesh.headcut_i),
                     acc_h=self._acc["h"], acc_qx=self._acc["qx"],
-                    acc_qy=self._acc["qy"], acc_tau=self._acc["tau"])
+                    acc_qy=self._acc["qy"], acc_tau=self._acc["tau"],
+                    acc_face_x=self._acc_face[0], acc_face_y=self._acc_face[1])
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temp, target)
@@ -2014,6 +2052,10 @@ class UltimateBreachEngine:
             if data[name].shape != self._acc[key].shape:
                 raise ValueError(f"checkpoint {name} shape does not match mesh")
             self._acc[key] = data[name]
+        try:                                                 # V3.4 F6 (absent in older checkpoints)
+            self._acc_face = (np.array(data["acc_face_x"]), np.array(data["acc_face_y"]))
+        except KeyError:
+            pass
         self._next_snapshot = meta.get("next_snapshot")
         self._next_checkpoint = meta.get("next_checkpoint")
         self.last_morph_time = float(meta.get("last_morph_time", 0.0))
@@ -2114,6 +2156,10 @@ class UltimateBreachEngine:
             self._acc["qx"] += mesh.h * mesh.u * dt
             self._acc["qy"] += mesh.h * mesh.v * dt
             self._acc["tau"] += mesh.tau_b * dt
+            if cfg.sediment_face_flux == "hydro":
+                fx_, fy_ = self.hydro.last_face_flux
+                self._acc_face[0][...] += fx_ * dt
+                self._acc_face[1][...] += fy_ * dt
             self.time += dt
             self.nsteps += 1
 
@@ -2126,6 +2172,8 @@ class UltimateBreachEngine:
                 if cfg.bed_shear_average not in ("time_average", "instantaneous"):
                     raise ValueError("bed_shear_average must be 'time_average' or 'instantaneous'")
                 _tm = time.perf_counter()
+                if cfg.sediment_face_flux == "hydro":
+                    self.morpho.face_q = (self._acc_face[0] / self._acc_dt, self._acc_face[1] / self._acc_dt)
                 diag = self.morpho.step(
                     mesh, self._acc["h"] / self._acc_dt, self._acc["qx"] / self._acc_dt, self._acc["qy"] / self._acc_dt,
                     tau_for_morph, self._acc_dt * cfg.morph_accel)
@@ -2136,6 +2184,7 @@ class UltimateBreachEngine:
                 diag["morph_interval_s"] = float(physical_morph_interval)
                 self._acc_dt = 0.0
                 for value in self._acc.values(): value.fill(0.0)
+                self._acc_face[0].fill(0.0); self._acc_face[1].fill(0.0)
                 self.last_morph_time = self.time
                 self.morph_updates += 1
                 for src_key, diag_key in (("lateral", "lateral_m3"), ("headcut", "headcut_m3"),
