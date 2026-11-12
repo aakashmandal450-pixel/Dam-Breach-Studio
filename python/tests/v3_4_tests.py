@@ -21,6 +21,14 @@ F4: slope collapse to the repose angle every morph step, cfg.collapse_to_repose 
       than tan(phi), volume is conserved;
     - independent of the safety cap when the cap is not reached; calls ending at the cap are counted;
     - off (default) = V3.3; Numba kernel equal to the NumPy reference; bad cap rejected.
+F5: Culmann on whole banks with the wedge removed by volume, cfg.collapse_mode = "bank_wedge" (c > 0):
+    - a vertical wall (c 25 kPa, tan phi 0.55) stands at 8.0 m and fails at 8.6 m at cells of 2.13 / 1.42 / 1.07 /
+      0.5 m; at 9 m the fallen volume equals the Culmann wedge on every grid and the top retreats H / tan(alpha)
+      within one cell; solids conserved (dry and wet toe); the four bank directions agree;
+    - a 14 m bank spread over 2-4 cells fails as one bank; a bank flatter than phi and a low wall do not move;
+    - sweeps: one wall settles in one sweep; a chain of two walls stops by itself with every bank at FS >= 1, in
+      the same number of sweeps on finer grids; independent of the cap; cap hits counted;
+    - c = 0 acts as "all_pairs"; bad mode rejected; with the Numba backend the result equals NumPy.
 Runs with NumPy (python tests/v3_4_tests.py) and Numba (python tests/run_with_fast.py tests/v3_4_tests.py).
 """
 from __future__ import annotations
@@ -343,6 +351,143 @@ if fm_on:
         npass &= ba.last_passes == bb.last_passes
     check("F4 Numba kernel = NumPy reference (to repose, 20 random beds, same number of passes)",
           worst < 1e-9 and npass, f"max diff {worst:.1e}")
+
+# ---------------------------------------------------------------------------------------------------------------------
+# F5: Culmann on whole banks, wedge removed by volume (collapse_mode = "bank_wedge"); F5_THEORY_NOTE_2026-11-12.md
+# ---------------------------------------------------------------------------------------------------------------------
+C_F5, TANPHI_F5, POR_F5 = 25e3, 0.55, 0.35
+PHI_F5 = float(np.degrees(np.arctan(TANPHI_F5)))
+GAM_F5 = (2650.0 * (1 - POR_F5) + 1000.0 * POR_F5) * 9.81
+
+
+def hc_f5(beta):
+    ph = np.arctan(TANPHI_F5)
+    return 4 * C_F5 * np.sin(beta) * np.cos(ph) / (GAM_F5 * (1 - np.cos(beta - ph)))
+
+
+def solids(m):
+    return (float(np.sum(m.z_b)) * (1 - POR_F5) + float(np.sum(m.S))) * m.dx * m.dy
+
+
+def bank5(dx, prof, eta=0.0, cap=50, orient=0, mode="bank_wedge", c=C_F5):
+    """Bed profile prof(x) [m] on 0..40 m, 3 cells wide, one collapse call. orient: 0 = bank drops toward +x,
+    1 = toward -x, 2 = toward +y, 3 = toward -y. Returns (profile after, bank object, bulk volume moved, x, mesh)."""
+    n = int(round(40.0 / dx))
+    x = (np.arange(n) + 0.5) * dx
+    z1 = np.asarray(prof(x), dtype=float)
+    if orient in (1, 3):
+        z1 = z1[::-1]
+    zb_ = np.tile(z1[:, None], (1, 3))
+    if orient >= 2:
+        m = eng.create_prism_mesh(3 * dx, 40.0, 3, n, zb_.T.copy(), eta, z_floor=-50.0)
+    else:
+        m = eng.create_prism_mesh(40.0, 3 * dx, n, 3, zb_.copy(), eta, z_floor=-50.0)
+    cfg = eng.EngineConfig(h_dry=1e-3, collapse_mode=mode, collapse_to_repose=True, collapse_max_passes=cap)
+    bs = eng.BankStability(eng.MaterialProps(material_class="cohesive", cohesion=c, phi=PHI_F5, porosity=POR_F5), cfg)
+    s0 = solids(m)
+    vol = bs.check_and_collapse(m)
+    zz = (m.z_b[1, :] if orient >= 2 else m.z_b[:, 1]).copy()
+    if orient in (1, 3):
+        zz = zz[::-1]
+    bs.cons = abs(solids(m) - s0) / s0
+    return zz, bs, vol / (3 * dx), x, m
+
+
+def wall5(H):
+    return lambda x: np.where(x < 20.0, H, 0.0)
+
+
+GRIDS_F5 = (12.8 / 6, 12.8 / 9, 12.8 / 12, 0.5)
+hc90 = float(hc_f5(np.pi / 2))
+res8 = [bank5(dx, wall5(8.0)) for dx in GRIDS_F5]
+res86 = [bank5(dx, wall5(8.6)) for dx in GRIDS_F5]
+check("F5 vertical wall, cells 2.13 / 1.42 / 1.07 / 0.5 m: stands at 8.0 m and fails at 8.6 m on every grid",
+      all(r[2] == 0.0 for r in res8) and all(r[2] > 0.0 for r in res86), f"Culmann Hc(90 deg) = {hc90:.2f} m")
+al9 = 0.5 * (np.pi / 2 + np.arctan(TANPHI_F5))
+v9, r9 = 0.5 * 81.0 / np.tan(al9), 9.0 / np.tan(al9)
+res9 = [bank5(dx, wall5(9.0)) for dx in GRIDS_F5]
+vols = [r[2] for r in res9]
+rets = [20.0 - float(r[3][r[0] < 9.0 - 1e-9].min()) for r in res9]
+check("F5 9 m wall: fallen volume equal to the Culmann wedge on every grid (to 1e-9)",
+      all(abs(v - v9) < 1e-9 * v9 for v in vols), f"{v9:.3f} m3/m exact; " + " / ".join(f"{v:.3f}" for v in vols))
+check("F5 9 m wall: top retreat equal to H / tan(alpha) within one cell on every grid",
+      all(abs(rt - r9) <= dx for rt, dx in zip(rets, GRIDS_F5)), f"{r9:.2f} m exact; " + " / ".join(f"{v:.2f}" for v in rets))
+check("F5 solids conserved to round-off (dry toe)", all(r[1].cons < 1e-12 for r in res9 + res86),
+      f"max rel. error {max(r[1].cons for r in res9 + res86):.1e}")
+wet9 = [bank5(dx, wall5(9.0), eta=2.0) for dx in GRIDS_F5]
+check("F5 wet toe (2 m of water): same wedge volume, solids conserved, debris in the sediment store",
+      all(abs(r[2] - v9) < 1e-9 * v9 and r[1].cons < 1e-12 and float(np.sum(r[4].S)) > 0 for r in wet9),
+      f"max rel. error {max(r[1].cons for r in wet9):.1e}")
+ok_or, info_or = True, []
+for o in (1, 2, 3):
+    zz, bs_, vv, _, _ = bank5(12.8 / 9, wall5(9.0), orient=o)
+    ok_or &= bool(np.allclose(zz, res9[1][0], atol=1e-12)) and abs(vv - res9[1][2]) < 1e-9
+    info_or.append(f"{vv:.3f}")
+check("F5 banks facing -x, +y, -y fail exactly as the bank facing +x", ok_or, " / ".join(info_or) + " m3/m")
+# a 14 m bank spread over 2, 3 and 4 drops (1.07 m cells): the pair rule sees only the single steps
+ok_sp, info_sp = True, []
+dxs = 12.8 / 12
+for nd in (2, 3, 4):
+    def prof(x, nd=nd):
+        k = np.floor((x - 20.0) / dxs + 1e-9)
+        return np.where(x < 20.0, 14.0, np.clip(14.0 * (1 - (k + 1) / nd), 0.0, 14.0))
+    beta_b = np.arctan2(14.0, (nd - 1) * dxs)
+    should = hc_f5(beta_b) < 14.0
+    vw = bank5(dxs, prof)[2]
+    vp = bank5(dxs, prof, mode="all_pairs")[2]
+    ok_sp &= (vw > 0) == bool(should) and should and vp == 0.0
+    info_sp.append(f"{nd} drops: Hc {float(hc_f5(beta_b)):.1f} m, wedge {vw:.1f} m3/m, pair rule {vp:.1f}")
+check("F5 a 14 m bank over 2, 3, 4 cells fails as one bank (the pair rule moves nothing)", ok_sp, "; ".join(info_sp))
+flat = bank5(dxs, lambda x: np.clip((20.0 - x) * 0.5, 0.0, 15.0) )
+low = bank5(dxs, wall5(5.0))
+check("F5 a bank flatter than phi (20 m high, slope 0.5) and a 5 m wall: nothing moves",
+      flat[2] == 0.0 and low[2] == 0.0, f"min FS wall {low[1].last_min_fs:.2f}")
+# iterations (sweeps)
+check("F5 one wall settles in one sweep (the second sweep finds nothing), on every grid",
+      all(r[1].last_passes == 2 for r in res9), "sweeps " + " / ".join(str(r[1].last_passes) for r in res9))
+terr = lambda x: np.where(x < 12.0, 18.0, np.where(x < 20.0, 9.0, 0.0))        # two 9 m walls, 8 m bench
+ch = [bank5(dx, terr, cap=50) for dx in (12.8 / 9, 12.8 / 12, 0.5)]
+again = []
+for r in ch:
+    bs2 = eng.BankStability(r[1].mat, r[1].cfg)
+    again.append((bs2.check_and_collapse(r[4]), bs2.last_min_fs))
+check("F5 chain (two 9 m walls on one line): the loop stops by itself and every bank left has FS >= 1",
+      all(3 <= r[1].last_passes < 50 for r in ch) and all(a[0] == 0.0 and a[1] >= 1.0 for a in again),
+      "sweeps " + " / ".join(str(r[1].last_passes) for r in ch) + f"; min FS after {min(a[1] for a in again):.2f}")
+check("F5 chain: the sweeps needed do not grow on a finer grid; fallen volume agrees within 5 %",
+      max(r[1].last_passes for r in ch) <= min(r[1].last_passes for r in ch) + 1
+      and max(r[2] for r in ch) / min(r[2] for r in ch) < 1.05,
+      "volume " + " / ".join(f"{r[2]:.1f}" for r in ch) + " m3/m")
+c500 = bank5(12.8 / 12, terr, cap=500)
+check("F5 the result does not depend on the cap once the cap is not reached",
+      np.array_equal(c500[0], ch[1][0]) and c500[1].last_passes == ch[1][1].last_passes, f"sweeps {c500[1].last_passes}")
+h0 = eng.BankStability.stats["limit_hits"]
+bank5(12.8 / 12, terr, cap=1)
+check("F5 a call that ends at the cap is counted", eng.BankStability.stats["limit_hits"] == h0 + 1,
+      f"hits {h0} -> {eng.BankStability.stats['limit_hits']}")
+sand_w = bank5(1.0, wall5(4.0), c=0.0, cap=100000)
+sand_p = bank5(1.0, wall5(4.0), c=0.0, mode="all_pairs", cap=100000)
+check("F5 c = 0: 'bank_wedge' acts exactly as 'all_pairs' (collapse to the repose angle, F4)",
+      np.array_equal(sand_w[0], sand_p[0]) and float(np.max(-np.diff(sand_w[0]))) <= TANPHI_F5 * 1.0 + 2e-6,
+      f"max slope {float(np.max(-np.diff(sand_w[0]))):.5f}")
+try:
+    bank5(1.0, wall5(9.0), mode="xyz")
+    check("F5 option rejected: bad collapse_mode", False)
+except ValueError:
+    check("F5 option rejected: bad collapse_mode", True)
+if fm_on:
+    import copy
+    worst = 0.0
+    for prof_, eta_ in ((wall5(9.0), 0.0), (terr, 0.0), (wall5(9.0), 2.0)):
+        m0 = bank5(12.8 / 12, prof_, eta=eta_, mode="all_pairs", c=1e9)[4]      # untouched mesh (nothing fails)
+        cfg = eng.EngineConfig(h_dry=1e-3, collapse_mode="bank_wedge", collapse_to_repose=True, collapse_max_passes=50)
+        mat = eng.MaterialProps(material_class="cohesive", cohesion=C_F5, phi=PHI_F5, porosity=POR_F5)
+        a, b = copy.deepcopy(m0), copy.deepcopy(m0)
+        FM._ORIG["collapse"](eng.BankStability(mat, cfg), a)
+        FM._fast_check_and_collapse(eng.BankStability(mat, cfg), b)
+        worst = max(worst, float(np.max(np.abs(a.z_b - b.z_b))), float(np.max(np.abs(a.S - b.S))))
+    check("F5 with the Numba backend on: same result as NumPy (the whole-bank rule runs in NumPy)", worst == 0.0,
+          f"max diff {worst:.1e}")
 
 print(f"\nV3.4 checks: {N_PASS} of {N_ALL} passed")
 sys.exit(0 if N_PASS == N_ALL else 1)

@@ -238,3 +238,33 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
     Width 53 / 49 / 44 m and time to peak 0.97 / 1.08 / 1.25 h still drift.
   - Laurel Run (cohesive) 329 / 401 / 512 m3/s, +28 % (F123: +27 %): not converged; F4 has no effect there, so the
     cohesive grid dependence has another cause (open).
+- Isolation test 2 (`calibration/v34_isolation_laurel.py`, `run_v34_isolation_laurel.ps1`; Laurel Run, cohesive,
+  neutral factors, F1-F4, H/9 -> H/12 peak): base 401 -> 512 m3/s (+28 %); bank collapse off 389 -> 391 (+0.6 %).
+  The cohesive bank-collapse rule carries the grid dependence: Culmann is applied to cell pairs, with the bank angle
+  atan(step / cell size), so a vertical wall fails at 10.5 m at H/9, 10.0 m at H/12 and 8.3 m by the law.
+- F5 (`collapse_mode="bank_wedge"`, cohesive soil; theory in `validation/calibration/F5_THEORY_NOTE_2026-11-12.md`):
+  Culmann on whole banks, wedge removed by volume.
+  - A bank is a run of drops steeper than tan(phi) along x or y; height = sum of the drops, length = the (n - 1)
+    cells on the face (a single step is a vertical wall on any grid).
+  - It fails when Hc(beta) / H < `bank_fs_trigger`; it is cut to the failure plane through its toe at
+    alpha = (beta + phi) / 2 (exact cell averages), and the wedge is laid down as a talus at tan(phi) from an apex on
+    the plane (bed where dry, sediment store where wet). Solids conserved exactly.
+  - Sweeps over the four directions repeat until no bank fails (`collapse_to_repose` / `collapse_max_passes` as F4).
+  - For c = 0 the mode acts as "all_pairs". NumPy only; with the Numba backend the call is passed to NumPy.
+  - `BankStability.stats` gains `wedge_failures`, `wedge_volume_m3`, `first_collapse_time_s`.
+  Checked (tests/v3_4_tests.py, 15 checks NumPy, 16 with Numba): a vertical wall (c 25 kPa, tan phi 0.55) stands at
+  8.0 m and fails at 8.6 m at cells of 2.13 / 1.42 / 1.07 / 0.5 m; at 9 m the fallen volume is 23.946 m3/m on every
+  grid (the exact wedge) and the top retreats 5.3 m within one cell; a 14 m bank over 2-4 cells fails as one bank;
+  one wall settles in one sweep, a chain of two walls in 3 sweeps on every grid; all four directions agree.
+  Grid check with F1-F5: setup `F12345` in `calibration/v34_grid_check.py` (beds saved), launcher `run_v34_f5.ps1`.
+  Result (neutral factors, Qp at H/6 / 9 / 12, `runs/v34_gridcheck/*F12345*`, beds in `runs/v34_gridcheck/beds/`):
+  **F5 does not give grid convergence on the dams.**
+  - Laurel Run 342 / 297 / 438 m3/s, H/9 -> H/12 +48 % (F1234: +28 %; collapse off: +0.6 %). First bank failure at
+    2,403 / 1,523 / 960 s; 4,155 / 155 / 401 failures; 153,891 / 2,591 / 4,051 m3 fallen.
+  - Castlewood 688 / 877 / 998 m3/s, +14 % (F1234: +6 %). Castlewood has c = 15.5 kPa (class "noncohesive"), so F5
+    acts on it; 42 / 234 / 444 failures.
+  - Saved beds, Laurel Run crest row: a channel of full depth about 27 m (H/9) and 30 m (H/12) wide, so the width
+    agrees; the rest of the crest is lowered evenly by 3.0 / 0.3 / 0.1 m at H/6 / 9 / 12. The 154 m "width" at H/6
+    is whole-crest erosion with several channels, and the sheet erosion of the crest depends strongly on the grid.
+  - The unit tests show the rule itself is grid-independent for a given bank, so the dependence comes from the bed
+    the rule is given (when and where banks form) or from the crest sheet flow. Cause not yet identified.

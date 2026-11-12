@@ -232,6 +232,11 @@ class EngineConfig:
     transport_capacity_factor: float = 1.0  # calibration multiplier on capacity-law transport (Wu, MPM, van Rijn)
     suspended_load: str = "none"          # "none" (bed load only) or "wu2000": add Wu, Wang & Jia (2000) suspended load
     # ---- V3.3 (cal-2 proposal, validation/calibration/CAL2_PROPOSAL.md). Defaults reproduce V3.2.2.
+    # V3.4 F5: "bank_wedge" applies the Culmann law to whole banks (cohesive soil; F5_THEORY_NOTE_2026-11-12.md):
+    # a bank is a run of drops steeper than tan(phi); its height is the sum of the drops and its length the
+    # (n - 1) cells on the face, so a single step is a vertical wall on any grid. A bank with FS = Hc(beta) / H
+    # below bank_fs_trigger is cut back to the failure plane through its toe at alpha = (beta + phi) / 2, and the
+    # wedge is laid down as a talus at the friction angle against the new face. For c = 0 it acts as "all_pairs".
     collapse_mode: str = "unsupported"    # C2: "unsupported" (V3.2.2: only a dry cell above a wet toe can fail) or
                                           #     "all_pairs" (every x / y neighbour pair; half the excess per pass)
     collapse_phi_dry: Optional[float] = None  # C2 critical angle [deg] for pairs not both submerged; None -> material phi
@@ -1091,7 +1096,9 @@ LateralForceBalance = LateralErosion   # backwards-compatible name
 
 class BankStability:
     # V3.4 F4 bookkeeping (per process): collapse calls, passes used, and calls that ended at the pass limit
-    stats: Dict[str, int] = {"calls": 0, "passes": 0, "max_passes": 0, "limit_hits": 0}
+    # V3.4 F5: whole-bank failures, their bulk volume, and the engine time of the first collapse of any kind
+    stats: Dict[str, object] = {"calls": 0, "passes": 0, "max_passes": 0, "limit_hits": 0,
+                                "wedge_failures": 0, "wedge_volume_m3": 0.0, "first_collapse_time_s": None}
 
     def __init__(self, mat: MaterialProps, cfg: EngineConfig):
         self.mat, self.cfg = mat, cfg
@@ -1167,10 +1174,10 @@ class BankStability:
 
     def _collapse_pairs(self, zA, zB, SA, SB, hA, hB, ds) -> float:
         mode = self.cfg.collapse_mode
-        if mode == "all_pairs":
+        if mode in ("all_pairs", "bank_wedge"):          # bank_wedge reaches here only for c = 0
             return self._collapse_pairs_all(zA, zB, SA, SB, hA, hB, ds)
         if mode != "unsupported":
-            raise ValueError("collapse_mode must be 'unsupported' or 'all_pairs'")
+            raise ValueError("collapse_mode must be 'unsupported', 'all_pairs' or 'bank_wedge'")
         p, phi = self.mat.porosity, np.deg2rad(self.mat.phi)
         dz = zA - zB
         ad = np.abs(dz)
@@ -1202,6 +1209,8 @@ class BankStability:
 
     def check_and_collapse(self, mesh: MeshState) -> float:
         """Returns collapsed bulk volume [m3]. Mass is conserved."""
+        if self.cfg.collapse_mode == "bank_wedge" and self.mat.cohesion > 0.0:
+            return self._collapse_bank_wedge(mesh)
         total = 0.0
         self.last_min_fs = float("inf")
         limit = self.pass_limit()
@@ -1224,6 +1233,132 @@ class BankStability:
                 break
         self.record_passes(passes, moved >= 1e-9, limit)
         return total * mesh.dx * mesh.dy
+
+    # ---- V3.4 F5: Culmann on whole banks, wedge removed by volume -------------------------------------------------
+    def _collapse_bank_wedge(self, mesh: MeshState) -> float:
+        """F5 (collapse_mode='bank_wedge', c > 0). Sweeps the four grid directions until no bank fails (or the
+        pass limit is reached). Returns the bulk volume of the failed wedges [m3]; solids are conserved."""
+        cfg = self.cfg
+        limit = self.pass_limit()
+        self.last_min_fs = float("inf")
+        total, moved, passes = 0.0, 0.0, 0
+        z, S, h, zf = mesh.z_b, mesh.S, mesh.h, mesh.z_floor
+        views = []
+        for axis, sign, ds, dw in ((0, +1, mesh.dx, mesh.dy), (0, -1, mesh.dx, mesh.dy),
+                                   (1, +1, mesh.dy, mesh.dx), (1, -1, mesh.dy, mesh.dx)):
+            arrs = [a if axis == 0 else a.T for a in (z, S, h, zf)]
+            if sign < 0:
+                arrs = [a[::-1] for a in arrs]
+            views.append((arrs, ds, dw))
+        for _ in range(limit):
+            passes += 1
+            moved = 0.0
+            for (Z, Sv, Hv, ZF), ds, dw in views:
+                moved += self._wedge_sweep(Z, Sv, Hv, ZF, ds, dw)
+            total += moved
+            if moved < 1e-9:
+                break
+        self.record_passes(passes, moved >= 1e-9, limit)
+        return total
+
+    def _wedge_sweep(self, Z, Sv, Hv, ZF, ds, dw) -> float:
+        """One direction: banks drop toward increasing index along axis 0 of the (view) arrays. Bulk volume cut."""
+        cfg, p = self.cfg, self.mat.porosity
+        phi_dry = np.deg2rad(self.mat.phi if cfg.collapse_phi_dry is None else cfg.collapse_phi_dry)
+        phi_wet = np.deg2rad(self.mat.phi if cfg.collapse_phi_wet is None else cfg.collapse_phi_wet)
+        hsw = cfg.h_dry if cfg.collapse_hswitch is None else cfg.collapse_hswitch
+        d = Z[:-1] - Z[1:]
+        seg = d > np.tan(min(phi_dry, phi_wet)) * ds * (1.0 + 1e-9) + 1e-12
+        if not np.any(seg):
+            return 0.0
+        s_i, e_i, col = Headcut._runs(seg)
+        csum = np.vstack([np.zeros((1, d.shape[1])), np.cumsum(np.where(seg, d, 0.0), axis=0)])
+        Hb = csum[e_i + 1, col] - csum[s_i, col]
+        beta = np.arctan2(Hb, (e_i - s_i) * ds)             # length = (n - 1) cells; a single step is vertical
+        foot = e_i + 1
+        phi = np.where((Hv[s_i, col] > hsw) & (Hv[foot, col] > hsw), phi_wet, phi_dry)
+        FS = self._critical_height_phi(beta, phi) / np.maximum(Hb, 1e-12)
+        self.last_min_fs = min(self.last_min_fs, float(np.min(FS)))
+        fail = np.where((FS < max(cfg.bank_fs_trigger, 1e-6)) & (beta > phi))[0]
+        if fail.size == 0:
+            return 0.0
+        _, first = np.unique(col[fail], return_index=True)   # one bank per grid line per sweep; the rest next sweep
+        moved = 0.0
+        use_floor = cfg.z_floor_enabled
+        for r in fail[first]:
+            j, t, f = int(col[r]), int(s_i[r]), int(foot[r])
+            ta, tp = float(np.tan(0.5 * (beta[r] + phi[r]))), float(np.tan(phi[r]))
+            zc, sc, hc = Z[:, j], Sv[:, j], Hv[:, j]
+            zfoot = float(zc[f])
+            # cut every cell behind the toe face down to the failure plane (exact cell average of min(bed, plane))
+            cut, k = 0.0, f - 1
+            while k >= 0:
+                zk = float(zc[k])
+                p_lo = zfoot + (f - k - 1) * ds * ta
+                p_hi = p_lo + ds * ta
+                if zk <= p_lo:
+                    new = zk
+                elif zk >= p_hi:
+                    new = 0.5 * (p_lo + p_hi)
+                else:
+                    xs = (zk - p_lo) / (p_hi - p_lo)
+                    new = 0.5 * (p_lo + zk) * xs + zk * (1.0 - xs)
+                if use_floor:
+                    new = max(new, float(ZF[k, j]))
+                dz = max(zk - new, 0.0)
+                if k < t and dz <= 1e-12:
+                    break
+                zc[k] = zk - dz
+                cut += dz
+                k -= 1
+            if cut <= 1e-9:
+                continue
+            # talus: a surface falling at tan(phi) from an apex on the failure plane, ha above the toe;
+            # ha is found so that the fill equals the cut (bisection), then the fill is scaled to match exactly
+            n = zc.shape[0]
+
+            def fill(ha):
+                x_a = f * ds - ha / ta
+                k0 = max(int(np.ceil(x_a / ds - 0.5)), 0)
+                out, kk = [], k0
+                while kk < n:
+                    g = zfoot + ha - ((kk + 0.5) * ds - x_a) * tp - float(zc[kk])
+                    if g <= 0.0:
+                        if kk >= f:
+                            break
+                        g = 0.0
+                    out.append(g)
+                    kk += 1
+                return k0, out
+
+            lo, hi = 0.0, max(float(Hb[r]), ds)
+            for _ in range(60):
+                if sum(fill(hi)[1]) >= cut:
+                    break
+                hi *= 2.0
+            for _ in range(60):
+                mid = 0.5 * (lo + hi)
+                if sum(fill(mid)[1]) >= cut:
+                    hi = mid
+                else:
+                    lo = mid
+            k0, g = fill(hi)
+            tot = sum(g)
+            if tot <= 1e-12:                                  # no room for a talus (edge of the grid): all to the toe
+                k0, g, tot = f, [cut], cut
+            scale = cut / tot
+            for m_, gk in enumerate(g):
+                if gk <= 0.0:
+                    continue
+                kk = k0 + m_
+                if hc[kk] > cfg.h_dry:
+                    sc[kk] += (1.0 - p) * gk * scale
+                else:
+                    zc[kk] += gk * scale
+            moved += cut * ds * dw
+            BankStability.stats["wedge_failures"] += 1
+            BankStability.stats["wedge_volume_m3"] += cut * ds * dw
+        return moved
 
     def pass_limit(self) -> int:
         """Passes allowed per call: collapse_iterations (V3.3), or the safety cap when collapsing to repose (F4)."""
@@ -1986,6 +2121,8 @@ class UltimateBreachEngine:
                     mesh, self._acc["h"] / self._acc_dt, self._acc["qx"] / self._acc_dt, self._acc["qy"] / self._acc_dt,
                     tau_for_morph, self._acc_dt * cfg.morph_accel)
                 self.timing["morph_s"] += time.perf_counter() - _tm
+                if diag.get("collapsed_m3", 0.0) > 0.0 and BankStability.stats.get("first_collapse_time_s") is None:
+                    BankStability.stats["first_collapse_time_s"] = float(self.time)
                 diag["channelization_index"] = self.channelization_index()
                 diag["morph_interval_s"] = float(physical_morph_interval)
                 self._acc_dt = 0.0

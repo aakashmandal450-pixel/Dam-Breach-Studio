@@ -130,8 +130,12 @@ def _collapse(z, S, h, dx, dy, all_pairs, c, gamma, phi_mat, phi_dry, phi_wet, h
 def _fast_check_and_collapse(self, mesh):
     cfg, m = self.cfg, self.mat
     mode = cfg.collapse_mode
+    if mode == "bank_wedge":                    # V3.4 F5: whole-bank Culmann is NumPy only (failures are rare events)
+        if m.cohesion > 0.0:
+            return _ORIG["collapse"](self, mesh)
+        mode = "all_pairs"
     if mode not in ("unsupported", "all_pairs"):
-        raise ValueError("collapse_mode must be 'unsupported' or 'all_pairs'")
+        raise ValueError("collapse_mode must be 'unsupported', 'all_pairs' or 'bank_wedge'")
     self.last_min_fs = float("inf")
     phi_dry = np.deg2rad(m.phi if cfg.collapse_phi_dry is None else cfg.collapse_phi_dry)
     phi_wet = np.deg2rad(m.phi if cfg.collapse_phi_wet is None else cfg.collapse_phi_wet)

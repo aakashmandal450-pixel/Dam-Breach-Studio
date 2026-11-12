@@ -5,6 +5,8 @@ Runs Castlewood (non-cohesive) and Laurel Run (cohesive) at grid divisors H/6, H
     F12  = F1 (Chen-Noelle reconstruction) + F2 (headcut only at a free overfall)
     F123 = F12 + F3 (no dx floor on the adaptation length)
     F1234 = F123 + F4 (slope collapse to the repose angle every morph step)
+    F12345 = F1234 + F5 (Culmann on whole banks, wedge removed by volume; cohesive soil only)
+New runs also save the first and last bed to runs/v34_gridcheck/beds/.
 Writes one JSON per run to runs/v34_gridcheck/ and a summary table (also to the Desktop when --desktop is given).
 Target for V3.4: peak within 10 % between H/9 and H/12.
 
@@ -32,6 +34,8 @@ SETUPS = {
     "F123": {"hydrostatic_reconstruction": "chen_noelle", "headcut_overfall": "free", "adaptation_dx_floor": False},
     "F1234": {"hydrostatic_reconstruction": "chen_noelle", "headcut_overfall": "free", "adaptation_dx_floor": False,
               "collapse_to_repose": True},
+    "F12345": {"hydrostatic_reconstruction": "chen_noelle", "headcut_overfall": "free", "adaptation_dx_floor": False,
+               "collapse_to_repose": True, "collapse_mode": "bank_wedge"},
 }
 NEUTRAL = {"f_kd": 1.0, "C_h": 1.0, "f_t": 1.0}
 
@@ -46,6 +50,15 @@ def worker(task):
     import fast_hydro
     fast_hydro.enable()
     import cases as C
+    import numpy as np
+    kept = {}
+    _build = C.build
+
+    def build(*a, **k):                      # keep the mesh of this run to save its first and last bed
+        out = _build(*a, **k)
+        kept["mesh"], kept["z0"] = out[0], out[0].z_b.copy()
+        return out
+    C.build = build
     try:
         r = C.run(C.load_case(cid), dict(NEUTRAL), grid_divisor=float(gd), model="cal-2", post_peak_stop=True,
                   overrides=dict(SETUPS[setup]), max_cpu_seconds=4 * 3600.0)
@@ -53,7 +66,12 @@ def worker(task):
                "max_lowering_m": r["max_lowering_m"], "stop_cause": r["stop_cause"], "censored": r["censored"],
                "cpu_s": r["cpu_s"], "max_balance": max(abs(x) for x in r["balances"]), "cells": r["grid"]}
         import breach_engine_2d_v3_2 as E
-        out["collapse"] = dict(getattr(E.BankStability, "stats", {}))   # calls, passes, max_passes, limit_hits
+        out["collapse"] = dict(getattr(E.BankStability, "stats", {}))   # calls, passes, max_passes, limit_hits, ...
+        if "mesh" in kept:
+            (OUT / "beds").mkdir(exist_ok=True)
+            m = kept["mesh"]
+            np.savez_compressed(OUT / "beds" / f"{cid}__H{gd}__{setup}.npz", z0=kept["z0"], z_end=m.z_b, h_end=m.h,
+                                dx=m.dx, dy=m.dy)
     except Exception as exc:          # recorded, run again to retry
         out = {"id": cid, "grid": gd, "setup": setup, "error": repr(exc)}
     path.write_text(json.dumps(out, indent=1))
@@ -62,7 +80,7 @@ def worker(task):
 
 def summary():
     rows = ["V3.4 grid check (neutral factors f = 1, cal-2 options + fixes); peak Qp [m3/s], width B [m], Tp [h]",
-            f"{'case':11s} {'setup':5s} " + "  ".join(f"{'H/' + str(g):>22s}" for g in GRIDS) + "   H9->H12 Qp   verdict"]
+            f"{'case':11s} {'setup':6s} " + "  ".join(f"{'H/' + str(g):>22s}" for g in GRIDS) + "   H9->H12 Qp   verdict"]
     for cid in CASES:
         for setup in SETUPS:
             res = {}
@@ -83,12 +101,17 @@ def summary():
                 ch = b["Qp"] / a["Qp"] - 1
                 verdict = "converged (<10 %)" if abs(ch) < 0.10 else "NOT converged"
                 cells.append(f"   {ch * 100:+6.1f} %   {verdict}")
-            rows.append(f"{cid:11s} {setup:5s} " + "  ".join(cells))
+            rows.append(f"{cid:11s} {setup:6s} " + "  ".join(cells))
             if SETUPS[setup].get("collapse_to_repose"):
                 st = [(g, res[g]["collapse"]) for g in GRIDS if res[g] and "collapse" in res[g]]
                 if st:
                     rows.append("            collapse passes per call, mean / max (calls ended at the cap): " + ";  ".join(
                         f"H/{g} {c['passes'] / max(c['calls'], 1):.1f} / {c['max_passes']} ({c['limit_hits']})"
+                        for g, c in st))
+                if SETUPS[setup].get("collapse_mode") == "bank_wedge" and st:
+                    rows.append("            bank failures, fallen volume [m3], first collapse [s]: " + ";  ".join(
+                        f"H/{g} {c.get('wedge_failures', 0)}, {c.get('wedge_volume_m3', 0.0):.0f}, "
+                        + ("-" if c.get('first_collapse_time_s') is None else f"{c['first_collapse_time_s']:.0f}")
                         for g, c in st))
     bal = [json.loads(p.read_text()).get("max_balance", 0) for p in OUT.glob("*.json")]
     rows.append(f"max |balance error| over all runs: {max(bal) if bal else float('nan'):.1e} m3   (* = censored)")
@@ -112,7 +135,7 @@ def main():
         todo.sort(key=lambda t: -t[1])
         with mp.get_context("spawn").Pool(a.workers, maxtasksperchild=1) as pool:
             for i, (task, status, wall) in enumerate(pool.imap_unordered(worker, todo), 1):
-                print(f"[{i}/{len(todo)}] {time.strftime('%H:%M:%S')} {task[0]:11s} H/{task[1]:<3d} {task[2]:5s} {status:5s} "
+                print(f"[{i}/{len(todo)}] {time.strftime('%H:%M:%S')} {task[0]:11s} H/{task[1]:<3d} {task[2]:6s} {status:5s} "
                       f"{wall / 60:6.1f} min   elapsed {(time.time() - t0) / 60:6.1f} min", flush=True)
     text = summary()
     print("\n" + text, flush=True)

@@ -1,12 +1,18 @@
 V3.4 grid check (neutral factors f = 1, cal-2 options + fixes); peak Qp [m3/s], width B [m], Tp [h]
-case        setup                    H/6                     H/9                    H/12   H9->H12 Qp   verdict
-Castlewood  F12       776 B   60 T1.02       727 B   40 T1.02       921 B   42 T1.03       +26.6 %   NOT converged
-Castlewood  F123      744 B   53 T0.76       809 B   42 T1.10      1160 B   44 T1.05       +43.4 %   NOT converged
-Castlewood  F1234     749 B   53 T0.97       837 B   49 T1.08       889 B   44 T1.25        +6.2 %   converged (<10 %)
+case        setup                     H/6                     H/9                    H/12   H9->H12 Qp   verdict
+Castlewood  F12        776 B   60 T1.02       727 B   40 T1.02       921 B   42 T1.03       +26.6 %   NOT converged
+Castlewood  F123       744 B   53 T0.76       809 B   42 T1.10      1160 B   44 T1.05       +43.4 %   NOT converged
+Castlewood  F1234      749 B   53 T0.97       837 B   49 T1.08       889 B   44 T1.25        +6.2 %   converged (<10 %)
             collapse passes per call, mean / max (calls ended at the cap): H/6 4.0 / 7 (0);  H/9 6.2 / 10 (0);  H/12 6.9 / 18 (0)
-LaurelRun   F12       329 B  154 T1.10       329 B   31 T0.77       531 B   26 T0.71       +61.5 %   NOT converged
-LaurelRun   F123      329 B  154 T1.10       401 B   21 T0.76       509 B   22 T0.66       +26.9 %   NOT converged
-LaurelRun   F1234     329 B  154 T1.10       401 B   21 T0.76       512 B   23 T0.66       +27.6 %   NOT converged
+Castlewood  F12345     688 B   60 T1.19       877 B   45 T1.21       998 B   41 T1.10       +13.8 %   NOT converged
+            collapse passes per call, mean / max (calls ended at the cap): H/6 1.0 / 2 (0);  H/9 1.0 / 3 (0);  H/12 1.0 / 3 (0)
+            bank failures, fallen volume [m3], first collapse [s]: H/6 42, 1286, 342;  H/9 234, 5476, 618;  H/12 444, 8049, 473
+LaurelRun   F12        329 B  154 T1.10       329 B   31 T0.77       531 B   26 T0.71       +61.5 %   NOT converged
+LaurelRun   F123       329 B  154 T1.10       401 B   21 T0.76       509 B   22 T0.66       +26.9 %   NOT converged
+LaurelRun   F1234      329 B  154 T1.10       401 B   21 T0.76       512 B   23 T0.66       +27.6 %   NOT converged
             collapse passes per call, mean / max (calls ended at the cap): H/6 7.6 / 13 (0);  H/9 9.8 / 16 (0);  H/12 11.5 / 17 (0)
+LaurelRun   F12345     342 B  154 T1.11       297 B   25 T1.08       438 B   26 T0.64       +47.7 %   NOT converged
+            collapse passes per call, mean / max (calls ended at the cap): H/6 1.3 / 3 (0);  H/9 1.0 / 2 (0);  H/12 1.0 / 2 (0)
+            bank failures, fallen volume [m3], first collapse [s]: H/6 4155, 153891, 2403;  H/9 155, 2591, 1523;  H/12 401, 4051, 960
 max |balance error| over all runs: 2.5e-07 m3   (* = censored)
 Reference, V3.3 as calibrated (cal-2 factors), Qp at H/6 / 9 / 12: Castlewood 2,119 / 374 / 345; Laurel Run 609 / 1,046 / 1,184 m3/s

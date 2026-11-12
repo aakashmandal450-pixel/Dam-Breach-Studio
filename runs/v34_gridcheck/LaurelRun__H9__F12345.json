@@ -1,0 +1,27 @@
+{
+ "id": "LaurelRun",
+ "grid": 9,
+ "setup": "F12345",
+ "Qp": 296.61966411493916,
+ "Tp_h": 1.076496092730611,
+ "B": 25.365137614678897,
+ "max_lowering_m": 12.8,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 716.828125,
+ "max_balance": 2.6309862732887268e-08,
+ "cells": [
+  77,
+  109,
+  1.4222222222222223
+ ],
+ "collapse": {
+  "calls": 17076,
+  "passes": 17226,
+  "max_passes": 2,
+  "limit_hits": 0,
+  "wedge_failures": 155,
+  "wedge_volume_m3": 2590.98603067015,
+  "first_collapse_time_s": 1522.7150029349407
+ }
+}
