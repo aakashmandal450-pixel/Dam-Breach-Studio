@@ -1099,6 +1099,10 @@ class BankStability:
     # V3.4 F5: whole-bank failures, their bulk volume, and the engine time of the first collapse of any kind
     stats: Dict[str, object] = {"calls": 0, "passes": 0, "max_passes": 0, "limit_hits": 0,
                                 "wedge_failures": 0, "wedge_volume_m3": 0.0, "first_collapse_time_s": None}
+    # Diagnostics (off by default): set event_log to a list to record every whole-bank failure as a dict; `now` is
+    # the time stamp written into it (set by the caller, e.g. calibration/v34_diag_laurel.py).
+    event_log: Optional[list] = None
+    now: float = float("nan")
 
     def __init__(self, mat: MaterialProps, cfg: EngineConfig):
         self.mat, self.cfg = mat, cfg
@@ -1253,15 +1257,15 @@ class BankStability:
         for _ in range(limit):
             passes += 1
             moved = 0.0
-            for (Z, Sv, Hv, ZF), ds, dw in views:
-                moved += self._wedge_sweep(Z, Sv, Hv, ZF, ds, dw)
+            for d_id, ((Z, Sv, Hv, ZF), ds, dw) in enumerate(views):
+                moved += self._wedge_sweep(Z, Sv, Hv, ZF, ds, dw, d_id)
             total += moved
             if moved < 1e-9:
                 break
         self.record_passes(passes, moved >= 1e-9, limit)
         return total
 
-    def _wedge_sweep(self, Z, Sv, Hv, ZF, ds, dw) -> float:
+    def _wedge_sweep(self, Z, Sv, Hv, ZF, ds, dw, d_id: int = 0) -> float:
         """One direction: banks drop toward increasing index along axis 0 of the (view) arrays. Bulk volume cut."""
         cfg, p = self.cfg, self.mat.porosity
         phi_dry = np.deg2rad(self.mat.phi if cfg.collapse_phi_dry is None else cfg.collapse_phi_dry)
@@ -1358,6 +1362,11 @@ class BankStability:
             moved += cut * ds * dw
             BankStability.stats["wedge_failures"] += 1
             BankStability.stats["wedge_volume_m3"] += cut * ds * dw
+            if BankStability.event_log is not None:           # d_id: 0 = +x, 1 = -x, 2 = +y, 3 = -y (drop direction)
+                BankStability.event_log.append({
+                    "t": float(BankStability.now), "dir": int(d_id), "line": j, "top": t, "foot": f,
+                    "drops": int(e_i[r] - s_i[r] + 1), "H": float(Hb[r]), "beta_deg": float(np.degrees(beta[r])),
+                    "FS": float(FS[r]), "z_foot": zfoot, "h_foot": float(hc[f]), "volume_m3": float(cut * ds * dw)})
         return moved
 
     def pass_limit(self) -> int:
