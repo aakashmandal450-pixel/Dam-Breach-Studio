@@ -308,3 +308,16 @@ All options default to V3.2.2 behaviour; the four V3.2 suites must pass unchange
     they are real toe deposits.
   - The earlier agreement of Laurel Run with collapse off (389 / 391 m3/s) was a coincidence of runs with towers.
   Next: the grid dependence of the scarp headcut (C1 / F2) in the dam runs.
+- Headcut check (`calibration/v34_headcut_check.py`, `run_v34_headcut.ps1`; `Headcut.event_log`, off by default):
+  - **The scarp rule alone** (one scarp, steady q = 2 m2/s, 600 s): a 3 m vertical face retreats 0.6 / 1.8 / 1.9 /
+    4.6 / 9.8 m at cells of 2.13 / 1.42 / 1.07 / 0.5 / 0.25 m (the law: 54.5 m) and the rule stops after 12 / 24 /
+    24 / 52 / 114 s. The upwind shift of the face smears it; once its overall slope is below `headcut_min_slope`
+    (0.5) it is no longer a scarp. A 1 m step does not act at all at 2.13 m cells.
+  - **Laurel Run, F1-F6, headcut log on the breach axis** (`runs/v34_diag_laurel/*wedge_f6_hc*`): the only scarp
+    the rule sees is the whole downstream face (12.4 m high, 18-29 drops). Its overall slope rises from 0.40 to
+    0.50 as the flow erodes the toe; the rule is off until then (0 % of the samples before 1,800 s on both grids).
+    The slope reaches 0.49 at about 1,500 s at H/12 and about 2,100 s at H/9, which is the 300 s difference in
+    the breakthrough. Afterwards the rule holds the face near slope 0.5, acting in 10-17 % of the samples with a
+    law rate of 0.17-0.21 m/s on an 8-12 m "scarp".
+  - So the timing of the breach and the rate of crest cutting are set by the 0.5 threshold and the smearing, not
+    by the headcut law. Next: F7 theory note for the headcut.

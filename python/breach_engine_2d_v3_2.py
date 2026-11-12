@@ -1536,8 +1536,51 @@ class Headcut:
         mesh.headcut_i = int(np.min(np.concatenate(tops_i)))
         return total * mesh.dx * mesh.dy
 
+    # Diagnostics (off by default): with event_log a list, watch a column index and log_now True, every scarp of at
+    # least 0.3 m on that column (drops along x) is recorded before the headcut acts, with the reasons it is or is
+    # not active. Set by the caller (calibration/v34_diag_laurel.py); `now` is the time stamp written into the log.
+    event_log: Optional[list] = None
+    watch: Optional[int] = None
+    log_now: bool = False
+    now: float = float("nan")
+
+    def _log_scarps(self, mesh: MeshState, qx: np.ndarray) -> None:
+        cfg, j, ds = self.cfg, int(Headcut.watch), mesh.dx
+        n = mesh.z_b.shape[0]
+        for sign in (+1, -1):
+            Z, Hh, Q = mesh.z_b[:, j], mesh.h[:, j], qx[:, j] * sign
+            if sign < 0:
+                Z, Hh, Q = Z[::-1], Hh[::-1], Q[::-1]
+            d = Z[:-1] - Z[1:]
+            seg = d / max(ds, 1e-12) >= cfg.headcut_seg_slope
+            k = 0
+            while k < n - 1:
+                if not seg[k]:
+                    k += 1
+                    continue
+                s_ = k
+                while k < n - 1 and seg[k]:
+                    k += 1
+                e_ = k - 1
+                Hs = float(np.sum(d[s_:e_ + 1]))
+                if Hs < 0.3:
+                    continue
+                Ls, top, foot = (e_ - s_ + 1) * ds, s_, e_ + 1
+                q = float(Q[top])
+                fl = {"ok_slope": bool(Hs / Ls >= cfg.headcut_min_slope and Hs >= cfg.headcut_min_height),
+                      "ok_wet_foot": bool(Hh[foot] > cfg.h_dry), "ok_q": bool(q > 1e-6),
+                      "ok_free": bool(cfg.headcut_overfall != "free" or Z[foot] + Hh[foot] < Z[top])}
+                Headcut.event_log.append({
+                    "t": float(Headcut.now), "sign": sign, "i_top": int(top if sign > 0 else n - 1 - top),
+                    "i_foot": int(foot if sign > 0 else n - 1 - foot), "drops": int(e_ - s_ + 1), "H": Hs,
+                    "slope": Hs / Ls, "q": q, "h_foot": float(Hh[foot]), "z_top": float(Z[top]),
+                    "active": all(fl.values()), **fl,
+                    "R": float(self._rate(np.array([max(q, 0.0)]), np.array([Hs]))[0])})
+
     def migrate(self, mesh: MeshState, qx: np.ndarray, dt: float, qy: Optional[np.ndarray] = None) -> float:
         mode = self.cfg.headcut_mode
+        if Headcut.event_log is not None and Headcut.log_now and Headcut.watch is not None and mode == "scarp":
+            self._log_scarps(mesh, qx)
         if self.cfg.headcut_overfall not in ("any", "free"):
             raise ValueError("headcut_overfall must be 'any' or 'free'")
         if self.cfg.headcut_overfall == "free" and mode != "scarp":

@@ -12,6 +12,8 @@ pairs_f6       H/9        348    0.92     27      533        0              0.18
 pairs_f6       H/12       430    0.63     25      487        0              0.17                 0                23
 wedge_f6       H/9        348    0.92     27      533        0              0.18                 0                26
 wedge_f6       H/12       430    0.63     25      487        0              0.17                 0                23
+wedge_f6_hc    H/9        348    0.92     27      533        0              0.18                 0                26
+wedge_f6_hc    H/12       430    0.63     25      487        0              0.17                 0                23
 
 --- nocollapse: H/9 | H/12 at the same model time ---
    t[s]     Q[m3/s]        lake[m]      deepest cut[m]   width at half[m]   crest sheet[m]    eroded bed[m3]    headcut[m3]    lateral[m3]    collapse[m3]
@@ -103,6 +105,21 @@ wedge_f6       H/12       430    0.63     25      487        0              0.17
    3600      275|218       10.72|9.66      12.72|12.80      32.4|33.9       0.32|0.10       20578|17434       4272|5600       2131|2317          0|0     
    4200      211|208        9.65|8.64      12.80|12.80      32.4|33.9       0.32|0.10       21135|17827       4537|5933       2406|2541          0|0     
 
+--- wedge_f6_hc: H/9 | H/12 at the same model time ---
+   t[s]     Q[m3/s]        lake[m]      deepest cut[m]   width at half[m]   crest sheet[m]    eroded bed[m3]    headcut[m3]    lateral[m3]    collapse[m3]
+    300       24|26        13.09|13.09      0.01|0.00        0.0|0.0        0.00|0.00         711|754            0|0            16|23            0|0     
+    600       59|62        13.27|13.26      0.02|0.02        0.0|0.0        0.02|0.01        2568|2652           1|4            99|136           0|0     
+    900       82|83        13.36|13.34      0.04|0.03        0.0|0.0        0.03|0.03        5009|5019           1|33          247|324           0|0     
+   1200       94|95        13.39|13.38      0.06|0.05      153.6|153.6      0.05|0.04        7477|7586          17|53          418|553           0|0     
+   1500      101|101       13.40|13.38      0.09|0.08      153.6|153.6      0.07|0.06       10189|10205         36|72          617|798           0|0     
+   1800      104|105       13.39|13.37      0.13|0.27      153.6|3.2        0.11|0.08       12930|12676         56|245         821|1034          0|0     
+   2100      108|216       13.37|13.23      0.28|6.98      153.6|26.5       0.15|0.10       15474|15108        105|2856       1014|1333          0|0     
+   2400      209|381       13.25|12.43      7.04|11.17      25.4|32.8       0.24|0.10       18016|16093       2014|4873       1265|1630          0|0     
+   2700      290|305       12.72|11.63      9.21|12.06      32.4|33.9       0.32|0.10       19378|16506       3188|5063       1526|1853          0|0     
+   3000      266|290       12.15|10.93     11.60|12.47      31.0|33.9       0.32|0.10       19845|16883       3591|5384       1765|2048          0|0     
+   3600      275|218       10.72|9.66      12.72|12.80      32.4|33.9       0.32|0.10       20578|17434       4272|5600       2131|2317          0|0     
+   4200      211|208        9.65|8.64      12.80|12.80      32.4|33.9       0.32|0.10       21135|17827       4537|5933       2406|2541          0|0     
+
 --- wedge, H/9: 155 bank failures; the first 15 (dir 0/1 = bank drops toward +x/-x, 2/3 = +y/-y) ---
    t[s]  dir  line  drops    H[m]  angle[deg]    FS   depth at toe[m]  volume[m3]
    1523    3    50      1    8.33       90.0   1.00         0.45        14.3
@@ -146,3 +163,46 @@ wedge_f6       H/12       430    0.63     25      487        0              0.17
 
 --- wedge_f6, H/12: 0 bank failures; the first 15 (dir 0/1 = bank drops toward +x/-x, 2/3 = +y/-y) ---
    t[s]  dir  line  drops    H[m]  angle[deg]    FS   depth at toe[m]  volume[m3]
+
+--- headcut log, H/9 (wedge_f6_hc): scarps of at least 0.3 m on the breach axis, dropping downstream; crest at x = 46.2 m ---
+     600-1200  s: a scarp is active in   0 % of the samples; scarps logged 29, active 0; not active because of slope < 0.5: 29, dry foot: 0, no flow: 0, drowned: 0
+    1200-1800  s: a scarp is active in   0 % of the samples; scarps logged 30, active 0; not active because of slope < 0.5: 30, dry foot: 0, no flow: 0, drowned: 0
+    1800-2400  s: a scarp is active in  10 % of the samples; scarps logged 29, active 3; not active because of slope < 0.5: 26, dry foot: 0, no flow: 0, drowned: 0
+    2400-3000  s: a scarp is active in   0 % of the samples; scarps logged 30, active 0; not active because of slope < 0.5: 30, dry foot: 0, no flow: 0, drowned: 0
+    3000-3600  s: a scarp is active in   3 % of the samples; scarps logged 43, active 1; not active because of slope < 0.5: 42, dry foot: 0, no flow: 0, drowned: 0
+    t[s]  x top[m]  x foot[m]  drops    H[m]   slope  q[m2/s]  depth at foot[m]  R[m/s]  active   reason if not
+     304      50.5       81.8     22   12.48    0.40     0.51              0.13   0.093  no       slope < 0.5
+     605      50.5       80.4     21   12.43    0.42     0.78              0.22   0.106  no       slope < 0.5
+     893      49.1       77.5     20   12.51    0.44     0.91              0.29   0.112  no       slope < 0.5
+    1202      49.1       76.1     19   12.41    0.46     1.03              0.37   0.117  no       slope < 0.5
+    1509      47.6       74.7     19   12.47    0.46     1.04              0.44   0.117  no       slope < 0.5
+    1797      46.2       71.8     18   12.37    0.48     1.01              0.49   0.116  no       slope < 0.5
+    2105      46.2       71.8     18   12.45    0.49     1.01              0.77   0.116  no       slope < 0.5
+    2409      40.5       63.3     16   11.16    0.49     3.55              2.40   0.171  no       slope < 0.5
+    2693      39.1       60.4     15   10.40    0.49     4.02              3.46   0.174  no       slope < 0.5
+    2998      36.3       57.6     15    9.55    0.45     4.83              2.71   0.179  no       slope < 0.5
+    3607      30.6       34.8      3    2.03    0.48     6.69              0.58   0.119  no       slope < 0.5
+    3607      36.3       50.5     10    5.74    0.40     3.56              2.57   0.137  no       slope < 0.5
+    4195      26.3       36.3      7    4.47    0.45     8.27              1.52   0.167  no       slope < 0.5
+    4195      37.7       44.8      5    1.67    0.23    13.71              2.17   0.142  no       slope < 0.5, drowned
+
+--- headcut log, H/12 (wedge_f6_hc): scarps of at least 0.3 m on the breach axis, dropping downstream; crest at x = 45.3 m ---
+     600-1200  s: a scarp is active in   0 % of the samples; scarps logged 30, active 0; not active because of slope < 0.5: 30, dry foot: 0, no flow: 0, drowned: 0
+    1200-1800  s: a scarp is active in   0 % of the samples; scarps logged 29, active 0; not active because of slope < 0.5: 29, dry foot: 0, no flow: 0, drowned: 0
+    1800-2400  s: a scarp is active in  17 % of the samples; scarps logged 30, active 5; not active because of slope < 0.5: 25, dry foot: 0, no flow: 0, drowned: 0
+    2400-3000  s: a scarp is active in   0 % of the samples; scarps logged 45, active 0; not active because of slope < 0.5: 45, dry foot: 0, no flow: 0, drowned: 15
+    3000-3600  s: a scarp is active in   0 % of the samples; scarps logged 29, active 0; not active because of slope < 0.5: 29, dry foot: 0, no flow: 0, drowned: 0
+    t[s]  x top[m]  x foot[m]  drops    H[m]   slope  q[m2/s]  depth at foot[m]  R[m/s]  active   reason if not
+     308      50.7       81.6     29   12.47    0.40     0.51              0.14   0.093  no       slope < 0.5
+     592      50.7       79.5     27   12.37    0.43     0.76              0.25   0.106  no       slope < 0.5
+     894      49.6       77.3     26   12.41    0.45     0.93              0.34   0.113  no       slope < 0.5
+    1196      49.6       75.2     24   12.33    0.48     1.03              0.31   0.117  no       slope < 0.5
+    1498      47.5       73.1     24   12.44    0.49     1.04              0.36   0.117  no       slope < 0.5
+    1802      44.3       69.9     24   12.55    0.49     0.85              0.31   0.110  no       slope < 0.5
+    2105      38.9       60.3     20   10.58    0.50     5.43              1.35   0.193  no       slope < 0.5
+    2408      32.5       48.5     15    7.84    0.49    10.02              4.40   0.214  no       slope < 0.5
+    2691      31.5       47.5     15    7.69    0.48     8.66              3.62   0.203  no       slope < 0.5
+    2691      49.6       52.8      3    0.34    0.11    38.59              3.82   0.118  no       slope < 0.5, drowned
+    2996      29.3       43.2     13    6.90    0.50     8.98              2.94   0.198  no       slope < 0.5
+    3605      27.2       41.1     13    6.75    0.49     7.19              2.26   0.182  no       slope < 0.5
+    4194      22.9       33.6     10    5.32    0.50     8.29              3.25   0.177  no       slope < 0.5

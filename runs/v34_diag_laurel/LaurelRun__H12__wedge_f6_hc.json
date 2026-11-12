@@ -1,0 +1,29 @@
+{
+ "id": "LaurelRun",
+ "grid": 12,
+ "variant": "wedge_f6_hc",
+ "Qp": 429.83385305323367,
+ "Tp_h": 0.6348436144868701,
+ "B": 25.42344827586207,
+ "max_lowering_m": 12.8,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 1004.828125,
+ "max_balance": 8.800998330116272e-08,
+ "cells": [
+  102,
+  145,
+  1.0666666666666667
+ ],
+ "collapse": {
+  "calls": 15130,
+  "passes": 15130,
+  "max_passes": 1,
+  "limit_hits": 0,
+  "wedge_failures": 0,
+  "wedge_volume_m3": 0.0,
+  "first_collapse_time_s": null
+ },
+ "samples": 487,
+ "events": 0
+}

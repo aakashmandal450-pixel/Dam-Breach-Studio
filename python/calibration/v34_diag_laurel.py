@@ -5,6 +5,8 @@ Laurel Run, neutral factors (f = 1), cal-2 options + F1-F4, grid divisors H/9 an
     pairs       F1-F4, Culmann on cell pairs (401 / 512 m3/s)
     wedge       F1-F5, Culmann on whole banks (297 / 438 m3/s)
 and the same three with F6 (sediment moved with the flow solver's face water flux): nocollapse_f6, pairs_f6, wedge_f6.
+wedge_f6_hc is wedge_f6 again with the headcut log: at every sample, each scarp of at least 0.3 m on the breach axis
+with its height, slope, discharge, retreat rate and whether the headcut rule acts on it (<run>__headcut.json).
 Every SAMPLE_S seconds of model time each run records the outflow, the lake level, the bed and the depth along the
 crest line and along the breach axis, and the volumes moved by each process. Every whole-bank failure is recorded
 with its time, place, height, number of drops, angle and factor of safety (wedge variant).
@@ -38,6 +40,7 @@ VARIANTS = {
     "nocollapse_f6": {"bank_collapse_enabled": False, "sediment_face_flux": "hydro"},
     "pairs_f6": {"sediment_face_flux": "hydro"},
     "wedge_f6": {"collapse_mode": "bank_wedge", "sediment_face_flux": "hydro"},
+    "wedge_f6_hc": {"collapse_mode": "bank_wedge", "sediment_face_flux": "hydro"},
 }
 NEUTRAL = {"f_kd": 1.0, "C_h": 1.0, "f_t": 1.0}
 SRC = ("transport_net_erosion_m3", "headcut_m3", "lateral_m3", "collapsed_m3")
@@ -59,6 +62,7 @@ def worker(task):
     kept = {"next": 0.0, "cum": np.zeros(len(SRC)), "Q": 0.0, "WL": float("nan")}
     rec = {k: [] for k in ("t", "Q", "WL", "xz", "xh", "lz", "lh", "cum")}
     E.BankStability.event_log = []
+    E.Headcut.event_log = []
     _init, _step = E.UltimateBreachEngine.__init__, E.Morphology.step
 
     def init(self, *a, **k):
@@ -67,6 +71,7 @@ def worker(task):
         z0 = self._initial_bed
         kept["ic"] = int(np.argmax(z0.max(axis=1)))           # crest line (row of the highest bed)
         kept["jc"] = int(np.argmin(z0[kept["ic"]]))           # breach axis (column of the pilot notch)
+        E.Headcut.watch = kept["jc"]
 
     def sample(eng, mesh):
         if eng.history:
@@ -80,7 +85,8 @@ def worker(task):
     def step(self, mesh, *a, **k):
         eng = kept.get("eng")
         if eng is not None:
-            E.BankStability.now = eng.time
+            E.BankStability.now = E.Headcut.now = eng.time
+            E.Headcut.log_now = bool(eng.time >= kept["next"])
         out = _step(self, mesh, *a, **k)
         kept["cum"] += [float(out.get(s, 0.0)) for s in SRC]
         if eng is not None and eng.time >= kept["next"]:
@@ -101,6 +107,7 @@ def worker(task):
                             z_end=eng.mesh.z_b, h_end=eng.mesh.h, dx=eng.mesh.dx, dy=eng.mesh.dy,
                             ic=kept["ic"], jc=kept["jc"])
         (OUT / f"{stem}__events.json").write_text(json.dumps(E.BankStability.event_log))
+        (OUT / f"{stem}__headcut.json").write_text(json.dumps(E.Headcut.event_log))
         out = {"id": CASE, "grid": gd, "variant": var, "Qp": r["Qp"], "Tp_h": r["Tp_h"], "B": r["B"],
                "max_lowering_m": r["max_lowering_m"], "stop_cause": r["stop_cause"], "censored": r["censored"],
                "cpu_s": r["cpu_s"], "max_balance": max(abs(x) for x in r["balances"]), "cells": r["grid"],
@@ -185,6 +192,39 @@ def summary():
                         f"single-step banks {np.mean(n == 1) * 100:.0f} %, two drops {np.mean(n == 2) * 100:.0f} %, "
                         f"three or more {np.mean(n >= 3) * 100:.0f} %; by direction "
                         + ", ".join(f"{k}: {int(np.sum(np.array([e['dir'] for e in ev]) == k))}" for k in range(4)))
+    for g in GRIDS:                                      # headcut log on the breach axis
+        ph, pn = OUT / f"{CASE}__H{g}__wedge_f6_hc__headcut.json", OUT / f"{CASE}__H{g}__wedge_f6_hc.npz"
+        if not (ph.exists() and pn.exists()):
+            continue
+        hc = json.loads(ph.read_text())
+        d = np.load(pn)
+        dx, ic = float(d["dx"]), int(d["ic"])
+        down = [e for e in hc if e["sign"] > 0]          # scarps dropping downstream
+        rows.append("")
+        rows.append(f"--- headcut log, H/{g} (wedge_f6_hc): scarps of at least 0.3 m on the breach axis, dropping "
+                    f"downstream; crest at x = {(ic + 0.5) * dx:.1f} m ---")
+        times = sorted({e["t"] for e in down})
+        act = {t: any(e["active"] for e in down if e["t"] == t) for t in times}
+        for a, b in ((600, 1200), (1200, 1800), (1800, 2400), (2400, 3000), (3000, 3600)):
+            tt = [t for t in times if a <= t < b]
+            if tt:
+                ee = [e for e in down if a <= e["t"] < b]
+                why = {k: sum(1 for e in ee if not e["ok_" + k]) for k in ("slope", "wet_foot", "q", "free")}
+                rows.append(f"   {a:5d}-{b:<5d} s: a scarp is active in {100 * np.mean([act[t] for t in tt]):3.0f} % of the "
+                            f"samples; scarps logged {len(ee)}, active {sum(e['active'] for e in ee)}; not active because of "
+                            f"slope < 0.5: {why['slope']}, dry foot: {why['wet_foot']}, no flow: {why['q']}, "
+                            f"drowned: {why['free']}")
+        rows.append("    t[s]  x top[m]  x foot[m]  drops    H[m]   slope  q[m2/s]  depth at foot[m]  R[m/s]  active   reason if not")
+        for tt in T_TABLE:
+            if not times or tt > times[-1]:
+                continue
+            t_ = min(times, key=lambda v: abs(v - tt))
+            for e in sorted((e for e in down if e["t"] == t_), key=lambda e: e["i_top"]):
+                why = ", ".join(n for k, n in (("slope", "slope < 0.5"), ("wet_foot", "dry foot"), ("q", "no flow"),
+                                               ("free", "drowned")) if not e["ok_" + k])
+                rows.append(f"{e['t']:8.0f} {(e['i_top'] + 0.5) * dx:9.1f} {(e['i_foot'] + 0.5) * dx:10.1f} {e['drops']:6d} "
+                            f"{e['H']:7.2f} {e['slope']:7.2f} {e['q']:8.2f} {e['h_foot']:17.2f} {e['R']:7.3f}  "
+                            f"{'yes' if e['active'] else 'no ':3s}      {why}")
     return "\n".join(rows)
 
 
