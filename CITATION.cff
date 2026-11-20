@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Dam Breach Studio"
+abstract: >-
+  Process-based model of earthen and moraine dam breaching, from the trigger (overtopping, piping, or
+  an impulse wave from a mass movement into the lake) to the outflow hydrograph. Includes a 1-D lumped
+  morphodynamic breach model and a 2-D research engine.
+authors:
+  - given-names: "Aakash"
+    family-names: "Mandal"
+license: MIT
+repository-code: "https://github.com/aakashmandal450-pixel/Dam-Breach-Studio"
+type: software
+keywords:
+  - dam breach
+  - GLOF
+  - morphodynamics
+  - sediment transport
