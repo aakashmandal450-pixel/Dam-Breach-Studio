@@ -1,6 +1,6 @@
 # Theory, Part 2 — Bed erosion
 
-*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: decisions made, source check open*
+*Lumped 1-D morphodynamic breach model · draft 3 · 2026-11-20 · status: sources checked against Wu (2016) PDF; one decision to revisit (2.7-4)*
 
 Part 1 gives the breach discharge Q_b and the bed shear τ_b on two reaches: the flat breach top and the
 downstream slope. This part turns that flow into an eroded volume per reach and per time step. How the
@@ -62,24 +62,34 @@ Bed load:
     τ_c = θ_c (ρ_s − ρ) g d50,   θ_c = 0.03
     τ_b′ = (n′/n)^(3/2) τ_b,     n′ = d50^(1/6) / 20
 
-Suspended load, default — Zhang (1961), as used in DL Breach (Wu 2013, Eq. 4.6):
+Suspended load, default — Zhang (1961) capacity curve, in Guo's (2002) fitted form, as used in
+DL Breach (Wu 2016, Eq. 4.6):
 
-    C_s* = f_t · Zhang (1961) suspended-load capacity                                    (2.4a)
+    X = U³ / (g R ω_s)
+    C* = (1/20) X^1.5 / [ 1 + (X/45)^1.15 ]          [kg/m³]                            (2.4a)
 
-The exact form and coefficients of (2.4a) are to be transcribed from the original sources (Zhang 1961,
-as implemented in Wu 2013/2016); the online report copy was not legible. This is a blocking item for
-coding Part 2.
+C* is a mass concentration (Zhang's curve, Wu 2016 Fig. 4.2, is plotted in kg/m³), so it is converted
+to a volume concentration C*/ρ_s before it is combined with bed load. R: hydraulic radius; ω_s: settling
+velocity. Wu chose this formula because its data reach about 100 kg/m³ and its slope flattens at high
+U³/(gRω_s), which suits breach flows (Wu 2016, §4.4.3).
 
 Suspended load, option `wu2000` — Wu, Wang & Jia (2000):
 
     q_s* = f_t · 2.62e-5 · [ (τ_b/τ_c − 1) U / ω_s ]^1.74 · √((s − 1) g d50³)            (2.4)
 
-ω_s: settling velocity of d50 (Soulsby 1997). s = ρ_s/ρ. Total capacity q_t* = q_b* + q_s* per unit
-width, and as a volumetric concentration C_t* = q_t* · B_w / Q_b, with B_w the water-surface width.
+ω_s: settling velocity of d50 (Soulsby 1997). s = ρ_s/ρ.
+
+Total-load capacity as a volume concentration (Wu 2016, Eq. 4.10, written there as C* + q_b*/Q with
+q_b* per unit width; here the width is made explicit):
+
+    C_t* = f_t · [ C*/ρ_s + q_b* · b / Q_b ]                                              (2.4b)
+
+with b the breach bottom width (bed load moves on the bed). For the `wu2000` option the suspended term is
+q_s* · B_w / Q_b instead.
 The Wu (2000) bed-load formula is used with its own θ_c = 0.03 and grain roughness n′, not with the
 2-D engine's θ_c = 0.047.
 
-**Calibration factor f_t:** multiplies the capacity, as `transport_capacity_factor` did in cal-2.
+**Calibration factor f_t:** multiplies the total capacity C_t*, as `transport_capacity_factor` did in cal-2.
 
 **Options (for sensitivity and comparison only):**
 
@@ -99,9 +109,18 @@ downslope, so the critical shear is lower:
     τ_c,β = τ_c · sin(φ − β) / sin φ                                                     (2.5)
 
 φ: friction angle of the dam material (case `tan_phi`). Source: Chiew & Parker (1994) for streamwise
-slopes. (2.5) is 1 × τ_c on a flat bed and 0 at β = φ (the slope fails, Part 3). DL Breach uses an
-effective-shear correction for the same effect (Wu 2013, Eqs. 4.8–4.9); the equation in the copy we
-read was not legible, so (2.5) is used and the two will be compared once the original is checked.
+slopes. (2.5) is 1 × τ_c on a flat bed and 0 at β = φ (the slope fails, Part 3).
+
+**DL Breach's form (now legible in the PDF).** DL Breach handles the same effect by raising the shear
+instead of lowering the threshold, and this correction is part of the bed-load formula it fitted
+("Wu et al. (2000) considering the effect of steep slope", Wu 2016 §4.4.3):
+
+    τ_e = τ_b′ + λ_0 τ_c sin β / sin φ_r                                                  (2.5a)
+    λ_0 = 1                                              for β ≤ 0
+    λ_0 = 1 + 0.22 (τ_b′/τ_c)^0.15 · exp(2 sin β / sin φ_r)   for β > 0                     (2.5b)
+
+τ_e replaces τ_b′ in (2.3); φ_r: repose angle (case `tan_phi`). Source: Wu (2016, Eqs. 4.8–4.9),
+after Wu (2007). See decision 2.7-4.
 
 ---
 
@@ -123,7 +142,8 @@ outflow is the inflow to the downstream slope.
 
     L_s = λ · B_w,   λ = 6 for field cases, 3 for laboratory cases                        (2.8)
 
-(Wu 2013/2016 default values). λ is a sourced parameter, not calibrated; it is a candidate for the
+(Wu 2016, Eq. 4.11: λ = 3 and 6 for small- and large-scale cases; 6 is the default for field dam
+breach). λ is a sourced parameter, not calibrated; it is a candidate for the
 Phase 5 sensitivity analysis.
 
 **Eroded volume per reach (Exner, bulk volume):**
@@ -170,13 +190,18 @@ half of capacity, the transport reach set to the crest width only, and the per-s
    load. Wu (2000) bed + suspended is kept as option `wu2000`.
 2. **Chen cap: left out** (no published source for the 2-D values).
 3. **Adaptation length: λ = 6 field, 3 lab** (Wu 2013/2016).
-4. **Steep-slope critical shear: Chiew & Parker (2.5) for now**; compare with DL Breach's Eqs. 4.8–4.9
-   when the original is available.
+4. **Steep-slope correction: Chiew & Parker (2.5) for now.** *To revisit:* the PDF shows DL Breach's
+   own correction (2.5a–b) is part of the Wu bed-load formula as DL Breach fitted it. Since decision 1
+   adopts the DL Breach combination, the consistent choice is (2.5a–b) as default with Chiew & Parker as
+   an option. Pending your decision.
 5. **Grain shear: law-specific, as published.** Supersedes the Strickler-for-all wording of Part 1
    decision 3.
 
-Still open (source check, before coding Part 2): exact Zhang (1961) suspended-load formula and
-coefficients as implemented in DL Breach; DL Breach steep-slope Eqs. 4.8–4.9.
+Source check (2026-11-20, against the Wu 2016 report PDF): (2.3) confirmed (θ_c = 0.03,
+n′ = d^(1/6)/20); Zhang/Guo (2.4a) transcribed; total-load combination (2.4b) confirmed with the width
+made explicit; (2.7), (2.9), (2.1) confirmed; λ = 6 / 3 confirmed. DL Breach also takes τ_c ≈ 0.15 Pa
+for cohesive soil from a 0.03 mm floc size and reports calibrated k_d of 2.5–30 cm³/(N·s) over 35 cases
+(Wu 2016, §4.2.2) — this explains the 0.14–0.15 Pa τ_c values in our cohesive case files.
 
 ## 2.8 Flags for Phase 4 (case database)
 
@@ -193,6 +218,8 @@ coefficients as implemented in DL Breach; DL Breach steep-slope Eqs. 4.8–4.9.
 
 - Chiew, Y. M., and Parker, G. (1994). Incipient sediment motion on non-horizontal slopes.
   *J. Hydraul. Res.*, 32(5), 649–660.
+- Guo, J. (2002). Logarithmic matching and its applications in computational hydraulics and sediment
+  transport. *J. Hydraul. Res.*, 40(5), 555–565 (as cited in Wu 2016).
 - Hanson, G. J., and Cook, K. R. (2004). Apparatus, test procedures, and analytical methods to measure
   soil erodibility in situ. *Appl. Eng. Agric.*, 20(4), 455–462.
 - Meyer-Peter, E., and Müller, R. (1948). Formulas for bed-load transport. *Proc. 2nd IAHR Congress*,
@@ -201,6 +228,7 @@ coefficients as implemented in DL Breach; DL Breach steep-slope Eqs. 4.8–4.9.
 - Soulsby, R. L. (1997). *Dynamics of Marine Sands*. Thomas Telford.
 - van Rijn, L. C. (1984). Sediment transport, part I: bed load transport. *J. Hydraul. Eng.*, 110(10),
   1431–1456.
+- Wu, W. (2007). *Computational River Dynamics*. Taylor & Francis.
 - Wu, W., Wang, S. S. Y., and Jia, Y. (2000). Nonuniform sediment transport in alluvial rivers.
   *J. Hydraul. Res.*, 38(6), 427–434.
 - Wu, W. (2013). Simplified physically based model of earthen embankment breaching. *J. Hydraul. Eng.*,

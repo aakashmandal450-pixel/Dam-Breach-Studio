@@ -1,6 +1,6 @@
 # Theory, Part 1 — Reservoir and breach hydraulics
 
-*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: decisions made, source check open*
+*Lumped 1-D morphodynamic breach model · draft 3 · 2026-11-20 · status: decisions made, sources checked against Wu (2016) PDF*
 
 This part defines how water leaves the reservoir and how the flow through the breach is described.
 Erosion (Part 2), widening and bank collapse (Part 3), headcut (Part 4), piping erosion (Part 5),
@@ -104,11 +104,11 @@ verification suite.
 
 **Tailwater submergence.** With S = (z_t − z_b)/(z_s − z_b),
 
-    k_sm = 1                              for S ≤ 0.67
-    k_sm = 1 − 27.8 (S − 0.67)³           for S > 0.67                                 (1.7)
+    k_sm = 1                              for S < 0.67
+    k_sm = 1 − 27.8 (S − 0.67)³           otherwise                                     (1.7)
     Q_b = k_sm · Q_b,free
 
-Source: Fread (1988), as used in Wu (2013, Eq. 3.2). None of the current cases supplies a downstream
+Source: Fread (1984) and Singh (1996), as given in Wu (2016, Eq. 3.2) — checked against the PDF. None of the current cases supplies a downstream
 channel, so z_t ≤ z_b and k_sm = 1 by default; (1.7) becomes active when a case gives a tailwater
 rating (Manning normal depth in a prismatic downstream channel, or a stage series).
 
@@ -123,12 +123,15 @@ with B_top,cr the breach width at crest level. Same critical-flow basis as (1.5)
 
 ## 1.4 Breach outflow — pipe (piping mode)
 
-Before roof collapse (Part 5) the breach is a pipe of width a, height c and length L_p, invert z_bp:
+Before roof collapse (Part 5) the breach is a pipe of width a, height c and length L_p, with its
+centreline at z_bp. When the pipe flows full:
 
-    Q_b = A_p √( 2g (max(z_s, z_t) − z_bp) / (K_u + K_d + f L_p / (4 R_h)) )          (1.9)
+    Q_b = A_p √( 2g (z_s − max(z_bp, z_t)) / (K_u + K_d + f L_p / (4 R_h)) )          (1.9)
 
-A_p = a·c, R_h = a c / (2(a + c)); entrance and exit losses K_u, K_d; friction factor f from
-Swamee–Jain with k_s = d50, or f = 8 g n² / R_h^(1/3) (Manning). Source: Wu (2013/2016, Eqs. 3.13–3.15).
+A_p = a·c, R_h = a c / (2(a + c)); entrance loss K_u ≈ 0.05 and outlet loss K_d ≈ 1 (Wu 2016);
+friction factor f from Swamee–Jain, f = 0.25 / [log10(k_s/(3.7 D_h) + 5.74/Re^0.9)]², with k_s = d50,
+D_h = 4R_h, Re = U D_h/ν; or f = 8 g n² / R_h^(1/3) (Manning). When the pipe is only partly full it is
+open-channel flow and (1.5) applies. Source: Wu (2016, Eqs. 3.13–3.15), checked against the PDF.
 This replaces the TypeScript engine's bare orifice (Cd·A·√(2gH)), which ignores pipe friction — for a
 long, narrow early pipe friction dominates and the bare orifice overpredicts flow.
 
@@ -159,7 +162,10 @@ solved for h by a bracketed root (Wu 2013, Eq. 3.10). If the normal depth comes 
 
 (Wu 2013, Eq. 3.11; Manning friction). Two options for n, as in the 2-D engine:
 
-- total shear: n from the case file (`manning_n`);
+- total shear: n from the case file (`manning_n`). DL Breach sets n = d50^(1/6)/A_n with A_n = 16 for
+  laboratory and 12 for field cases, and a minimum of 0.016 for cohesive soils whose representative
+  (floc) size is taken as 0.03 mm (Wu 2016, Eq. 3.12) — which is where the many 0.016 values in our
+  case files come from;
 - grain shear: defined by each transport law as published (Part 2, section 2.3); e.g. Wu (2000)
   uses n' = d50^(1/6)/20.
 
@@ -204,22 +210,22 @@ Q/(W·H) with R from the full head and so underestimated the channel shear.
 1. **Default weir form: exact critical flow (1.5) with C_d = 1.** The DL Breach formula (1.6) is an
    option, used for the benchmark runs.
 2. **c2 = 1.3** in the DL Breach option (Wu 2013), to match the benchmark.
-3. **Manning n:** keep the case files' `manning_n` for total shear; the uniform 0.016 values are
-   checked in Phase 4 (case database). Grain shear is defined per transport law, as published
+3. **Manning n:** keep the case files' `manning_n` for total shear. Source check found the 0.016 values
+   follow DL Breach's rule (Eq. 3.12, minimum 0.016 for cohesive soil); Phase 4 confirms every case's n
+   against that rule. Grain shear is defined per transport law, as published
    (Part 2, decision 5).
 
-Still open:
-
-- **Source check:** the copy of Wu (2016) read for this draft had garbled equation layout.
-   The submergence formula (1.7), c2 = 1.3, and the pipe-loss terms in (1.9) are to be confirmed against
-   the original PDFs (Wu 2013 paper, Fread 1988) before this part is signed off. The entrance/exit loss
-   values K_u, K_d are set in Part 5 (piping).
+Source check (2026-11-20, against the Wu 2016 report PDF in validation/sources): (1.6) c1 = 1.7,
+c2 = 1.3 confirmed; (1.7) confirmed; (1.9) corrected — the head is z_s − max(z_bp, z_t) with z_bp the
+pipe centreline, and K_u ≈ 0.05, K_d ≈ 1; (1.10)–(1.12) confirmed.
 
 ---
 
 ## References
 
 - Chow, V. T. (1959). *Open-Channel Hydraulics*. McGraw-Hill.
+- Fread, D. L. (1984). *DAMBRK: The NWS dam-break flood forecasting model*. NWS, Silver Spring, MD
+  (as cited in Wu 2016).
 - Fread, D. L. (1988). *BREACH: An erosion model for earthen dam failures*. NOAA/NWS, Silver Spring, MD.
 - Henderson, F. M. (1966). *Open Channel Flow*. Macmillan.
 - Singh, V. P. (1996). *Dam Breach Modeling Technology*. Kluwer.
