@@ -11,4 +11,4 @@ Physics laws are imported from breach_engine_2d_v3_2.py where possible, so both 
 identical formulas. Every coefficient is sourced or is one of the calibration factors f_kd, C_h, f_t.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"

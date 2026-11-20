@@ -1,6 +1,6 @@
 # Theory, Part 3 — Breach deepening, widening and side-slope stability
 
-*Lumped 1-D morphodynamic breach model · draft 1 · 2026-11-20 · status: for review*
+*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: decisions made*
 
 Part 2 gives an eroded bulk volume ΔV per reach (flat top, downstream slope) and time step. This part
 turns that volume into new breach geometry — bed lowering, bottom and top widening — and sets the
@@ -116,7 +116,12 @@ engine, without its per-cell triggers.
 
     β = (α_s + β_s) / 2                                                                    (3.14)
 
-(Wu 2016, Eq. 4.27.) The slope lies between the steepest stable angle and the angle after failure;
+(Wu 2016, Eq. 4.27.) While even a vertical wall of the current height is stable — (3.12) has no real
+solution with β_s < 90° — no failure has happened yet and the wall stays vertical (β = 90°), as Wu (2016,
+§4.4) describes for a shallow pilot breach. Averaging with the α_s of (3.13) in that range would make β
+*rise* with H, which is not physical; this is our reading of the source, made explicit.
+
+The slope lies between the steepest stable angle and the angle after failure;
 DL Breach takes the average. Consequences: non-cohesive soil → β ≈ φ; more cohesion → steeper β; a
 higher bank → flatter β. β is recomputed every step from the current H, so it changes smoothly as the
 breach deepens — there is no on/off failure trigger.
@@ -142,11 +147,36 @@ step, so the sediment balance closes.
 
 ---
 
+## Appendix 3A — Rotation of the downstream slope about the toe (our derivation)
+
+Longitudinal coordinate x from the upstream toe; dam base at z = 0; downstream toe at x_T. The flat top
+is at z_b between the upstream face x_u(z_b) = z_u z_b and its downstream edge x_e; the downstream-slope
+reach is the straight line from (x_e, z_b) to (x_T, 0), length L_s = √((x_T − x_e)² + z_b²).
+
+1. **Flat-top lowering moves the edge downstream.** When the top lowers from z_b to z_b′ (3.3) with no
+   slope erosion, the new edge is where the unchanged slope line reaches z_b′:
+   x_e′ = x_T − (x_T − x_e) z_b′/z_b.
+2. **Slope erosion rotates the line about the toe.** With mean normal thickness δ = ΔV_down / A_e,tot,down
+   (A_e,tot,down = b_down L_s + n_loc A_side,down / sin β) and a thickness growing linearly from 0 at the
+   toe, the longitudinal area removed is δ · L_s. The removed region is the triangle (toe, old edge, new
+   edge) at elevation z_b, so
+       x_e′ = x_e − 2 δ L_s / z_b.
+3. **Flat top consumed.** If x_e′ would fall upstream of x_u(z_b), the flat top is gone; the rest of the
+   area lowers the slope's upper end along the upstream face to the elevation z″ that makes the triangle
+   (toe, (x_u(z_b), z_b), (x_u(z″), z″)) equal to the remaining area (solved by bisection).
+4. **Base reached.** When z_b = 0 the slope reach vanishes, the breach floor is the dam base
+   (x from 0 to x_T), and erosion continues as widening only (§3.5-1).
+
+Volume closure is checked numerically (§3.6): the geometric breach volume and ∫ΔV agree to first
+order and converge as Δt → 0.
+
+---
+
 ## 3.6 Verification this part must pass (Phase 3)
 
 | test | expected |
 |---|---|
-| (3.3)–(3.5) | new trapezoid area − old = erosion-layer area to 1e-12 (geometry identity) |
+| (3.3)–(3.5) | breach volume from geometry vs ∫ΔV: first-order consistent, gap → 0 as Δt → 0 |
 | (3.1)–(3.2) | ΔV distributed over A_e,tot returns ΔV when integrated back over the new geometry |
 | (3.12) at C = 0 | β_s = φ exactly |
 | (3.12) vs 2-D Culmann | critical_height(β_s) = H to 1e-9 for a grid of (C, H, φ) |
@@ -158,15 +188,14 @@ step, so the sediment balance closes.
 
 ---
 
-## 3.7 Decisions for review
+## 3.7 Decisions (Aakash, 2026-11-20 — all five proposals accepted)
 
-1. **Water fraction f_w = 0.5** in the bulk unit weight (Wu 2016) — proposed.
+1. **Water fraction f_w = 0.5** in the bulk unit weight (Wu 2016).
 2. **Downstream-slope rotation:** we write our own derivation (Appendix 3A), since DL Breach does not give
-   one, and verify it by volume closure — proposed.
-3. **Foundation:** non-erodible base by default; erodible base with c_b = 1.6 only where a case says so —
-   proposed. (None of the current case files specifies the foundation; Phase 4 checks each source.)
-4. **Abutment limit** as in §3.5-3 — proposed, our addition.
-5. **Breach location:** n_loc = 2 (mid-crest) unless the case states an abutment breach — proposed.
+   one, and verify it by volume closure.
+3. **Foundation:** non-erodible base by default; erodible base with c_b = 1.6 only where a case says so. (None of the current case files specifies the foundation; Phase 4 checks each source.)
+4. **Abutment limit** as in §3.5-3 (our addition).
+5. **Breach location:** n_loc = 2 (mid-crest) unless the case states an abutment breach.
 
 ---
 

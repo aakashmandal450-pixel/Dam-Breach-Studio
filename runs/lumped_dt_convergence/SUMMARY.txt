@@ -1,0 +1,29 @@
+LUMPED MODEL - TIME-STEP CONVERGENCE (dt = t_end/5000, /2, /4; neutral factors)
+p: observed order (explicit Euler -> ~1 expected). GCI: band on the finest value.
+
+  case        metric              dt          dt/2          dt/4      p    GCI%   verdict
+  Castlewood  Qp            770.6520      769.8744      769.4923   1.03   0.06%   CONVERGED
+  Castlewood  Tp_h            1.7304        1.7292        1.7292      -       -   converged (differences at round-off)
+  Castlewood  B              12.4263       12.4248       12.4241   1.10   0.01%   CONVERGED
+
+  E1S1        Qp              3.7388        3.7368        3.7358   0.92   0.04%   CONVERGED
+  E1S1        Tp_h            0.5432        0.5432        0.5431      -       -   converged (differences at round-off)
+  E1S1        B               5.1222        5.1215        5.1212   1.39   0.00%   CONVERGED
+
+  E1S3        Qp              1.0000        1.0000        1.0000      -       -   converged (differences at round-off)
+  E1S3        Tp_h            7.8720        7.7300        7.5790   0.09  39.29%   p out of range - not established
+  E1S3        B               1.8300        1.8300        1.8300      -       -   converged (differences at round-off)
+
+  E2S2        Qp              2.3632        2.3423        2.3258   0.35   3.22%   p out of range - not established
+  E2S2        Tp_h            1.3167        1.3194        1.3222      -       -   out of range
+  E2S2        B               4.9000        4.9000        4.9000      -       -   converged (differences at round-off)
+
+  GooseCreek  Qp            566.8197      566.7775      566.7589   1.19   0.00%   CONVERGED
+  GooseCreek  Tp_h            5.3976        5.3964        5.3958   1.00   0.01%   CONVERGED
+  GooseCreek  B              75.6426       75.6500       75.6540   0.91   0.01%   CONVERGED
+
+  SouthFork   Qp           3052.3857     3047.9240     3045.6934   1.00   0.09%   CONVERGED
+  SouthFork   Tp_h            0.8688        0.8688        0.8688      -       -   converged (differences at round-off)
+  SouthFork   B              42.7120       42.7041       42.7001   0.99   0.01%   CONVERGED
+
+metrics not converged: 3   wall time 33 s
