@@ -58,7 +58,7 @@ Zhang (1961) suspended load (2.4a), single size class, as in Wu (2013).**
 
 Bed load:
 
-    q_b* = f_t · 0.0053 · (τ_b′/τ_c − 1)^2.2 · √((s − 1) g d50³)                        (2.3)
+    q_b* = 0.0053 · (τ_b′/τ_c − 1)^2.2 · √((s − 1) g d50³)                        (2.3)
     τ_c = θ_c (ρ_s − ρ) g d50,   θ_c = 0.03
     τ_b′ = (n′/n)^(3/2) τ_b,     n′ = d50^(1/6) / 20
 
@@ -75,7 +75,7 @@ U³/(gRω_s), which suits breach flows (Wu 2016, §4.4.3).
 
 Suspended load, option `wu2000` — Wu, Wang & Jia (2000):
 
-    q_s* = f_t · 2.62e-5 · [ (τ_b/τ_c − 1) U / ω_s ]^1.74 · √((s − 1) g d50³)            (2.4)
+    q_s* = 2.62e-5 · [ (τ_b/τ_c − 1) U / ω_s ]^1.74 · √((s − 1) g d50³)            (2.4)
 
 ω_s: settling velocity of d50 (Soulsby 1997). s = ρ_s/ρ.
 
@@ -84,19 +84,21 @@ q_b* per unit width; here the width is made explicit):
 
     C_t* = f_t · [ C*/ρ_s + q_b* · b / Q_b ]                                              (2.4b)
 
-with b the breach bottom width (bed load moves on the bed). For the `wu2000` option the suspended term is
-q_s* · B_w / Q_b instead.
+with b the breach bottom width — our reading, since bed load moves on the bed; DL Breach's text does not
+say which width, so this is checked against a DL Breach run in Phase 3. For the `wu2000` option the
+suspended term is q_s* · B_w / Q_b instead.
 The Wu (2000) bed-load formula is used with its own θ_c = 0.03 and grain roughness n′, not with the
 2-D engine's θ_c = 0.047.
 
-**Calibration factor f_t:** multiplies the total capacity C_t*, as `transport_capacity_factor` did in cal-2.
+**Calibration factor f_t:** applied once, to the total capacity C_t* in (2.4b), whichever law is chosen —
+as `transport_capacity_factor` did in cal-2. The individual formulas carry no factor.
 
 **Options (for sensitivity and comparison only):**
 
 | law | form | source |
 |---|---|---|
-| `mpm` | q_b* = f_t · 8 (θ′ − 0.047)^1.5 √((s−1) g d50³) | Meyer-Peter & Müller (1948) |
-| `vanrijn` | q_b* = f_t · 0.053 √((s−1) g) d50^1.5 T^2.1 / D*^0.3 | van Rijn (1984) |
+| `mpm` | q_b* = 8 (θ′ − 0.047)^1.5 √((s−1) g d50³) | Meyer-Peter & Müller (1948) |
+| `vanrijn` | q_b* = 0.053 √((s−1) g) d50^1.5 T^2.1 / D*^0.3 | van Rijn (1984) |
 | `wu2000` | Wu (2000) bed load + Wu (2000) suspended load (2.4), one paper fitted together | Wu, Wang & Jia (2000) |
 
 Each law uses its own published grain-shear definition and θ_c. This refines Part 1's decision 3
