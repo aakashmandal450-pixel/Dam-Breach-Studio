@@ -1,5 +1,18 @@
 # Lumped 1-D model — changelog
 
+## 0.2.0 — 2026-11-20 (Phase 2, step 3: headcut, Theory Part 4)
+- headcut.py: Robinson (1992) face stress, Hanson et al. (2001) undercut at failure and advance rate,
+  capped at the 0.5H:1V surface-erosion rate when the face cannot stand (DSO-2017-02 App. A1).
+- model.py: staged process for cohesive soils with k_d — stage 1 surface erosion at the end of the
+  notch invert, stage 2 plunging headcut (H_h > d_c) with base scour and widening, stage 3 control
+  lowered, residual-block sliding with uplift (located in time inside the step), hand-off to the
+  core (stage 4). `headcut="off"` keeps the 0.1.0 surface model. c_u = q_u/2 where q_u is given.
+- Tests: 35 pass (12 new: hand calculation of tau_hf, E_v sign, zero below tau_c, cap, stage switch,
+  water balance across stage switches). dt-convergence now includes LaurelRun: all breach metrics
+  CONVERGED (p 0.9-2.6) except E1S3 Tp (no breach, undefined) and LaurelRun B (changes 1e-5, round-off).
+- First calibration-case results in docs/theory/04_headcut.md 4.9: E2S2 Tp 18.1 h (obs 22.5, was 1.3);
+  E1S1 Qp 10.3 (obs 6.5) because b_h reaches the flume width in stage 2 (wall-shear sensitivity next).
+
 ## 0.1.0 — 2026-11-20 (Phase 2, steps 1-2: overtopping core)
 - hydraulics.py: exact critical-flow trapezoid weir (default), DL Breach weir option, submergence,
   crest overflow, Manning normal depth and shear (Theory Part 1).

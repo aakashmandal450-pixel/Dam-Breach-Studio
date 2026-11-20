@@ -1,6 +1,6 @@
 # Theory, Part 4 — Overtopping breach of cohesive embankments: surface erosion, headcut formation and advance
 
-*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: for review*
+*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: decisions made (all seven accepted); implemented in engine 0.2.0*
 *Draft 1 followed DL Breach (Temple 1992 law with a calibrated C_T). Draft 2 rebuilds the part from the
 physical process as observed in large-scale tests and as modelled by the USDA-ARS SIMBA/WinDAM
 stress-based model; DL Breach's formulas are kept as options for the benchmark.*
@@ -107,7 +107,14 @@ migration coefficient to calibrate: f_kd, which already scales the measured k_d,
 headcut speed consistently. In the Reclamation/CEATI evaluation of breach models this stress-based
 model "performed very well and exhibited appropriate sensitivity to soil parameters" (DSO-2017-02).
 It also contains the mode switch of §4.1 by itself: a soil with c_u ≈ 0 gives E_v ≤ 0 and erodes as
-cascading surface flow.
+cascading surface flow. (The model needs a detachment law, k_d and τ_c; soils whose erosion is
+transport-limited — the non-cohesive cases of Part 2 — keep the surface-erosion model of Parts 2–3.)
+
+**Stages 1–2 hydraulic control.** Following SIMBA, the original crest is treated as erosion resistant in
+stages 1 and 2, so the erosion depth is also the headcut height and the weir control stays at the
+initial crest/notch elevation until stage 3 (DSO-2017-02, App. A1). **Base stress.** DSO-2017-02 prints
+Robinson's face stress (4.7) but not the base-stress relation; the base is lowered with the larger of the
+slope stress below the drop and τ_hf — an approximation to revisit if Robinson (1992) is obtained.
 
 **Base deepening and widening during stage 2** (DSO-2017-02, App. A1): the base lowers at
 k_d (τ − τ_c) with τ the larger of the slope stress below the drop and the jet stress; it stops at the
@@ -163,14 +170,14 @@ factor and α_c = 0.165 widening. Used only for the like-for-like DL Breach comp
 | (4.3)–(4.7) | reproduce a hand calculation of τ_hf for a set (H_h, d_c, d_bw) |
 | (4.8) | E_v > 0 for low drops in strong soil; E_v ≤ 0 when H_h exceeds the vertical-cut height (~4 c_u/γ_t) |
 | (4.9) | zero below τ_c; capped at the 0.5H:1V surface-erosion rate when E_v ≤ 0 |
-| stage switch | stage 2 begins exactly when H_h > d_c; never for c_u = 0 |
+| stage switch | stage 2 begins exactly when H_h > d_c; for c_u = 0, E_v ≤ 0 and the advance runs at the cap |
 | mass balance | water and sediment balances < 1e-9 relative across all stage switches |
 | dt convergence | Qp, Tp, B with p ≈ 1 on E1S1, E2S2, GooseCreek, LaurelRun |
 | benchmark option | DL Breach option reproduces DL Breach's published E1S1 result within its reported accuracy |
 
 ---
 
-## 4.8 Decisions for review (physics-based)
+## 4.8 Decisions (Aakash, 2026-11-20 — all seven accepted)
 
 1. **One process model for all soils**: stage 1 surface erosion → stage 2 headcut only when the flow
    plunges (4.2), with the soil's ability to hold a face entering through E_v (4.8). No mode switch by
@@ -186,6 +193,43 @@ factor and α_c = 0.165 widening. Used only for the like-for-like DL Breach comp
 5. **Start location**: downstream crest edge (observed in the E-series and used by SIMBA), not the toe.
 6. **Residual-block sliding**: on, with uplift (4.10)–(4.11).
 7. **DL Breach laws** kept only as the benchmark option.
+
+---
+
+## 4.9 Implementation notes (engine 0.2.0, `lumped/headcut.py`, `LumpedBreach._headcut_step`)
+
+- **Applies to** cohesive cases with a measured or assigned k_d (`Params.headcut = "stress"`, default);
+  `headcut = "off"` restores the surface-erosion model of Parts 2–3 for comparison.
+- **Geometry of the drop.** The headcut is a brink at x_h with vertical-walled channel of width b_h and a
+  horizontal base at z_h, starting at the downstream end of the notch invert (x_down of the invert). The
+  eroded bulk volume b_h × (area of dam below the invert removed by the drop) is a diagnostic only; the
+  cohesive branch has no sediment feedback on the flow.
+- **Flow below the drop**: normal depth in a rectangle of width b_h on the downstream face (1/z_d); the
+  cap of (4.9) uses the same flow on S₀ = 2. Tailwater is not modelled, so d_bw = d_c.
+- **Stage 3**: once the brink reaches the upstream end of the control, the control width becomes b_h,
+  the brink follows the upstream face (x_h = x_up(z_control)) and the control lowers by
+  max(advance/z_u, k_d(τ_control − τ_c)) to the base z_h. Hand-off to the core (stage 4) sets the flat top
+  at z_h, b = b_down = b_h.
+- **Residual block**: the sliding margin (F_drive − F_resist)/F_resist of (4.10)–(4.11) is evaluated every
+  step from stage 2. A sign change inside a step is located in time (linear in the margin): the step is
+  redone to the crossing, the block fails (control → z_h, stage 4) and the step is finished on the new
+  geometry. Without this event location the failure snapped to the step grid and Qp converged erratically
+  in dt (LaurelRun 1587 / 1607 / 1603 m³/s); with it p ≈ 1 (1581 / 1589 / 1593).
+
+**First results, calibration cases only (neutral factors, dt = t_end/20000).**
+
+| case | Qp obs | Qp 0.1.0 (surface) | Qp 0.2.0 (headcut) | Tp obs | Tp 0.1.0 | Tp 0.2.0 | B obs | B 0.1.0 | B 0.2.0 |
+|---|---|---|---|---|---|---|---|---|---|
+| E1S1 | 6.5 | 3.74 | 10.3 | 0.666 h | 0.54 h | 0.75 h | 6.9 | 5.1 | 7.3 (valley) |
+| E2S2 | 1.3 | 2.33 | 1.21 | 22.5 h | 1.32 h | 18.1 h | 3.3 | 4.9 | 4.9 |
+| GooseCreek | 565 | 567 | 676 | – | 5.4 h | 4.5 h | 30.5 | 75.7 | 77.1 |
+
+The staged process fixes the time scale of the slow E2S2 test (1.3 h → 18 h against 22.5 h observed),
+which the surface model could not reach with any physical k_d. Width growth in stage 2 is fast (E1S1
+reaches the 7.3 m flume width before stage 3, which makes Qp too high); this is decision 4 (wall shear =
+bed shear) and is the first item for the sensitivity analysis (0.7 × bed shear, Lane 1955). GooseCreek
+k_d is DL Breach-calibrated and not independent (Phase 4 flag). Validation cases were run for convergence
+only; their observations were not looked at.
 
 ---
 

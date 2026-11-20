@@ -3,11 +3,14 @@
 State: reservoir volume V; breach-top elevation z_b; flat-top bottom width b; downstream edge of the flat
 top x_e; downstream-slope bottom width b_down; side slope beta (from bank stability, recomputed each step).
 
-Not yet included (later theory parts): headcut migration (Part 4), piping (Part 5), impulse waves
-(Part 6), moraine specifics (Part 7). Time integration is explicit Euler at a fixed step until Part 8.
+Cohesive soils with a detachment law (k_d, tau_c) erode by the staged headcut process of Part 4
+(surface erosion -> plunging headcut -> control lowered -> widening at the base); after stage 3 the
+overtopping core of Parts 1-3 takes over. Not yet included: piping (Part 5), impulse waves (Part 6),
+moraine specifics (Part 7). Time integration is explicit Euler at a fixed step until Part 8.
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -15,8 +18,10 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from . import hydraulics as hy
+from . import headcut as hc
 from . import sediment as sd
-from .geometry import (Dam, bulk_unit_weight, side_area_slope, side_area_top, side_slope_angle)
+from .geometry import (Dam, bulk_unit_weight, integrate_positive, side_area_slope, side_area_top,
+                       side_slope_angle)
 
 RHO_S = 2650.0
 EPS = 1e-9
@@ -38,6 +43,9 @@ class Params:
     n_loc: int = 2
     weir: str = "exact"            # "exact" | "dlbreach"
     rho_s: float = RHO_S
+    headcut: str = "stress"        # "stress" (Part 4, cohesive with k_d) | "off" (surface erosion only)
+    c_u: float = 0.0               # undrained shear strength for the headcut face [Pa]
+    C_h: float = 1.0               # sensitivity multiplier on the advance rate (4.9); fixed at 1
 
 
 @dataclass
@@ -49,6 +57,15 @@ class State:
     x_e: float
     b_down: float
     beta: float
+
+
+@dataclass
+class HeadcutState:
+    stage: int          # 1 surface erosion, 2 plunging headcut, 3 control lowered, 4 = handed to the core
+    x_h: float          # headcut (brink) position [m]
+    z_h: float          # headcut base elevation [m]
+    b_h: float          # headcut channel width [m]
+    vol: float = 0.0    # eroded bulk volume of the headcut channel [m3] (diagnostic)
 
 
 class Reservoir:
@@ -89,6 +106,13 @@ class LumpedBreach:
         self.s = State(t=0.0, V=res.volume(z_s0), z_b=z_b0, b=max(b0, 0.0), x_e=dam.x_down(z_b0),
                        b_down=max(b0, 0.0), beta=beta0)
         self.z_b0 = z_b0
+        self.gamma_t = (1.0 - p.porosity) * p.rho_s * hy.G + p.porosity * hy.RHO_W * hy.G   # saturated
+        self.hc: Optional[HeadcutState] = None
+        if p.headcut == "stress" and p.material_class == "cohesive" and p.kd > 0.0:
+            self.hc = HeadcutState(stage=1, x_h=self.s.x_e, z_h=z_b0, b_h=max(self.average_width(), 1e-3))
+        self.max_stage = 1 if self.hc else 0
+        self._margin: Optional[float] = None        # relative sliding margin of the residual block
+        self.block_failure_t: Optional[float] = None
         self.ws = sd.settling_velocity(p.d50, p.rho_s) if p.material_class == "noncohesive" else 0.0
         self.tau_c_nc = sd.critical_shear_wu(p.d50, p.rho_s)
         # balances
@@ -115,6 +139,42 @@ class LumpedBreach:
 
     # ---- one explicit step ---------------------------------------------------------------------------
     def step(self, dt: float) -> Dict[str, float]:
+        """One step; a residual-block failure inside the step is located in time (event location):
+        the step is redone up to the crossing of the sliding margin, the block fails, and the rest of the
+        step runs on the new geometry. Without this the failure time snaps to the step grid and Qp, which
+        follows the failure within a step or two, converges erratically in dt."""
+        if self.hc is None or self.hc.stage < 2:
+            return self._step_raw(dt)
+        snap = dict(self.__dict__)
+        snap["s"], snap["hc"] = dataclasses.replace(self.s), dataclasses.replace(self.hc)
+        m0 = self._margin
+        out = self._step_raw(dt)
+        m1 = self._margin
+        if not (self.hc is not None and m0 is not None and m0 <= 0.0 < m1):
+            if self.hc is not None and m1 is not None and m1 > 0.0 and m0 is None:
+                self._fail_block(out)             # first evaluation already unstable
+            return out
+        theta = min(max(-m0 / (m1 - m0), 0.0), 1.0)
+        self.__dict__.update(snap)
+        if theta > 0.0:
+            self._step_raw(theta * dt)
+        if self.hc is not None:
+            self._fail_block(out)
+        if theta < 1.0:
+            out2 = self._step_raw((1.0 - theta) * dt)
+            out2["Q"], out2["Qb"] = max(out2["Q"], out["Q"]), max(out2["Qb"], out["Qb"])
+            out2["t"] = out["t"]
+            out2["block_failure_t"] = self.block_failure_t
+            return out2
+        return out
+
+    def _fail_block(self, out: Dict) -> None:
+        self.s.z_b = self.hc.z_h
+        self.block_failure_t = self.s.t
+        out["block_failure_t"] = self.s.t
+        self._handoff()
+
+    def _step_raw(self, dt: float) -> Dict[str, float]:
         p, dam, s = self.p, self.p.dam, self.s
         m = self.m
         z_s = self.res.level(s.V)
@@ -136,7 +196,9 @@ class LumpedBreach:
                "B": self.average_width(), "B_top": self.top_width_at_crest(), "x_e": s.x_e, "L_top": L_top}
 
         dV_top = dV_slope = 0.0
-        if Qb > 0.0:
+        if self.hc is not None:
+            out.update(stage=self.hc.stage, x_h=self.hc.x_h, z_h=self.hc.z_h, b_h=self.hc.b_h)
+        if self.hc is None and Qb > 0.0:
             # breach top: critical depth (1.10)
             y = hy.critical_depth(s.b, m, head)
             A, R = hy.area(s.b, m, y), hy.hydraulic_radius(s.b, m, y)
@@ -182,13 +244,137 @@ class LumpedBreach:
         self.cum_in += Qin * dt
         self.cum_out += Qout * dt
 
-        # ---- geometry (Part 3) ----
-        self._allocate_top(dV_top)
-        self._allocate_slope(dV_slope)
-        self._update_side_slope()
-        self.cum_eroded_bulk += dV_top + dV_slope
+        # ---- geometry ----
+        if self.hc is not None:
+            self._headcut_step(Qb, z_s, dt, out)          # Part 4, stages 1-3
+        else:
+            self._allocate_top(dV_top)                    # Parts 2-3 (and Part 4 stage 4)
+            self._allocate_slope(dV_slope)
+            self._update_side_slope()
+            self.cum_eroded_bulk += dV_top + dV_slope
         s.t += dt
         return out
+
+    # ---- Part 4: staged headcut process -------------------------------------------------------------
+    def _headcut_area(self, z_ctrl: float, x_h: float, z_h: float) -> float:
+        """Longitudinal area of dam removed below the notch invert: lowered control reach upstream of the
+        brink (stage 3) plus the drop and its horizontal base downstream of the brink."""
+        dam, top = self.p.dam, self.z_b0
+        cap = lambda x: min(dam.z_dam(x), top)
+        brk = [dam.x_up(top), dam.x_down(top), dam.x_c0, dam.x_c1]
+        x_a = dam.x_up(z_ctrl)
+        a1 = 0.0
+        if x_h > x_a:
+            pts = sorted({x_a, x_h} | {x for x in brk if x_a < x < x_h})
+            a1 = integrate_positive(lambda x: cap(x) - z_ctrl, pts)
+        x_b = dam.x_T
+        pts = sorted({x_h, x_b} | {x for x in brk if x_h < x < x_b})
+        return a1 + integrate_positive(lambda x: cap(x) - z_h, pts)
+
+    def _rect_flow(self, Q: float, b: float, S0: float):
+        """Normal-depth flow in a rectangular channel: (depth, bed shear)."""
+        y = hy.normal_depth(Q, b, 0.0, self.p.n, S0)
+        A = b * y
+        return y, hy.manning_shear(Q, A, A / (b + 2.0 * y), self.p.n)
+
+    def _headcut_step(self, Qb: float, z_s: float, dt: float, out: Dict) -> None:
+        p, dam, s, h = self.p, self.p.dam, self.s, self.hc
+        if Qb <= 0.0:
+            return
+        kd, tc = p.kd, p.tau_c_coh
+        bh = h.b_h
+        dc = hc.critical_depth_unit(Qb / bh)
+        Hh = max(s.z_b - h.z_h, 0.0)
+        # flow on the downstream face below the drop (4.1) and the 0.5H:1V cap of (4.9)
+        _, tau_s = self._rect_flow(Qb, bh, 1.0 / dam.zd)
+        Er = sd.cohesive_rate(tau_s, tc, kd)
+        _, tau_cap = self._rect_flow(Qb, bh, 2.0)
+        Er_cap = sd.cohesive_rate(tau_cap, tc, kd)
+        plunging = Hh > dc                                 # (4.2): no tailwater in the lumped model
+        out.update(dc=dc, Hh=Hh, plunging=plunging)
+        dX = 0.0
+        if plunging:
+            if h.stage == 1:
+                h.stage = 2
+            tau_hf = hc.face_stress(Hh, dc, dc)
+            dz_base = sd.cohesive_rate(max(tau_s, tau_hf), tc, kd) * dt
+            dX = p.C_h * hc.advance_rate(Hh, dc, dc, p.c_u, self.gamma_t, kd, tc, Er_cap) * dt
+        else:
+            dz_base = Er * dt
+        z_h = max(h.z_h - dz_base, 0.0)
+        # width: wall erosion by the flow (Part 3, wall shear = bed shear) or plunge-pool widening = advance
+        beta_h = side_slope_angle(p.cohesion, self.gamma_b, max(s.z_b - z_h, 1e-6), p.phi)
+        db_wall = self._n_hc() * Er * dt * (1.0 / math.sin(beta_h) - 1.0 / math.tan(beta_h))
+        if beta_h >= 0.5 * math.pi - 1e-9:
+            db_wall = self._n_hc() * Er * dt
+        db = max(dX, db_wall) if plunging else db_wall
+        b_new = min(bh + db, dam.L_cr)
+        # advance of the brink; stage 3 once it reaches the upstream edge of the control
+        x_h = h.x_h - dX
+        x_ctrl = dam.x_up(s.z_b)
+        if h.stage == 3 or x_h <= x_ctrl:
+            h.stage = 3
+            y = hy.critical_depth(s.b, self.m, max(z_s - s.z_b, 0.0))
+            tau_ctrl = 0.0
+            if y > 0.0:
+                A, R = hy.area(s.b, self.m, y), hy.hydraulic_radius(s.b, self.m, y)
+                tau_ctrl = hy.manning_shear(Qb, A, R, p.n)
+            over = max(x_ctrl - x_h, 0.0)                  # advance beyond the control edge
+            dz_c = max(over / dam.zu, sd.cohesive_rate(tau_ctrl, tc, kd) * dt)
+            s.z_b = max(s.z_b - dz_c, z_h)
+            x_h = dam.x_up(s.z_b)
+            s.b = max(s.b, b_new)
+        h.x_h, h.z_h, h.b_h = x_h, z_h, b_new
+        self.max_stage = max(self.max_stage, h.stage)
+        # sediment budget (diagnostic): bulk volume of the headcut channel
+        vol = h.b_h * self._headcut_area(s.z_b, h.x_h, h.z_h)
+        dvol = max(vol - h.vol, 0.0)
+        h.vol = vol
+        self.cum_eroded_bulk += dvol
+        # residual-block sliding (4.10)-(4.11), then hand-off to the core (stage 4)
+        if h.stage >= 2:
+            self._margin = self._block_margin(z_s, Qb)
+        if h.stage == 3 and s.z_b - h.z_h <= 1e-6:
+            self._handoff()
+
+    def _n_hc(self) -> int:
+        return self.p.n_loc if self.hc.b_h < self.p.dam.L_cr - EPS else 0
+
+    def _block_margin(self, z_s: float, Qb: float) -> float:
+        """Horizontal sliding of the crest block upstream of the brink on the headcut-base plane."""
+        p, dam, s, h = self.p, self.p.dam, self.s, self.hc
+        z0 = h.z_h
+        x_a = dam.x_up(z0)
+        L_base = h.x_h - x_a
+        if L_base <= EPS:
+            return 1.0                                      # nothing left to hold the water
+        top = lambda x: min(dam.z_dam(x), self.z_b0) if x > dam.x_up(s.z_b) else dam.z_dam(x)
+        pts = sorted({x_a, h.x_h} | {x for x in (dam.x_c0, dam.x_c1, dam.x_up(self.z_b0), dam.x_up(s.z_b))
+                                     if x_a < x < h.x_h})
+        A_blk = integrate_positive(lambda x: top(x) - z0, pts)
+        hw = max(z_s - z0, 0.0)
+        gw = hy.RHO_W * hy.G
+        y = hy.critical_depth(s.b, self.m, max(z_s - s.z_b, 0.0))
+        tau_top = 0.0
+        if y > 0.0:
+            A, R = hy.area(s.b, self.m, y), hy.hydraulic_radius(s.b, self.m, y)
+            tau_top = hy.manning_shear(Qb, A, R, p.n)
+        F_drive = 0.5 * gw * hw * hw + tau_top * max(h.x_h - dam.x_up(s.z_b), 0.0)
+        U = 0.5 * gw * hw * L_base                          # tailwater neglected (z_t+ = 0)
+        W = self.gamma_t * A_blk
+        F_resist = p.cohesion * L_base + max(W - U, 0.0) * math.tan(p.phi) + 2.0 * p.cohesion * A_blk / max(h.b_h, EPS)
+        return (F_drive - F_resist) / max(F_resist, EPS)   # > 0: the block slides
+
+    def _handoff(self) -> None:
+        """Stage 3 complete: the control is at the headcut base; Parts 2-3 carry on (stage 4)."""
+        dam, s, h = self.p.dam, self.s, self.hc
+        s.z_b = h.z_h
+        s.x_e = dam.x_down(s.z_b) if s.z_b > EPS else dam.x_T
+        s.b = max(s.b, h.b_h)
+        s.b_down = s.b
+        self.max_stage = 4
+        self.hc = None
+        self._update_side_slope()
 
     def _allocate_top(self, dV: float) -> None:
         """(3.1)-(3.5): spread dV over bed + side walls of the flat top."""
@@ -299,7 +485,8 @@ class LumpedBreach:
 
 # ---- case adapter -----------------------------------------------------------------------------------
 
-def params_from_case(case: Dict, factors: Optional[Dict] = None, weir: str = "exact") -> tuple:
+def params_from_case(case: Dict, factors: Optional[Dict] = None, weir: str = "exact",
+                     headcut: str = "stress") -> tuple:
     import sys
     from pathlib import Path
     cal = Path(__file__).resolve().parent.parent / "calibration"
@@ -316,8 +503,10 @@ def params_from_case(case: Dict, factors: Optional[Dict] = None, weir: str = "ex
     phi = math.atan(mat.get("tan_phi", 0.7))
     if mat["class"] == "cohesive" and "qu_kPa" in mat:
         cohesion = mat["qu_kPa"] * 1000.0 / (2.0 * math.tan(math.pi / 4 + phi / 2))
+        c_u = 0.5 * mat["qu_kPa"] * 1000.0                 # undrained strength = q_u / 2
     else:
         cohesion = mat.get("cohesion_kPa", 0.0) * 1000.0
+        c_u = cohesion
     lab = case.get("kind") == "lab"
     n = case.get("manning_n") or max(0.016, d50 ** (1.0 / 6.0) / (16.0 if lab else 12.0))
     kd = 0.0
@@ -325,7 +514,8 @@ def params_from_case(case: Dict, factors: Optional[Dict] = None, weir: str = "ex
         kd = mat["kd_cm3Ns"] * 1e-6 * (f["f_kd"] if str(mat.get("kd_status", "")).startswith("measured") else 1.0)
     p = Params(dam=dam, material_class=mat["class"], d50=d50, porosity=mat.get("porosity", 0.35), phi=phi,
                cohesion=cohesion, n=n, kd=kd, tau_c_coh=mat.get("tauc_Pa", 0.0), f_t=f["f_t"],
-               lam=3.0 if lab else 6.0, n_loc=int(case.get("n_loc", 2)), weir=weir)
+               lam=3.0 if lab else 6.0, n_loc=int(case.get("n_loc", 2)), weir=weir,
+               headcut=headcut, c_u=c_u, C_h=f["C_h"])
     res = Reservoir(_stage_volume(case["reservoir"], H))
     notch = case["notch"]
     z_s0 = case.get("initial_level", (H - notch["depth"]) + (case.get("initial_head") or 0.0))
@@ -333,8 +523,8 @@ def params_from_case(case: Dict, factors: Optional[Dict] = None, weir: str = "ex
 
 
 def run_case(case: Dict, factors: Optional[Dict] = None, dt: Optional[float] = None, t_end: Optional[float] = None,
-             weir: str = "exact", record_every: Optional[float] = None) -> Dict:
-    p, res, z_s0, notch, qin = params_from_case(case, factors, weir)
+             weir: str = "exact", record_every: Optional[float] = None, headcut: str = "stress") -> Dict:
+    p, res, z_s0, notch, qin = params_from_case(case, factors, weir, headcut)
     t_end = float(t_end or case.get("t_end", 43200.0))
     dt = float(dt or t_end / 20000.0)
     eng = LumpedBreach(p, res, z_s0, notch, qin, p.dam.H)
@@ -358,4 +548,5 @@ def run_case(case: Dict, factors: Optional[Dict] = None, dt: Optional[float] = N
             "z_b_end": eng.s.z_b, "beta_end_deg": math.degrees(eng.s.beta),
             "water_balance_rel": eng.water_balance_error() / max(eng.V0, 1.0),
             "eroded_bulk_m3": eng.cum_eroded_bulk, "failure_bulk_m3": eng.cum_failure_bulk,
-            "dt": dt, "t_end": t_end, "steps": nsteps, "history": hist}
+            "max_stage": eng.max_stage,
+            "block_failure_t": eng.block_failure_t, "dt": dt, "t_end": t_end, "steps": nsteps, "history": hist}

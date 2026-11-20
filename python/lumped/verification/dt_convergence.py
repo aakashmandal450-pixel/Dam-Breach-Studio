@@ -21,7 +21,7 @@ from v34_convergence import gci  # noqa: E402
 
 from lumped.model import run_case  # noqa: E402
 
-CAL = ("Castlewood", "E1S1", "E1S3", "E2S2", "GooseCreek", "SouthFork")
+CAL = ("Castlewood", "E1S1", "E1S3", "E2S2", "GooseCreek", "SouthFork", "LaurelRun")
 METRICS = (("Qp", "m3/s"), ("Tp_h", "h"), ("B", "m"))
 P_RANGE = (0.5, 3.0)
 
