@@ -1,0 +1,13 @@
+{
+  "case": "LaurelRun",
+  "grid_div": 6,
+  "dx": 2.1333,
+  "nx": 51,
+  "ny": 73,
+  "Qp": 0.2,
+  "Tp_s": 678.2,
+  "width": 0.0,
+  "stop": "confirmed_prism_outlet_peak",
+  "wall_s": 30.3,
+  "backend": "numba"
+}

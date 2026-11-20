@@ -255,6 +255,11 @@ class EngineConfig:
     # overfall, i.e. where the water surface at the foot is below the bed at the top of the scarp. A scarp drowned by
     # its tailwater (e.g. the upstream face under the lake) does not retreat by the energy law. Scarp mode only.
     headcut_overfall: str = "any"
+    # V3.4 F7: local scarp detection + volume-based retreat. When set (e.g. 1.0 = 45 deg), the headcut is the
+    # first group of consecutive drops whose cell-to-cell slope >= this value (a local near-vertical step), not
+    # the whole run. The retreat removes volume from the brink cell and deposits at the foot, so the face stays
+    # steep and the retreat rate is independent of the cell size. None = V3.3 upwind-shift rule. Scarp mode only.
+    headcut_face_slope: Optional[float] = None
     lateral_noncohesive: str = "excess_shear"  # C3: "excess_shear" (V3.2.2) or "off": no lateral law for non-cohesive
                                                #     (and 'mixed') material; banks retreat by toe erosion + collapse
     lateral_directions: str = "y"         # C4: "y" (V3.2.2: banks facing y only) or "xy" (also banks facing x)
@@ -1457,6 +1462,197 @@ class Headcut:
         o1, o2 = np.lexsort((si, sc)), np.lexsort((ei, ec))
         return si[o1], ei[o2] - 1, sc[o1]
 
+    def _migrate_scarp_volume(self, mesh: MeshState, qx: np.ndarray, qy: np.ndarray, dt: float) -> float:
+        """F7 (V3.4, headcut_face_slope set): local scarp detection + volume-based retreat.
+
+        Change A (local scarp detection): within each run of drops >= seg_slope, the headcut is the first group
+        of consecutive drops whose cell-to-cell slope >= headcut_face_slope. This finds a near-vertical step,
+        not the whole dam face.
+
+        Change B (volume-based retreat): the retreat removes R*dt*H_s/ds of height from the brink cell and
+        deposits it at the foot, keeping the face steep. The retreat rate R m/s is independent of cell size.
+        """
+        cfg, p = self.cfg, self.mat.porosity
+        z, h = mesh.z_b, mesh.h
+        nx, ny = z.shape
+        face_slope = cfg.headcut_face_slope
+        total = 0.0
+        min_hi = nx + ny  # track leftmost headcut row for mesh.headcut_i
+        dirs = ((0, +1, mesh.dx), (0, -1, mesh.dx), (1, +1, mesh.dy), (1, -1, mesh.dy))
+        for axis, sign, ds in dirs:
+            Z = z if axis == 0 else z.T
+            Hh = h if axis == 0 else h.T
+            Q = (qx if axis == 0 else qy.T) * sign
+            if sign < 0:
+                Z, Hh, Q = Z[::-1], Hh[::-1], Q[::-1]
+            d = Z[:-1] - Z[1:]                                     # drop from cell k to k+1
+            n_line, n_col = Z.shape
+            dsafe = max(ds, 1e-12)
+            seg = d / dsafe >= cfg.headcut_seg_slope
+            if not np.any(seg):
+                continue
+            s_i, e_i, col = self._runs(seg)
+            for r in range(len(s_i)):
+                s, e, c = int(s_i[r]), int(e_i[r]), int(col[r])
+                # --- Change A: find the local scarp within the run ---
+                # Scan the run for the first group of consecutive drops >= face_slope.
+                # The scarp is the FIRST such group (closest to the downstream end).
+                hc_top = -1
+                hc_bot = -1
+                k = s
+                while k <= e:
+                    if d[k, c] / dsafe >= face_slope:
+                        gs = k
+                        while k <= e and d[k, c] / dsafe >= face_slope:
+                            k += 1
+                        ge = k - 1
+                        if hc_top < 0:  # first steep group found
+                            hc_top = gs
+                            hc_bot = ge
+                        break
+                    k += 1
+                # --- Determine z_crest, ext_foot, H_full ---
+                if hc_top >= 0:
+                    # Steep group found: z_crest = max of the top two cells
+                    z_crest = max(float(Z[hc_top, c]),
+                                  float(Z[hc_top - 1, c]) if hc_top > 0 else float(Z[hc_top, c]))
+                    ext_foot = hc_bot + 1
+                    # Extend ext_foot while cumulative slope from hc_top to ext_foot+1 >= face_slope
+                    while ext_foot < e + 1 and ext_foot + 1 < n_line:
+                        cum_drop = z_crest - float(Z[ext_foot + 1, c])
+                        cum_len = (ext_foot + 1 - hc_top) * dsafe
+                        if cum_drop / cum_len >= face_slope:
+                            ext_foot += 1
+                        else:
+                            break
+                    H_full = z_crest - float(Z[ext_foot, c])
+                    # --- Coarse-grid face extension ---
+                    # At coarse resolution the face spans more cells than the steep group
+                    # alone covers (H/ds < 2 → the step occupies 2 cells and the
+                    # cumulative-slope check above fails). Extend to the base of the run
+                    # if the total span is still consistent with a concentrated scarp
+                    # (same n_drops ≤ max_drops test as the fallback).
+                    if e + 1 > ext_foot and e + 1 < n_line:
+                        z_run_base = float(Z[e + 1, c])
+                        H_run_base = z_crest - z_run_base
+                        n_span = e + 1 - hc_top
+                        if H_run_base > H_full and n_span <= H_run_base / dsafe + 2:
+                            H_full = H_run_base
+                            ext_foot = e + 1
+                else:
+                    # No steep group: fallback — use the whole run as a concentrated scarp
+                    # if the cell count is consistent (n_drops <= H/ds + 2).
+                    hc_top = s
+                    ext_foot = e + 1
+                    if ext_foot >= n_line:
+                        continue
+                    z_crest_fb = max(float(Z[s, c]),
+                                     float(Z[s - 1, c]) if s > 0 else float(Z[s, c]))
+                    z_base_fb = float(Z[ext_foot, c])
+                    H_run = z_crest_fb - z_base_fb
+                    n_drops = e - s + 1
+                    max_drops = H_run / dsafe + 2
+                    if n_drops > max_drops or H_run <= 0:
+                        continue
+                    z_crest = z_crest_fb
+                    H_full = H_run
+
+                # --- Walk to true base ---
+                # After the run detector and steep-group determine ext_foot, walk
+                # downstream through monotonically-decreasing cells to find the true
+                # base of the scarp (residuals that dropped out of the run).
+                true_foot = ext_foot
+                while true_foot + 1 < n_line:
+                    z_next = float(Z[true_foot + 1, c])
+                    z_curr = float(Z[true_foot, c])
+                    if z_next >= z_curr - 1e-9:
+                        break  # z stopped decreasing → found the base
+                    # Stop if the slope is still >= seg_slope (a natural slope, not a residual)
+                    if (z_curr - z_next) / dsafe >= cfg.headcut_seg_slope:
+                        break
+                    true_foot += 1
+                z_base = float(Z[true_foot, c])
+                H_walk = z_crest - z_base
+                if H_walk > H_full:
+                    H_full = H_walk
+                    ext_foot = true_foot
+
+                # --- Activation checks ---
+                if H_full < cfg.headcut_min_height:
+                    continue
+                foot_m = ext_foot if sign > 0 else n_line - 1 - ext_foot
+                top_m = hc_top if sign > 0 else n_line - 1 - hc_top
+                if axis == 0:
+                    hfoot = float(Hh[ext_foot, c]) if sign > 0 else float(h[foot_m, c])
+                    q_val = float(Q[hc_top, c])
+                    zfoot = float(Z[ext_foot, c])
+                    ztop = float(Z[hc_top, c])
+                else:
+                    hfoot = float(Hh[ext_foot, c]) if sign > 0 else float(h[c, foot_m])
+                    q_val = float(Q[hc_top, c])
+                    zfoot = float(Z[ext_foot, c])
+                    ztop = float(Z[hc_top, c])
+                if not (hfoot > cfg.h_dry and q_val > 1e-6):
+                    continue
+                if cfg.headcut_overfall == "free" and not (zfoot + hfoot < ztop):
+                    continue
+
+                # --- Change B: volume-based retreat ---
+                R = float(self._rate(np.array([q_val]), np.array([H_full]))[0])
+                z_base_vol = float(Z[ext_foot, c])
+                # Volume target: R * dt * H_full per unit width (m²/m).
+                # Convert to height target for cells of width ds.
+                vol_target = R * dt * H_full
+                h_target = vol_target / dsafe
+                # Remove from brink cell upward
+                brink = ext_foot - 1
+                h_remaining = h_target
+                while h_remaining > 1e-15 and brink >= hc_top:
+                    cell_z = float(Z[brink, c])
+                    removable = cell_z - z_base_vol
+                    if removable <= 0:
+                        brink -= 1
+                        continue
+                    take = min(removable, h_remaining)
+                    Z[brink, c] -= take
+                    h_remaining -= take
+                    if cell_z - take <= z_base_vol + 1e-9:
+                        brink -= 1
+                    else:
+                        break
+                vol_removed = (h_target - h_remaining) * dsafe
+                # Deposit at the foot cell as sediment (wet) or bed (dry)
+                foot_idx = ext_foot
+                if foot_idx < n_line:
+                    deposit = vol_removed / dsafe  # convert m² back to height for the foot cell
+                    if axis == 0:
+                        fm = foot_idx if sign > 0 else n_line - 1 - foot_idx
+                        if Hh[ext_foot, c] > cfg.h_dry:
+                            mesh.S[fm, c] += (1.0 - p) * deposit
+                        else:
+                            z[fm, c] += deposit
+                    else:
+                        fm = foot_idx if sign > 0 else n_line - 1 - foot_idx
+                        if Hh[ext_foot, c] > cfg.h_dry:
+                            mesh.S[c, fm] += (1.0 - p) * deposit
+                        else:
+                            if axis == 1:
+                                z[c, fm] += deposit
+                            else:
+                                z[fm, c] += deposit
+                dw = mesh.dy if axis == 0 else mesh.dx  # cross-stream cell width
+                total += vol_removed * dw  # vol_removed is m²/m-width → m³
+                # Track leftmost headcut position
+                if axis == 0:
+                    hi = hc_top if sign > 0 else n_line - 1 - hc_top
+                else:
+                    hi = c  # column index for transverse
+                if hi < min_hi:
+                    min_hi = hi
+        if total > 0 and min_hi < nx + ny:
+            mesh.headcut_i = min_hi
+        return total
+
     def _migrate_scarp(self, mesh: MeshState, qx: np.ndarray, qy: np.ndarray, dt: float) -> float:
         """C1 (V3.3, headcut_mode='scarp'): scarp-based headcut in x and y.
 
@@ -1583,10 +1779,11 @@ class Headcut:
             self._log_scarps(mesh, qx)
         if self.cfg.headcut_overfall not in ("any", "free"):
             raise ValueError("headcut_overfall must be 'any' or 'free'")
-        if self.cfg.headcut_overfall == "free" and mode != "scarp":
-            raise ValueError("headcut_overfall='free' needs headcut_mode='scarp'")
         if mode == "scarp":
-            return self._migrate_scarp(mesh, qx, np.zeros_like(qx) if qy is None else qy, dt)
+            qy_safe = np.zeros_like(qx) if qy is None else qy
+            if self.cfg.headcut_face_slope is not None:
+                return self._migrate_scarp_volume(mesh, qx, qy_safe, dt)
+            return self._migrate_scarp(mesh, qx, qy_safe, dt)
         if mode != "cell":
             raise ValueError("headcut_mode must be 'cell' or 'scarp'")
         cfg, p = self.cfg, self.mat.porosity
@@ -1594,6 +1791,11 @@ class Headcut:
         drops = z[:-1, :] - z[1:, :]                     # (nx-1, ny), face i|i+1
         ok = (drops / max(mesh.dx, 1e-12) >= cfg.headcut_min_slope) & (mesh.h[1:, :] > cfg.h_dry) \
              & (np.abs(qx[:-1, :]) > 1e-6)
+        if cfg.headcut_overfall == "free":
+            # 2026-11-19 diagnostic: the F2 free-overfall test applied to the one-cell rule
+            # (tailwater surface at the foot below the brink), so 'cell' can be compared with
+            # the scarp gates at the same overfall setting. Default 'any' is unchanged.
+            ok &= (z[1:, :] + mesh.h[1:, :] < z[:-1, :])
         if not np.any(ok):
             return 0.0
         istar, js = np.where(ok)
@@ -1933,22 +2135,27 @@ class UltimateBreachEngine:
         threshold = max(0.02, 0.01 * self._dam_height)
         rows = np.where(self._crest_rows)[0]
         if rows.size == 0:
-            return {"depth_m": 0.0, "width_m": 0.0, "area_m2": 0.0, "BDI": 0.0}
+            return {"depth_m": 0.0, "width_m": 0.0, "area_m2": 0.0, "BDI": 0.0, "width_eq_m": 0.0}
         row_areas = np.sum(lowering[rows, :], axis=1) * self.mesh.dy
         row = rows[int(np.argmax(row_areas))]
         cross = lowering[row, :]
         frac = max(float(self.cfg.breach_width_fraction), 0.0)
         active = np.where(cross >= max(threshold, frac * float(np.max(cross))))[0]
         if active.size == 0:
-            return {"depth_m": 0.0, "width_m": 0.0, "area_m2": 0.0, "BDI": 0.0}
+            return {"depth_m": 0.0, "width_m": 0.0, "area_m2": 0.0, "BDI": 0.0, "width_eq_m": 0.0}
         width = (int(active[-1]) - int(active[0]) + 1) * self.mesh.dy
+        # Grid-independent equivalent width: whole eroded cross-section area / deepest cut.
+        # For a trapezoid this is the average of top and bottom width (the Wahl / Froehlich B).
+        # It is an integral, so it changes smoothly with dy instead of in whole cells like width.
+        cut = cross[cross >= threshold]
+        width_eq = float(np.sum(cut) * self.mesh.dy / max(float(np.max(cross)), 1e-12))
         depth = float(np.mean(cross[active]))
         area = float(np.sum(cross[active]) * self.mesh.dy)
         r_depth = np.clip(depth / self._dam_height, 0.0, 1.0)
         r_width = np.clip(width / (self.mesh.ny * self.mesh.dy), 0.0, 1.0)
         r_area = np.clip(area / (self._dam_height * self.mesh.ny * self.mesh.dy), 0.0, 1.0)
         bdi = float((r_depth * r_width * r_area) ** (1.0 / 3.0))
-        return {"depth_m": depth, "width_m": width, "area_m2": area, "BDI": bdi}
+        return {"depth_m": depth, "width_m": width, "area_m2": area, "BDI": bdi, "width_eq_m": width_eq}
 
     def channelization_index(self) -> float:
         """Transverse scour-concentration proxy; 1 means uniform scour across y."""

@@ -1,0 +1,21 @@
+{
+ "id": "LaurelRun",
+ "grid": 12,
+ "variant": "f56",
+ "overrides": {
+  "hydrostatic_reconstruction": "chen_noelle",
+  "headcut_overfall": "free",
+  "adaptation_dx_floor": false,
+  "collapse_to_repose": true,
+  "collapse_mode": "bank_wedge",
+  "sediment_face_flux": "hydro"
+ },
+ "Qp": 429.83385305323367,
+ "Tp_h": 0.6348436144868701,
+ "B": 25.42344827586207,
+ "max_lowering_m": 12.8,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 2150.078125,
+ "max_balance": 8.800998330116272e-08
+}

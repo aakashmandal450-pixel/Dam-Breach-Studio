@@ -1,0 +1,23 @@
+V3.4 isolation test 3: which of F5 / F6 / F7 collapses the breach?
+Baseline F1+F2+F3+F4, neutral factors, cal-2 options. Qp [m3/s], B [m], Tp [h].
+'vs base' = Qp / Qp(base) at the same grid; B = 0 means the breach never opened.
+
+--- LaurelRun -----------------------------------------------------
+variant                         H/9                       H/12   H9->H12 Qp   verdict
+base        401.0 B   21 T 0.76           511.5 B   23 T 0.66             +27.6 %   NOT converged
+f5          296.6 B   25 T 1.08  x 0.74    438.0 B   26 T 0.64  x 0.86      +47.7 %   NOT converged
+f56         348.1 B   27 T 0.92  x 0.87    429.8 B   25 T 0.63  x 0.84      +23.5 %   NOT converged
+f567        643.2 B   85 T 0.87  x 1.60    695.4 B   90 T 0.71  x 1.36       +8.1 %   converged (<10 %)
+no_f5       627.2 B   47 T 0.87  x 1.56    669.9 B   89 T 0.63  x 1.31       +6.8 %   converged (<10 %)
+no_f6       757.7 B  100 T 0.86  x 1.89    847.6 B   47 T 0.87  x 1.66      +11.9 %   NOT converged
+
+--- Castlewood ----------------------------------------------------
+variant                         H/9                       H/12   H9->H12 Qp   verdict
+base        837.4 B   49 T 1.08           889.0 B   44 T 1.25              +6.2 %   converged (<10 %)
+f5          876.8 B   45 T 1.21  x 1.05    997.6 B   41 T 1.10  x 1.12      +13.8 %   NOT converged
+f56         725.0 B   35 T 1.29  x 0.87    761.5 B   37 T 0.96  x 0.86       +5.0 %   converged (<10 %)
+f567        873.6 B   59 T 0.60  x 1.04    835.6 B   46 T 0.60  x 0.94       -4.3 %   converged (<10 %)
+no_f5       735.9 B   47 T 1.15  x 0.88    642.6 B   49 T 1.29  x 0.72      -12.7 %   NOT converged
+no_f6      1025.1 B   66 T 0.63  x 1.22    911.1 B   55 T 0.70  x 1.02      -11.1 %   NOT converged
+
+runs complete: 24 / 24   max |balance error|: 2.2e-07 m3   (* = censored)

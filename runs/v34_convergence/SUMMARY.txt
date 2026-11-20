@@ -1,0 +1,74 @@
+V3.4 GRID CONVERGENCE - three grids, observed order and GCI
+grids H/9, H/12, H/15 (h ratios r21 = 15/12 = 1.250, r32 = 12/9 = 1.333); neutral factors, cal-2.  Results: v34_convergence
+GCI_fine is a +/- band on the H/15 value. 'p' is the observed order of convergence.
+
+========================================================================================================
+VARIANT f567   (F1-F7)
+========================================================================================================
+--- LaurelRun ---------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 643.2      695.4      602.7    +8.1%   -13.3%      -          -       -   OSCILLATORY (signs disagree)
+  B [m]                      84.6       90.0       82.3    +6.5%    -8.6%      -          -       -   OSCILLATORY (signs disagree)
+  B_eq [m]                      -          -          -        -        -      -          -       -   incomplete
+  Tp_h [h]                   0.87       0.71       0.57   -17.9%   -19.7%   0.80      -0.14  156.6%   NOT converged
+  max_lowering_m [m]        12.80      12.80      12.80    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+
+--- Castlewood --------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 873.6      835.6      864.5    -4.3%    +3.5%      -          -       -   OSCILLATORY (signs disagree)
+  B [m]                      58.7       45.9       50.9   -21.8%   +10.9%      -          -       -   OSCILLATORY (signs disagree)
+  B_eq [m]                      -          -          -        -        -      -          -       -   incomplete
+  Tp_h [h]                   0.60       0.60       0.73    -0.0%   +22.1%      -          -       -   OSCILLATORY (signs disagree)
+  max_lowering_m [m]        16.29      15.14      15.00    -7.1%    -0.9%   7.03      14.96    0.3%   p out of asymptotic range 0.5-3.0 - convergence not established
+
+========================================================================================================
+VARIANT base   (F1-F4)
+========================================================================================================
+--- LaurelRun ---------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 401.0      511.5      389.0   +27.6%   -23.9%      -          -       -   OSCILLATORY (signs disagree)
+  B [m]                      21.1       23.3       18.7   +10.3%   -19.9%      -          -       -   OSCILLATORY (signs disagree)
+  B_eq [m]                      -          -          -        -        -      -          -       -   incomplete
+  Tp_h [h]                   0.76       0.66       0.57   -12.6%   -14.4%   1.37       0.30   58.8%   NOT converged
+  max_lowering_m [m]        12.80      12.80      12.80    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+
+--- Castlewood --------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 837.4      889.0     1186.3    +6.2%   +33.4%  11.33     1212.1    2.7%   p out of asymptotic range 0.5-3.0 - convergence not established
+  B [m]                      49.3       44.2       48.1   -10.5%    +9.0%      -          -       -   OSCILLATORY (signs disagree)
+  B_eq [m]                      -          -          -        -        -      -          -       -   incomplete
+  Tp_h [h]                   1.08       1.25       1.06   +15.6%   -15.3%      -          -       -   OSCILLATORY (signs disagree)
+  max_lowering_m [m]        16.89      16.85      17.97    -0.2%    +6.6%      -          -       -   OSCILLATORY (signs disagree)
+
+========================================================================================================
+READING THIS
+========================================================================================================
+  p           observed order. Around 1-2 is a normally converging scheme. Much
+              above 2 usually means the three points are not yet in the asymptotic
+              range, not that the scheme is unusually good.
+  GCI_fine    uncertainty band on the H/15 value. Under ~5 % is a converged metric.
+  OSCILLATORY the metric rose then fell (or fell then rose) across the three grids.
+              The order cannot be computed, and a small 12->15 change is NOT
+              evidence of convergence - the solution is still moving.
+  p range     a GCI verdict is only given for 0.5 <= p <= 3.0. A huge p makes
+              (r^p - 1) explode and GCI collapse to ~0 whatever the real behaviour.
+  B vs B_eq   B is the half-max-lowering span, counted in whole cells. B_eq is eroded
+              area / deepest cut, which changes smoothly with cell size. If B oscillates
+              and B_eq does not, the B oscillation was measurement, not physics.
+
+  Not yet converged:
+    f567   LaurelRun   Qp               OSCILLATORY (signs disagree)
+    f567   LaurelRun   B                OSCILLATORY (signs disagree)
+    f567   LaurelRun   Tp_h             NOT converged (GCI 156.6 %)
+    f567   Castlewood  Qp               OSCILLATORY (signs disagree)
+    f567   Castlewood  B                OSCILLATORY (signs disagree)
+    f567   Castlewood  Tp_h             OSCILLATORY (signs disagree)
+    f567   Castlewood  max_lowering_m   p out of asymptotic range 0.5-3.0 - convergence not established (GCI 0.3 %)
+    base   LaurelRun   Qp               OSCILLATORY (signs disagree)
+    base   LaurelRun   B                OSCILLATORY (signs disagree)
+    base   LaurelRun   Tp_h             NOT converged (GCI 58.8 %)
+    base   Castlewood  Qp               p out of asymptotic range 0.5-3.0 - convergence not established (GCI 2.7 %)
+    base   Castlewood  B                OSCILLATORY (signs disagree)
+    base   Castlewood  Tp_h             OSCILLATORY (signs disagree)
+    base   Castlewood  max_lowering_m   OSCILLATORY (signs disagree)
+

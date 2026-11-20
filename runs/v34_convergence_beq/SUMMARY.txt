@@ -1,0 +1,131 @@
+V3.4 GRID CONVERGENCE - three grids, observed order and GCI
+grids H/9, H/12, H/15 (h ratios r21 = 15/12 = 1.250, r32 = 12/9 = 1.333); neutral factors, cal-2.  Results: v34_convergence_beq
+GCI_fine is a +/- band on the H/15 value. 'p' is the observed order of convergence.
+
+========================================================================================================
+VARIANT f567   (F1-F7)
+========================================================================================================
+--- LaurelRun ---------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 643.2      695.4      602.7    +8.1%   -13.3%      -          -       -   OSCILLATORY (signs disagree)
+  B [m]                      84.6       90.0       82.3    +6.5%    -8.6%      -          -       -   OSCILLATORY (signs disagree)
+  B_eq [m]                   78.2       78.1       73.7    -0.1%    -5.6%      -          -       -   out of range
+  Tp_h [h]                   0.87       0.71       0.57   -17.9%   -19.7%   0.80      -0.14  156.6%   NOT converged
+  max_lowering_m [m]        12.80      12.80      12.80    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+
+--- Castlewood --------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 873.6      835.6      864.5    -4.3%    +3.5%      -          -       -   OSCILLATORY (signs disagree)
+  B [m]                      58.7       45.9       50.9   -21.8%   +10.9%      -          -       -   OSCILLATORY (signs disagree)
+  B_eq [m]                   60.4       46.6       50.0   -22.8%    +7.2%      -          -       -   OSCILLATORY (signs disagree)
+  Tp_h [h]                   0.60       0.60       0.73    -0.0%   +22.1%      -          -       -   OSCILLATORY (signs disagree)
+  max_lowering_m [m]        16.29      15.14      15.00    -7.1%    -0.9%   7.03      14.96    0.3%   p out of asymptotic range 0.5-3.0 - convergence not established
+
+========================================================================================================
+VARIANT cell   (F1-F7, headcut_gate = cell)
+========================================================================================================
+--- LaurelRun ---------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 253.3      248.5      237.1    -1.9%    -4.6%   6.02      233.0    2.1%   p out of asymptotic range 0.5-3.0 - convergence not established
+  B [m]                     153.6      153.6      153.6    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+  B_eq [m]                  139.0      140.2      133.1    +0.8%    -5.0%      -          -       -   OSCILLATORY (signs disagree)
+  Tp_h [h]                   0.89       0.90       0.81    +2.1%   -10.0%      -          -       -   OSCILLATORY (signs disagree)
+  max_lowering_m [m]        12.80      12.80      12.80    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+
+--- Castlewood --------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 855.3      926.4      927.7    +8.3%    +0.1%  13.72      927.8    0.0%   p out of asymptotic range 0.5-3.0 - convergence not established
+  B [m]                      30.5       30.0       29.7    -1.7%    -1.0%   0.99       28.4    5.3%   marginal
+  B_eq [m]                   31.3       29.5       29.1    -5.8%    -1.5%   4.42       28.8    1.1%   p out of asymptotic range 0.5-3.0 - convergence not established
+  Tp_h [h]                   1.21       1.15       1.20    -5.3%    +4.5%      -          -       -   OSCILLATORY (signs disagree)
+  max_lowering_m [m]        18.18      18.94      19.27    +4.1%    +1.7%   2.25      19.77    3.2%   CONVERGED
+
+========================================================================================================
+VARIANT f567_any   (F1-F7 scarp gates, overfall = any)
+========================================================================================================
+--- LaurelRun ---------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                1004.6      791.5     1075.2   -21.2%   +35.8%      -          -       -   OSCILLATORY (signs disagree)
+  B [m]                     105.7      100.6       78.9    -4.8%   -21.6%   9.57       76.0    4.6%   p out of asymptotic range 0.5-3.0 - convergence not established
+  B_eq [m]                  104.2      103.8       84.1    -0.3%   -19.0%      -          -       -   out of range
+  Tp_h [h]                   0.61       0.72       0.39   +18.0%   -45.7%      -          -       -   OSCILLATORY (signs disagree)
+  max_lowering_m [m]        12.80      12.80      12.80    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+
+--- Castlewood --------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                3189.5     3132.6     2929.1    -1.8%    -6.5%   8.49     2893.1    1.5%   p out of asymptotic range 0.5-3.0 - convergence not established
+  B [m]                     112.8      130.7      142.9   +15.9%    +9.3%   0.51      244.8   89.1%   NOT converged
+  B_eq [m]                  103.8      124.7      136.6   +20.1%    +9.5%   1.20      175.2   35.4%   NOT converged
+  Tp_h [h]                   0.38       0.40       0.45    +5.2%   +14.2%   7.25       0.47    3.9%   p out of asymptotic range 0.5-3.0 - convergence not established
+  max_lowering_m [m]        17.86      15.52      15.16   -13.1%    -2.3%   6.20      15.05    1.0%   p out of asymptotic range 0.5-3.0 - convergence not established
+
+========================================================================================================
+VARIANT cell_free   (one-cell rule, overfall = free)
+========================================================================================================
+--- LaurelRun ---------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 252.6      248.9      235.3    -1.5%    -5.4%   8.55      232.9    1.3%   p out of asymptotic range 0.5-3.0 - convergence not established
+  B [m]                     153.6      153.6      153.6    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+  B_eq [m]                  139.2      137.8      135.7    -1.0%    -1.5%   3.53      134.0    1.6%   p out of asymptotic range 0.5-3.0 - convergence not established
+  Tp_h [h]                   0.88       0.90       0.92    +2.1%    +2.2%   1.72       0.97    5.8%   marginal
+  max_lowering_m [m]        12.80      12.80      12.80    +0.0%    +0.0%      -          -       -   SATURATED (equals the physical limit; not a convergence test)
+
+--- Castlewood --------------------------------------------------------------------------------------
+  metric                      H/9       H/12       H/15    9->12   12->15      p     extrap    GCI%   verdict
+  Qp [m3/s]                 531.9      468.6      479.4   -11.9%    +2.3%      -          -       -   OSCILLATORY (signs disagree)
+  B [m]                      30.5       30.0       26.9    -1.7%   -10.5%  11.62       26.6    1.2%   p out of asymptotic range 0.5-3.0 - convergence not established
+  B_eq [m]                   29.9       29.9       29.1    -0.1%    -2.7%  18.47       29.1    0.1%   p out of asymptotic range 0.5-3.0 - convergence not established
+  Tp_h [h]                   1.77       2.03       2.02   +14.7%    -0.7%      -          -       -   OSCILLATORY (signs disagree)
+  max_lowering_m [m]        15.67      15.17      15.27    -3.2%    +0.6%      -          -       -   OSCILLATORY (signs disagree)
+
+========================================================================================================
+READING THIS
+========================================================================================================
+  p           observed order. Around 1-2 is a normally converging scheme. Much
+              above 2 usually means the three points are not yet in the asymptotic
+              range, not that the scheme is unusually good.
+  GCI_fine    uncertainty band on the H/15 value. Under ~5 % is a converged metric.
+  OSCILLATORY the metric rose then fell (or fell then rose) across the three grids.
+              The order cannot be computed, and a small 12->15 change is NOT
+              evidence of convergence - the solution is still moving.
+  p range     a GCI verdict is only given for 0.5 <= p <= 3.0. A huge p makes
+              (r^p - 1) explode and GCI collapse to ~0 whatever the real behaviour.
+  B vs B_eq   B is the half-max-lowering span, counted in whole cells. B_eq is eroded
+              area / deepest cut, which changes smoothly with cell size. If B oscillates
+              and B_eq does not, the B oscillation was measurement, not physics.
+
+  Not yet converged:
+    f567   LaurelRun   Qp               OSCILLATORY (signs disagree)
+    f567   LaurelRun   B                OSCILLATORY (signs disagree)
+    f567   LaurelRun   B_eq             out of range
+    f567   LaurelRun   Tp_h             NOT converged (GCI 156.6 %)
+    f567   Castlewood  Qp               OSCILLATORY (signs disagree)
+    f567   Castlewood  B                OSCILLATORY (signs disagree)
+    f567   Castlewood  B_eq             OSCILLATORY (signs disagree)
+    f567   Castlewood  Tp_h             OSCILLATORY (signs disagree)
+    f567   Castlewood  max_lowering_m   p out of asymptotic range 0.5-3.0 - convergence not established (GCI 0.3 %)
+    cell   LaurelRun   Qp               p out of asymptotic range 0.5-3.0 - convergence not established (GCI 2.1 %)
+    cell   LaurelRun   B_eq             OSCILLATORY (signs disagree)
+    cell   LaurelRun   Tp_h             OSCILLATORY (signs disagree)
+    cell   Castlewood  Qp               p out of asymptotic range 0.5-3.0 - convergence not established (GCI 0.0 %)
+    cell   Castlewood  B                marginal (GCI 5.3 %)
+    cell   Castlewood  B_eq             p out of asymptotic range 0.5-3.0 - convergence not established (GCI 1.1 %)
+    cell   Castlewood  Tp_h             OSCILLATORY (signs disagree)
+    f567_any LaurelRun   Qp               OSCILLATORY (signs disagree)
+    f567_any LaurelRun   B                p out of asymptotic range 0.5-3.0 - convergence not established (GCI 4.6 %)
+    f567_any LaurelRun   B_eq             out of range
+    f567_any LaurelRun   Tp_h             OSCILLATORY (signs disagree)
+    f567_any Castlewood  Qp               p out of asymptotic range 0.5-3.0 - convergence not established (GCI 1.5 %)
+    f567_any Castlewood  B                NOT converged (GCI 89.1 %)
+    f567_any Castlewood  B_eq             NOT converged (GCI 35.4 %)
+    f567_any Castlewood  Tp_h             p out of asymptotic range 0.5-3.0 - convergence not established (GCI 3.9 %)
+    f567_any Castlewood  max_lowering_m   p out of asymptotic range 0.5-3.0 - convergence not established (GCI 1.0 %)
+    cell_free LaurelRun   Qp               p out of asymptotic range 0.5-3.0 - convergence not established (GCI 1.3 %)
+    cell_free LaurelRun   B_eq             p out of asymptotic range 0.5-3.0 - convergence not established (GCI 1.6 %)
+    cell_free LaurelRun   Tp_h             marginal (GCI 5.8 %)
+    cell_free Castlewood  Qp               OSCILLATORY (signs disagree)
+    cell_free Castlewood  B                p out of asymptotic range 0.5-3.0 - convergence not established (GCI 1.2 %)
+    cell_free Castlewood  B_eq             p out of asymptotic range 0.5-3.0 - convergence not established (GCI 0.1 %)
+    cell_free Castlewood  Tp_h             OSCILLATORY (signs disagree)
+    cell_free Castlewood  max_lowering_m   OSCILLATORY (signs disagree)
+

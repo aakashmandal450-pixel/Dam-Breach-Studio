@@ -1,0 +1,77 @@
+V3.4 law sweep: architecture fault or formula fault?
+case Castlewood, grids H/6, cal-2 options.
+FACTORS: C_h 10, f_t 3.162   [cal2]
+Reference = F1-F7. Each row changes ONE option from that reference.
+B = 0 means the breach never opened. 'grid' column = Qp change between the two grids.
+
+*** Reading this for the OVER-WIDENING question: compare the B column within each ***
+*** axis. Castlewood's observed B is 54.9 m. On F1-F7 at cal-2's factors B reached ***
+*** 136.8 m; on F1-F4 it was 94.7 m. The axis whose options move B most is the    ***
+*** mechanism responsible - collapse_mode (F5) is the leading suspect.            ***
+
+--- headcut_method ------------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  energy                 3095.8   136.8       -   breach opened
+  temple                 4860.3   224.5       -   breach opened
+  sites                  3095.8   136.8       -   breach opened
+
+--- headcut_gate --------------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  scarp_percell          3095.8   136.8       -   breach opened
+  scarp_cum              1981.5   101.7       -   breach opened
+  cell                   2432.2    45.6       -   breach opened
+
+--- headcut_min_slope ---------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  min0.3                 2036.4    87.7       -   breach opened
+  min0.4                 1944.9    87.7       -   breach opened
+  min0.5                 1981.5   101.7       -   breach opened
+  min0.7                 1657.5    66.7       -   breach opened
+
+--- headcut_face_slope --------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  off                    1981.5   101.7       -   breach opened
+  face0.4                4069.4   189.4       -   breach opened
+  face0.6                3682.1   175.4       -   breach opened
+  face1.0                3095.8   136.8       -   breach opened
+
+--- transport -----------------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  hanson                16174.0   256.1       -   breach opened  [INVALID: detachment law on non-cohesive, default kd; tau_c=1 Pa makes it = Hanson]
+  wu                     3095.8   136.8       -   breach opened
+  vanRijn                2704.5   119.3       -   breach opened
+  mpm                    4538.4   175.4       -   breach opened
+  partheniades          16174.0   256.1       -   breach opened  [INVALID: detachment law on non-cohesive, default kd; tau_c=1 Pa makes it = Hanson]
+
+--- collapse_mode -------------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  unsupported            2282.5   108.8       -   breach opened
+  all_pairs              2288.9   101.7       -   breach opened
+  bank_wedge        (reference)                   
+
+--- sediment_face_flux --------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  centred                4053.5   196.5       -   breach opened
+  hydro             (reference)                   
+
+--- lateral_noncohesive -------------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  off                    3095.8   136.8       -   breach opened
+  excess_shear           3921.2   133.3       -   breach opened
+
+--- hydrostatic_reconstruction ------------------------------------------------
+  option                 H/6 Qp       B    B_eq   verdict
+  audusse                3227.5   143.8       -   breach opened
+  chen_noelle       (reference)                   
+
+========================================================================================
+READING THIS
+========================================================================================
+  At least one option produced a breach, so the configuration space is not
+  uniformly dead. Compare rows WITHIN an axis: an axis where one option opens
+  the breach and the others do not has isolated the responsible law or gate.
+  An axis whose options all behave the same is not involved.
+  Observed Qp for Castlewood: 3570 m3/s - compare magnitudes, not just whether
+  the breach opened.
+
+runs complete: 25 / 28

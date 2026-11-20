@@ -1,0 +1,70 @@
+V3.4 CASTLEWOOD FACTOR REFIT - variant base (F1-F4 only)
+grid H/6 (protocol field-case grid), f_kd = 1 (inert for this case).
+observed: Qp 3570 m3/s, B 54.9 m.   J = ln(Qp/Qp_obs)^2 + ((B-B_obs)/B_obs)^2, lower is better.
+
+cells complete: 25 / 25
+
+Qp [m3/s]   (observed 3570)
+   C_h\f_t      0.3162           1       3.162          10       31.62
+      0.1         240         708        1437        1282        2036
+   0.3162         263         706        1439        2253        2244
+        1         253         749        1523        2424        2657
+    3.162         230         807        1574        2941        2653
+       10         289         753        1984        3609        4259
+
+B [m]   (observed 54.9)
+   C_h\f_t      0.3162           1       3.162          10       31.62
+      0.1        45.6        52.6        59.6        45.6        52.6
+   0.3162        45.6        59.6        59.6        73.7        59.6
+        1        52.6        52.6        73.7        73.7        59.6
+    3.162        52.6        59.6        66.7        84.2        63.1
+       10        87.7       101.7        94.7        87.7       101.7
+
+max lowering [m]   (dam height 21.34)
+   C_h\f_t      0.3162           1       3.162          10       31.62
+      0.1        13.0        14.9        18.2        19.2        20.3
+   0.3162        13.5        16.5        18.0        20.5        20.4
+        1        13.0        15.8        18.2        20.6        20.9
+    3.162        12.3        15.4        18.2        20.4        21.0
+       10        12.1        13.9        17.5        19.9        20.9
+
+J   NEW (F1-F7) / OLD (pre-F1-F7)
+   C_h\f_t      0.3162           1       3.162          10       31.62
+      0.17.318/35.935 2.619/3.850 0.835/1.669 1.077/0.560 0.317/0.075
+   0.31626.838/21.0762.635/21.074 0.833/0.995 0.329/0.076 0.223/0.011
+        17.004/20.4572.441/20.454 0.843/1.195 0.267/0.029 0.095/0.114
+    3.1627.523/13.645 2.219/3.143 0.717/0.591 0.322/0.122 0.111/0.578
+       10 6.671/8.280 3.150/3.111 0.871/0.347 0.357/0.360 0.759/0.404
+
+--------------------------------------------------------------------------------------------
+BEST CELLS on the F1-F7 engine (Castlewood alone)
+--------------------------------------------------------------------------------------------
+        C_h       f_t        Qp        B   maxlow        J      J old  shift
+          1     31.62      2657     59.6    20.94    0.095      0.114  x0.83
+      3.162     31.62      2653     63.1    21.00    0.111      0.578  x0.19
+     0.3162     31.62      2244     59.6    20.45    0.223      0.011  x21.04
+          1        10      2424     73.7    20.63    0.267      0.029  x9.17
+        0.1     31.62      2036     52.6    20.34    0.317      0.075  x4.24
+      3.162        10      2941     84.2    20.37    0.322      0.122  x2.64
+
+--------------------------------------------------------------------------------------------
+cal-2's FITTED point  C_h = 10, f_t = 3.162
+--------------------------------------------------------------------------------------------
+  on F1-F7 : Qp     1984   B   94.7   J   0.871
+  on old   : Qp     1983   B   52.6   J   0.347
+  F1-F7 changes Qp here by x1.00
+  -> the old fit is now WORSE for Castlewood: the factors are stale and need refitting on this engine.
+
+--------------------------------------------------------------------------------------------
+WARNING - do not adopt this as the model's factors
+--------------------------------------------------------------------------------------------
+  The best cell here (C_h 1, f_t 31.62, J 0.095) is the optimum for CASTLEWOOD ALONE.
+  cal-2 deliberately did not sit at Castlewood's optimum: it chose C_h 10, f_t 3.162 as the
+  compromise across all six cases. On the old engine, Castlewood alone wanted C_h 0.3162, f_t 31.62
+  - roughly 30x lower C_h and 10x higher f_t than the joint fit. Adopting a single-case optimum
+  would almost certainly break the other five.
+
+  Use this surface to answer: HOW FAR has the optimum moved, and is the old fit still defensible?
+  If it has moved materially, the next step is a JOINT refit over the cal-2 case set on the F1-F7
+  engine (fit.py), not adopting the number above.
+

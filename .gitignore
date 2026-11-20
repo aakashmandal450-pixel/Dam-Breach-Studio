@@ -72,3 +72,10 @@ python/_smoke_ck_result.json
 # Local scratch and source documents (PDFs etc. are kept locally, not in git)
 tmp/
 validation/sources/
+
+# Local agent / tool folders and staging copies (not project source)
+.agents/
+.claude/
+.gemini/
+skills-lock.json
+Dam-Breach-Studio-updated-files/

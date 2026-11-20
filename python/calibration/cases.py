@@ -424,7 +424,7 @@ def run(case: Dict, factors: Optional[Dict] = None, t_end: Optional[float] = Non
     bd = eng.breach_development()
     d = eng.diagnostics_summary()
     return {"id": case["id"], "factors": meta["factors"], "Qp": float(q[k]) if len(q) else 0.0,
-            "Tp_h": (float(tp[k]) - datum) / 3600.0 if len(tp) else 0.0, "B": float(bd["width_m"]),
+            "Tp_h": (float(tp[k]) - datum) / 3600.0 if len(tp) else 0.0, "B": float(bd["width_m"]), "B_eq": float(bd.get("width_eq_m", 0.0)),
             "breached": breached, "t_end_phys_s": float(phys(eng.time)),
             "capped": censored, "censored": censored,
             "stop_cause": stop_cause or "t_end",

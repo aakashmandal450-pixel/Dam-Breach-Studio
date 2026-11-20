@@ -1,10 +1,11 @@
-"""Numba kernels for the morphology of breach_engine_2d_v3_2 (V3.3 C5).
+"""Numba kernels for the morphology of breach_engine_2d_v3_2 (V3.4).
 
 Switched on together with the hydraulics by fast_hydro.enable(); the engine file is unchanged and stays the reference.
 
 Compiled (each kernel follows the NumPy code term by term, in the same order):
   BankStability.check_and_collapse   both collapse modes ('unsupported' V3.2.2 and C2 'all_pairs'), all passes
   Headcut._migrate_scarp             C1 scarp headcut in x and y (all three rate laws)
+  Headcut._migrate_scarp_volume      F7 volume-based scarp retreat with local face detection
   LateralErosion._apply_axis         lateral bank retreat, lateral_model 'critical_shear' (force_balance -> NumPy)
   Morphology._advect                 conservative upwind sediment advection with the outflow limiter
 
@@ -36,6 +37,7 @@ except Exception:          # pragma: no cover
 _ORIG = {
     "collapse": E.BankStability.check_and_collapse,
     "scarp": E.Headcut._migrate_scarp,
+    "scarp_volume": E.Headcut._migrate_scarp_volume,
     "lateral": E.LateralErosion._apply_axis,
     "advect": E.Morphology._advect,
 }
@@ -317,6 +319,227 @@ def _fast_migrate_scarp(self, mesh, qx, qy, dt):
 
 
 # ----------------------------------------------------------------------------------------------------------------
+# F7 scarp volume retreat (Headcut._migrate_scarp_volume)
+# ----------------------------------------------------------------------------------------------------------------
+
+@njit(cache=True)
+def _oz(z, idx, sign, n_line, axis, col):
+    """Read z at oriented index — inlined helper for Numba."""
+    m = idx if sign > 0 else n_line - 1 - idx
+    if axis == 0:
+        return z[m, col]
+    return z[col, m]
+
+
+@njit(cache=True)
+def _scarp_volume_kernel(z, h, qx, qy, S, dx, dy, dt, seg_slope, face_slope, min_height, h_dry, p,
+                         method, C, A0, has_max, max_rate, retard, sites_thr, sites_coef, free_only):
+    """F7 volume-based scarp retreat — Numba kernel matching _migrate_scarp_volume."""
+    nx, ny = z.shape
+    total = 0.0
+    min_hi = nx + ny
+    for dirn in range(4):
+        axis = 0 if dirn < 2 else 1
+        sign = 1 if dirn % 2 == 0 else -1
+        ds = dx if axis == 0 else dy
+        n_line = nx if axis == 0 else ny
+        n_col = ny if axis == 0 else nx
+        dsafe = max(ds, 1e-12)
+        for col in range(n_col):
+            # build oriented drop and seg arrays
+            dline = np.empty(n_line - 1)
+            segl = np.zeros(n_line - 1, np.bool_)
+            for kk in range(n_line - 1):
+                k0 = kk if sign > 0 else n_line - 1 - kk
+                k1 = kk + 1 if sign > 0 else n_line - 2 - kk
+                if axis == 0:
+                    dk = z[k0, col] - z[k1, col]
+                else:
+                    dk = z[col, k0] - z[col, k1]
+                dline[kk] = dk
+                segl[kk] = dk / dsafe >= seg_slope
+            # find runs
+            kk = 0
+            while kk < n_line - 1:
+                if not segl[kk]:
+                    kk += 1
+                    continue
+                s = kk
+                while kk < n_line - 1 and segl[kk]:
+                    kk += 1
+                e = kk - 1
+                # --- Change A: local scarp detection ---
+                hc_top = -1
+                ext_foot = -1
+                z_crest = 0.0
+                H_full = 0.0
+                ge = -1
+                j = s
+                while j <= e:
+                    if dline[j] / dsafe >= face_slope:
+                        gs = j
+                        while j <= e and dline[j] / dsafe >= face_slope:
+                            j += 1
+                        ge = j - 1
+                        hc_top = gs
+                        break
+                    j += 1
+                if hc_top >= 0:
+                    zt = _oz(z, hc_top, sign, n_line, axis, col)
+                    ztp = _oz(z, hc_top - 1, sign, n_line, axis, col) if hc_top > 0 else zt
+                    z_crest = max(zt, ztp)
+                    ext_foot = ge + 1
+                    # extend via cumulative slope
+                    while ext_foot < e + 1 and ext_foot + 1 < n_line:
+                        cum_drop = z_crest - _oz(z, ext_foot + 1, sign, n_line, axis, col)
+                        cum_len = (ext_foot + 1 - hc_top) * dsafe
+                        if cum_drop / cum_len >= face_slope:
+                            ext_foot += 1
+                        else:
+                            break
+                    H_full = z_crest - _oz(z, ext_foot, sign, n_line, axis, col)
+                    # --- Coarse-grid face extension ---
+                    if e + 1 > ext_foot and e + 1 < n_line:
+                        H_run_base = z_crest - _oz(z, e + 1, sign, n_line, axis, col)
+                        n_span = e + 1 - hc_top
+                        if H_run_base > H_full and dsafe > 1e-12 and n_span <= H_run_base / dsafe + 2:
+                            H_full = H_run_base
+                            ext_foot = e + 1
+                else:
+                    # fallback: whole run
+                    hc_top = s
+                    ext_foot = e + 1
+                    if ext_foot >= n_line:
+                        continue
+                    zs = _oz(z, s, sign, n_line, axis, col)
+                    zsp = _oz(z, s - 1, sign, n_line, axis, col) if s > 0 else zs
+                    z_crest = max(zs, zsp)
+                    z_base_fb = _oz(z, ext_foot, sign, n_line, axis, col)
+                    H_run = z_crest - z_base_fb
+                    n_drops = e - s + 1
+                    max_drops = H_run / dsafe + 2
+                    if n_drops > max_drops or H_run <= 0:
+                        continue
+                    H_full = H_run
+                # --- Walk to true base ---
+                true_foot = ext_foot
+                while true_foot + 1 < n_line:
+                    z_curr = _oz(z, true_foot, sign, n_line, axis, col)
+                    z_next = _oz(z, true_foot + 1, sign, n_line, axis, col)
+                    if z_next >= z_curr - 1e-9:
+                        break
+                    if (z_curr - z_next) / dsafe >= seg_slope:
+                        break
+                    true_foot += 1
+                H_walk = z_crest - _oz(z, true_foot, sign, n_line, axis, col)
+                if H_walk > H_full:
+                    H_full = H_walk
+                    ext_foot = true_foot
+                # --- Activation ---
+                if H_full < min_height:
+                    continue
+                ef_m = ext_foot if sign > 0 else n_line - 1 - ext_foot
+                ht_m = hc_top if sign > 0 else n_line - 1 - hc_top
+                if axis == 0:
+                    hfoot = h[ef_m, col]
+                    q_val = qx[ht_m, col] * sign
+                    zfoot_val = z[ef_m, col]
+                    ztop_val = z[ht_m, col]
+                else:
+                    hfoot = h[col, ef_m]
+                    q_val = qy[col, ht_m] * sign
+                    zfoot_val = z[col, ef_m]
+                    ztop_val = z[col, ht_m]
+                if not (hfoot > h_dry and q_val > 1e-6):
+                    continue
+                if free_only and not (zfoot_val + hfoot < ztop_val):
+                    continue
+                # --- Change B: volume-based retreat ---
+                R = _hc_rate(q_val, H_full, method, C, A0, has_max, max_rate, retard, sites_thr, sites_coef)
+                z_base_vol = _oz(z, ext_foot, sign, n_line, axis, col)
+                # vol_target is m²/m-width; convert to height for cells of width ds
+                vol_target = R * dt * H_full
+                h_target = vol_target / dsafe
+                brink = ext_foot - 1
+                h_remaining = h_target
+                while h_remaining > 1e-15 and brink >= hc_top:
+                    cell_z = _oz(z, brink, sign, n_line, axis, col)
+                    removable = cell_z - z_base_vol
+                    if removable <= 0:
+                        brink -= 1
+                        continue
+                    take = min(removable, h_remaining)
+                    brink_m = brink if sign > 0 else n_line - 1 - brink
+                    if axis == 0:
+                        z[brink_m, col] -= take
+                    else:
+                        z[col, brink_m] -= take
+                    h_remaining -= take
+                    if cell_z - take <= z_base_vol + 1e-9:
+                        brink -= 1
+                    else:
+                        break
+                vol_removed = (h_target - h_remaining) * dsafe  # back to m²
+                deposit = vol_removed / dsafe  # height for the foot cell
+                # Deposit at foot
+                if ext_foot < n_line:
+                    if axis == 0:
+                        if hfoot > h_dry:
+                            S[ef_m, col] += (1.0 - p) * deposit
+                        else:
+                            z[ef_m, col] += deposit
+                    else:
+                        if hfoot > h_dry:
+                            S[col, ef_m] += (1.0 - p) * deposit
+                        else:
+                            z[col, ef_m] += deposit
+                dw = dy if axis == 0 else dx  # cross-stream cell width
+                total += vol_removed * dw  # m² * m = m³
+                hi = ht_m if axis == 0 else col
+                if hi < min_hi:
+                    min_hi = hi
+    return total, min_hi
+
+
+def _fast_migrate_scarp_volume(self, mesh, qx, qy, dt):
+    cfg, mat = self.cfg, self.mat
+    method = cfg.headcut_method.lower()
+    sites_thr = sites_coef = 0.0
+    if method == "energy":
+        code = HC_ENERGY
+    elif method == "temple":
+        code = HC_TEMPLE
+    elif method == "sites":
+        if mat.headcut_Kh is not None:
+            code = HC_SITES_KH
+            kh = max(float(mat.headcut_Kh), 1e-9)
+            sites_thr = 0.0 if kh < 0.01 else (1.0 / 3.0) * np.exp(-((np.log(kh) - 3.23) ** 2) / 189.0)
+            sites_coef = -0.79 * np.log(kh) + 3.04 if kh < 18.2 else 0.75
+        else:
+            code = HC_SITES_A0
+    else:
+        raise ValueError("headcut_method must be 'energy', 'temple', or 'sites'")
+    if not (mesh.z_b.flags.c_contiguous and mesh.S.flags.c_contiguous):
+        mesh.z_b = np.ascontiguousarray(mesh.z_b)
+        mesh.S = np.ascontiguousarray(mesh.S)
+    f64 = np.float64
+    total, hi = _scarp_volume_kernel(
+        mesh.z_b, np.ascontiguousarray(mesh.h, dtype=f64),
+        np.ascontiguousarray(qx, dtype=f64), np.ascontiguousarray(qy, dtype=f64),
+        mesh.S, float(mesh.dx), float(mesh.dy), float(dt),
+        float(cfg.headcut_seg_slope), float(cfg.headcut_face_slope),
+        float(cfg.headcut_min_height), float(cfg.h_dry), float(mat.porosity),
+        code, float(cfg.headcut_C), float(cfg.headcut_threshold_A0),
+        cfg.headcut_max_rate is not None, float(cfg.headcut_max_rate or 0.0),
+        float(cfg.headcut_retardation), float(sites_thr), float(sites_coef),
+        getattr(cfg, "headcut_overfall", "any") == "free")
+    if hi < 0 or hi >= mesh.z_b.shape[0] + mesh.z_b.shape[1]:
+        return 0.0
+    mesh.headcut_i = int(hi)
+    return total
+
+
+# ----------------------------------------------------------------------------------------------------------------
 # lateral erosion (LateralErosion._apply_axis, lateral_model 'critical_shear')
 # ----------------------------------------------------------------------------------------------------------------
 
@@ -492,6 +715,7 @@ def enable() -> bool:
         return False
     E.BankStability.check_and_collapse = _fast_check_and_collapse
     E.Headcut._migrate_scarp = _fast_migrate_scarp
+    E.Headcut._migrate_scarp_volume = _fast_migrate_scarp_volume
     E.LateralErosion._apply_axis = _fast_apply_axis
     E.Morphology._advect = _fast_advect
     _ENABLED = True
@@ -502,6 +726,7 @@ def disable() -> None:
     global _ENABLED
     E.BankStability.check_and_collapse = _ORIG["collapse"]
     E.Headcut._migrate_scarp = _ORIG["scarp"]
+    E.Headcut._migrate_scarp_volume = _ORIG["scarp_volume"]
     E.LateralErosion._apply_axis = _ORIG["lateral"]
     E.Morphology._advect = _ORIG["advect"]
     _ENABLED = False

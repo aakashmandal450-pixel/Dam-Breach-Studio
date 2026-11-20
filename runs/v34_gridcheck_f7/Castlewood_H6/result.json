@@ -1,0 +1,13 @@
+{
+  "case": "Castlewood",
+  "grid_div": 6,
+  "dx": 3.5567,
+  "nx": 41,
+  "ny": 73,
+  "Qp": 1046.4,
+  "Tp_s": 1007.5,
+  "width": 0.0,
+  "stop": "confirmed_prism_outlet_peak",
+  "wall_s": 39.5,
+  "backend": "numba"
+}

@@ -1,0 +1,30 @@
+{
+ "id": "Castlewood",
+ "grid": 6,
+ "axis": "transport",
+ "option": "hanson",
+ "overrides": {
+  "hydrostatic_reconstruction": "chen_noelle",
+  "headcut_overfall": "free",
+  "adaptation_dx_floor": false,
+  "collapse_to_repose": true,
+  "collapse_mode": "bank_wedge",
+  "sediment_face_flux": "hydro",
+  "headcut_face_slope": 1.0,
+  "transport": "hanson"
+ },
+ "factors": {
+  "f_kd": 1.0,
+  "C_h": 10.0,
+  "f_t": 3.162
+ },
+ "ftag": "cal2",
+ "Qp": 16174.002536730122,
+ "Tp_h": 0.014591709300901878,
+ "B": 256.1,
+ "max_lowering_m": 21.34,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 15.46875,
+ "max_balance": 1.6763806343078613e-08
+}

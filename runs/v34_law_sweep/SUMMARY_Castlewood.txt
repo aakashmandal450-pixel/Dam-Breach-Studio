@@ -1,0 +1,71 @@
+V3.4 law sweep: architecture fault or formula fault?
+case Castlewood, grids H/9, neutral factors, cal-2.
+Reference = F1-F7. Each row changes ONE option from that reference.
+B = 0 means the breach never opened. 'grid' column = Qp change between the two grids.
+
+--- headcut_method ------------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  energy                  873.6    58.7   breach opened
+  temple                  892.3    56.4   breach opened
+  sites                   873.6    58.7   breach opened
+
+--- headcut_gate --------------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  scarp_percell           873.6    58.7   breach opened
+  scarp_cum               725.0    35.2   breach opened
+  cell                    855.3    30.5   breach opened
+
+--- headcut_min_slope ---------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  min0.3                 1029.5    39.9   breach opened
+  min0.4                  862.5    44.6   breach opened
+  min0.5                  725.0    35.2   breach opened
+  min0.7                  573.4    35.2   breach opened
+
+--- headcut_face_slope --------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  off                     725.0    35.2   breach opened
+  face0.4                 891.7    61.1   breach opened
+  face0.6                 878.6    56.4   breach opened
+  face1.0                 873.6    58.7   breach opened
+
+--- transport -----------------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  hanson                 9396.6   190.3   breach opened
+  wu                      873.6    58.7   breach opened
+  vanRijn                 776.0    54.0   breach opened
+  mpm                    1472.3    79.9   breach opened
+  partheniades           9396.6   190.3   breach opened
+
+--- collapse_mode -------------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  unsupported             762.9    42.3   breach opened
+  all_pairs               735.9    47.0   breach opened
+  bank_wedge          (not run)           
+
+--- sediment_face_flux --------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  centred                1025.1    65.8   breach opened
+  hydro               (not run)           
+
+--- lateral_noncohesive -------------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  off                     873.6    58.7   breach opened
+  excess_shear           2297.3    75.2   breach opened
+
+--- hydrostatic_reconstruction ------------------------------------------------
+  option                 H/9 Qp       B   verdict
+  audusse                 890.5    47.0   breach opened
+  chen_noelle         (not run)           
+
+========================================================================================
+READING THIS
+========================================================================================
+  At least one option produced a breach, so the configuration space is not
+  uniformly dead. Compare rows WITHIN an axis: an axis where one option opens
+  the breach and the others do not has isolated the responsible law or gate.
+  An axis whose options all behave the same is not involved.
+  Observed Qp for Castlewood: 3570 m3/s - compare magnitudes, not just whether
+  the breach opened.
+
+runs complete: 25 / 28

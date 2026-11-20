@@ -1,0 +1,7 @@
+case,grid_div,dx,nx,ny,Qp,Tp_s,width,stop,wall_s,backend
+Castlewood,6,3.5567,41,73,1046.4,1007.5,0.0,confirmed_prism_outlet_peak,39.5,numba
+Castlewood,9,2.3711,61,109,193.1,691.8,0.0,confirmed_prism_outlet_peak,51.4,numba
+Castlewood,12,1.7783,81,145,80.3,600.4,0.0,confirmed_prism_outlet_peak,107.6,numba
+LaurelRun,6,2.1333,51,73,0.2,678.2,0.0,confirmed_prism_outlet_peak,30.3,numba
+LaurelRun,9,1.4222,77,109,0.2,2419.2,0.0,confirmed_prism_outlet_peak,249.5,numba
+LaurelRun,12,1.0667,102,145,1.4,5033.9,0.0,confirmed_prism_outlet_peak,1549.5,numba

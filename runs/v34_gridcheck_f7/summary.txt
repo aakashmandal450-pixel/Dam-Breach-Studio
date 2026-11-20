@@ -1,0 +1,8 @@
+V3.4 F1-F7 grid-convergence summary (neutral factors, cal-2 model)
+Case                  H/6        H/9       H/12     H9->12
+Castlewood           1046        193         80      -58 %
+LaurelRun               0          0          1     +120 %
+
+Total wall: 2030 s  Backend: numba
+Target: H/9 -> H/12 < 10 %
+VERDICT: NOT CONVERGED

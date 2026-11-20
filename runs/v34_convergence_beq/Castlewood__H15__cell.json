@@ -1,0 +1,28 @@
+{
+ "id": "Castlewood",
+ "grid": 15,
+ "variant": "cell",
+ "overrides": {
+  "hydrostatic_reconstruction": "chen_noelle",
+  "headcut_overfall": "any",
+  "adaptation_dx_floor": false,
+  "collapse_to_repose": true,
+  "collapse_mode": "bank_wedge",
+  "sediment_face_flux": "hydro",
+  "headcut_mode": "cell"
+ },
+ "Qp": 927.7316655038308,
+ "Tp_h": 1.1968037477322364,
+ "B": 29.71325966850829,
+ "B_eq": 29.07207872294395,
+ "max_lowering_m": 19.26546056306399,
+ "stop_cause": "post_peak",
+ "censored": false,
+ "cpu_s": 3586.5625,
+ "max_balance": 3.1755189411342144e-07,
+ "cells": [
+  101,
+  181,
+  1.4226666666666667
+ ]
+}
