@@ -6,24 +6,28 @@ p: observed order (explicit Euler -> ~1 expected). GCI: band on the finest value
   Castlewood  Tp_h            1.7304        1.7292        1.7292      -       -   converged (differences at round-off)
   Castlewood  B              12.4263       12.4248       12.4241   1.10   0.01%   CONVERGED
 
-  E1S1        Qp              3.7388        3.7368        3.7358   0.92   0.04%   CONVERGED
-  E1S1        Tp_h            0.5432        0.5432        0.5431      -       -   converged (differences at round-off)
-  E1S1        B               5.1222        5.1215        5.1212   1.39   0.00%   CONVERGED
+  E1S1        Qp             10.3156       10.2957       10.2859   1.01   0.12%   CONVERGED
+  E1S1        Tp_h            0.7484        0.7480        0.7479   2.00   0.01%   CONVERGED
+  E1S1        B               7.3000        7.3000        7.3000      -       -   converged (differences at round-off)
 
   E1S3        Qp              1.0000        1.0000        1.0000      -       -   converged (differences at round-off)
   E1S3        Tp_h            7.8720        7.7300        7.5790   0.09  39.29%   p out of range - not established
   E1S3        B               1.8300        1.8300        1.8300      -       -   converged (differences at round-off)
 
-  E2S2        Qp              2.3632        2.3423        2.3258   0.35   3.22%   p out of range - not established
-  E2S2        Tp_h            1.3167        1.3194        1.3222      -       -   out of range
+  E2S2        Qp              1.2139        1.2094        1.2072   1.00   0.23%   CONVERGED
+  E2S2        Tp_h           18.0889       18.0861       18.0861      -       -   converged (differences at round-off)
   E2S2        B               4.9000        4.9000        4.9000      -       -   converged (differences at round-off)
 
-  GooseCreek  Qp            566.8197      566.7775      566.7589   1.19   0.00%   CONVERGED
-  GooseCreek  Tp_h            5.3976        5.3964        5.3958   1.00   0.01%   CONVERGED
-  GooseCreek  B              75.6426       75.6500       75.6540   0.91   0.01%   CONVERGED
+  GooseCreek  Qp            677.5290      676.9143      676.7409   1.83   0.01%   CONVERGED
+  GooseCreek  Tp_h            4.4688        4.4724        4.4730   2.58   0.00%   CONVERGED
+  GooseCreek  B              77.0617       77.0617       77.0617      -       -   converged (differences at round-off)
 
   SouthFork   Qp           3052.3857     3047.9240     3045.6934   1.00   0.09%   CONVERGED
   SouthFork   Tp_h            0.8688        0.8688        0.8688      -       -   converged (differences at round-off)
   SouthFork   B              42.7120       42.7041       42.7001   0.99   0.01%   CONVERGED
 
-metrics not converged: 3   wall time 33 s
+  LaurelRun   Qp           1581.1839     1588.7897     1592.7644   0.94   0.34%   CONVERGED
+  LaurelRun   Tp_h            1.6008        1.6020        1.6020      -       -   converged (differences at round-off)
+  LaurelRun   B              74.9390       74.9282       74.9271   3.29   0.00%   p out of range - not established
+
+metrics not converged: 2   wall time 32 s
