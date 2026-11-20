@@ -1,6 +1,6 @@
 # Theory, Part 1 — Reservoir and breach hydraulics
 
-*Lumped 1-D morphodynamic breach model · draft 1 · 2026-11-20 · status: for review*
+*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: decisions made, source check open*
 
 This part defines how water leaves the reservoir and how the flow through the breach is described.
 Erosion (Part 2), widening and bank collapse (Part 3), headcut (Part 4), piping erosion (Part 5),
@@ -76,7 +76,7 @@ displaced volume shifts the stage–volume curve, it is not added as water.
 Flow from the reservoir into the breach passes through critical depth on the flat breach top, so the
 breach is a broad-crested weir with a trapezoidal section.
 
-**Exact critical-flow form (proposed default).** For a trapezoid with A(y) = (b + m y) y and top width
+**Exact critical-flow form (default).** For a trapezoid with A(y) = (b + m y) y and top width
 T(y) = b + 2 m y, critical flow and energy conservation from the reservoir (velocity head in the
 reservoir neglected) give
 
@@ -198,15 +198,17 @@ Q/(W·H) with R from the full head and so underestimated the channel shear.
 
 ---
 
-## 1.8 Decisions for review
+## 1.8 Decisions (Aakash, 2026-11-20)
 
-1. **Default weir form:** exact critical flow (1.5) with C_d = 1 (proposed), or the DL Breach formula
-   (1.6) as default. Both will exist; the default matters for the paper's headline numbers.
-2. **c2 for the DL Breach option:** 1.3 (Wu 2013, to match the benchmark) — proposed — or 1.35 (Fread).
-3. **Manning n:** keep the case files' `manning_n` (several are a uniform 0.016 placeholder) or derive
-   n from d50 for every case. Proposed: keep the case value for total shear, Strickler n' for grain shear,
-   and audit the 0.016 placeholders in Phase 4 (case database).
-4. **Source check still open:** the copy of Wu (2016) read for this draft had garbled equation layout.
+1. **Default weir form: exact critical flow (1.5) with C_d = 1.** The DL Breach formula (1.6) is an
+   option, used for the benchmark runs.
+2. **c2 = 1.3** in the DL Breach option (Wu 2013), to match the benchmark.
+3. **Manning n:** keep the case files' `manning_n` for total shear and Strickler n' for grain shear;
+   the uniform 0.016 values are checked in Phase 4 (case database).
+
+Still open:
+
+- **Source check:** the copy of Wu (2016) read for this draft had garbled equation layout.
    The submergence formula (1.7), c2 = 1.3, and the pipe-loss terms in (1.9) are to be confirmed against
    the original PDFs (Wu 2013 paper, Fread 1988) before this part is signed off. The entrance/exit loss
    values K_u, K_d are set in Part 5 (piping).
