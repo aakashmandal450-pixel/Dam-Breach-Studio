@@ -1,149 +1,203 @@
-# Theory, Part 4 — Headcut migration (cohesive dams, overtopping)
+# Theory, Part 4 — Overtopping breach of cohesive embankments: surface erosion, headcut formation and advance
 
-*Lumped 1-D morphodynamic breach model · draft 1 · 2026-11-20 · status: for review*
-
-Compacted cohesive embankments overtopped by water do not erode as a smooth surface. Rills grow into
-cascading overfalls, these merge into one large headcut on the downstream slope, and the headcut
-migrates upstream through the crest; once the crest is gone the breach flow rises sharply and the breach
-widens (Hanson et al. 2005; Wu 2016, §2.1.2, Fig. 2.5). DL Breach therefore uses a headcut mode as the
-default for cohesive embankments, with surface erosion (Parts 2–3) as the alternative (Wu 2016, §2.1.2,
-§4.5). Equations below are read from Wu (2016, §4.5) unless marked "our derivation".
+*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: for review*
+*Draft 1 followed DL Breach (Temple 1992 law with a calibrated C_T). Draft 2 rebuilds the part from the
+physical process as observed in large-scale tests and as modelled by the USDA-ARS SIMBA/WinDAM
+stress-based model; DL Breach's formulas are kept as options for the benchmark.*
 
 ---
 
-## 4.1 Geometry in headcut mode
+## 4.0 What the earlier TypeScript 1-D engine did
 
-Longitudinal section (Wu 2016, Figs. 4.12–4.13):
+- A headcut "started" when the water over the crest reached 4 cm, at the crest, and only had to cross
+  the crest width.
+- Default advance rate: 6 × k_d (ρ g h_F − τ_c), with h_F = 0.35 × reservoir head, capped at H/2 h, then
+  multiplied by 0.75 (0.55 highly erodible, 0.22 moraine). Option: 0.5 (qH)^(1/3).
+- Breach deepening during the headcut was capped at crest − 0.35 H; widening came from the fixed
+  bed/bank volume split.
+- No surface-erosion stage before the headcut, no plunging-flow condition, no use of soil strength,
+  no failure of the remaining crest.
 
-- **Flat top** at elevation z_b, from the upstream face x_u(z_b) to either the downstream crest edge
-  (while the headcut is still on the downstream slope) or the headcut position x_h.
-- **Downstream slope** between the crest edge and the headcut brink (only while x_h is downstream of
-  the crest).
-- **Headcut**: a vertical drop at x_h, from the brink down to the dam base. Downstream of it the breach
-  channel runs at base level with bottom width b_d and the side slope of Part 3.
-- The headcut **starts at the downstream toe** (x_h = x_T at t = 0) and migrates upstream (Wu 2016,
-  §2.1.2).
-
-Brink height: on the downstream slope h_x = z_dam(x_h) (the original face); once x_h is inside the flat
-top, h_x = z_b. Headcut height at the crest: H_hc = z_b (base at z = 0).
-
-The breach discharge is still controlled by the flat top (weir, Part 1) until the crest is gone.
+It had the right sequence of stages, but every number deciding speed and depth (6, 0.35, 0.75, 0.55,
+0.22, 2 h, 0.35 H) was unsourced.
 
 ---
 
-## 4.2 Headcut migration rate
+## 4.1 The physical process
 
-**Default — Temple (1992) (Wu 2016, Eq. 4.31; DL Breach default):**
+Large-scale overtopping tests on compacted cohesive embankments (Hanson et al. 2005; the E-series in our
+case set) show four stages (Hanson et al. 2003, as described in Wahl et al. 2017, DSO-2017-02, App. A1):
 
-    dx_h/dt = −C_T · q^(1/3) · H_e^(1/2) · k_early                                        (4.1)
+1. **Surface erosion and headcut formation.** Overtopping flow on the bare downstream face erodes the
+   soil (rills, cascading small overfalls) until a drop forms near the downstream edge of the crest.
+2. **Headcut advance through the crest.** Once the drop is deeper than the critical depth of the flow,
+   the flow plunges. The impinging jet scours the base of the drop and undercuts the face, and the face
+   fails in blocks — so the headcut moves upstream through the crest while it deepens and widens.
+3. **Breach formation.** When the headcut passes the upstream edge of the crest the hydraulic control
+   is lowered and outflow rises sharply, until the embankment is removed down to its base.
+4. **Widening** of the breach at the base while the reservoir drains.
 
-- q: unit discharge over the headcut [m²/s]; H_e: drop in the energy grade line through the headcut,
-  approximated by the overfall height H_hc (Wu 2016).
-- C_T [m^(−1/6) s^(−2/3)]: material coefficient. DL Breach calibrated C_T = 0.0049 on E1S1 and 0.0025 on
-  IMPACT field test 1, and used 0.0049 for its other cohesive cases (Wu 2016, Ch. 6).
-- **Calibration factor C_h:** C_T = C_h · 0.0049. C_h = 1 is DL Breach's value.
-- **Early-stage correction** k_early: the rate laws assume a headcut of constant height. On the downstream
-  slope the eroding material is only the brink of height h_x < H_hc, so DL Breach multiplies the rate by
-  H/h_x, "implemented as min(H/h_x, 0.01H)" so that it works at the toe (Wu 2016, §4.5). As printed this
-  mixes a ratio with a length; we read it as a floor on h_x:
-
-      k_early = H_hc / max(h_x, 0.01 H_hc)            (= 1 once the headcut is inside the flat top)   (4.2)
-
-  (our reading of the source, made explicit).
-
-**Options (Wu 2016, Eqs. 4.28–4.30, 4.32):**
-
-| law | form | coefficients |
-|---|---|---|
-| `sites` | dx/dt = C1 [(qH)^(1/3) − A0], q in ft²/s, H in ft, rate in ft/h | C1 = −0.79 ln K_h + 3.04 (K_h < 18.2), 0.75 otherwise; A0 = 0 for K_h < 0.01, else [189 K_h^(1/2) e^(−3.23/ln(101 K_h))]^(1/3) |
-| `temple2005` | dx/dt = C2 (qH)^(1/3) | C2 [s^(−2/3)] from the case file |
-
-Both multiply by k_early and by C_h. (Note: the 2-D engine's SITES threshold A0 is a different formula
-from Wu's Eq. 4.30; the lumped model follows Wu, and the 2-D discrepancy is recorded for the 2-D notes.)
+Two facts set what physics the model needs:
+- The headcut moves by **erosion at its base plus mass failure of the face**. Its speed therefore
+  depends on the soil's erodibility (k_d, τ_c — measured by jet tests for our cohesive cases) and on its
+  strength (undrained shear strength c_u), not on a separately fitted migration coefficient.
+- **Whether a headcut forms at all is a property of the soil**, not of its label. Soils with enough
+  cohesion stand in near-vertical faces and fail by headcutting; decidedly non-cohesive soils erode
+  along the bed; in between there is a zone of uncertainty (Wahl et al. 2017, conclusions). Reclamation's
+  own overtopping test of a cohesive embankment showed surface erosion and crest lowering, not a headcut,
+  and the headcut-only WinDAM C did not reproduce it (Wahl 2019, PFHA workshop). A model that switches to
+  headcut mode by material label would get such dams wrong.
 
 ---
 
-## 4.3 Widening and lowering during migration
+## 4.2 Stage 1 — surface erosion until the flow plunges
 
-- **Downstream of the headcut** the channel widens in proportion to the migration
-  (Wu 2016, §4.5):
+The downstream face erodes by excess shear (Part 2, (2.1)) under normal-depth flow on the slope
+(Part 1, (1.11)–(1.12)), as in SIMBA/WinDAM (DSO-2017-02, App. A1, Eq. 1):
 
-      Δb_d = α_c · n_loc · |Δx_h|,     α_c = 0.165                                         (4.3)
+    E_r = k_d (τ_e − τ_c),     τ_e = total bed shear on bare soil                               (4.1)
 
-  α_c is DL Breach's tested value; it "may vary for different soils". It is a sourced constant here,
-  not a calibration factor.
-- **Flat top upstream of the headcut** is lowered and widened by the cohesive surface-erosion model of
-  Parts 2–3 (Wu 2016, §4.5), with the flat-top length L_top = min(x_h, x_c1) − x_u(z_b).
-- **Downstream-slope segment** between the crest edge and the brink: DL Breach describes erosion only
-  on the flat top and the headcut, so this segment is not eroded in headcut mode (our reading).
+The eroding area forms at the downstream edge of the crest (the most upstream point of the face, where
+discharge is largest and the distance a headcut must travel is least — DSO-2017-02, App. A1). Its depth
+H_h grows at E_r; its width grows by side-wall erosion (Part 3; see decision 4).
 
----
+**Transition to stage 2 (physical criterion):** the flow plunges when
 
-## 4.4 End of the crest: failure of the remaining block
+    H_h > d_c = (q²/g)^(1/3)      and the tailwater is below the top of the drop                (4.2)
 
-As the headcut approaches the upstream face the block of embankment between them gets shorter.
-DL Breach checks it for **horizontal sliding along the dam base** (Wu 2016, §4.5, Fig. 4.14): driving
-forces are the water pressure on the upstream slope and the flow shear on the breach top; resisting
-forces are cohesion and friction on the base and on the two sides of the block, plus tailwater pressure.
-DL Breach does not print the equations, so **our derivation**, per breach (block width b):
-
-    F_drive  = ½ γ_w z_s² · b  +  τ_top · L_top · b                                        (4.4)
-    F_resist = (C · L_base + W tan φ) · b  +  2 C · A_blk  +  ½ γ_w max(z_t, 0)² · b        (4.5)
-
-with A_blk the longitudinal area of the block (dam section between the upstream toe and x_h, below z_b),
-L_base its base length, W = γ_b A_blk its weight per unit width (γ_b from Part 3), and n_loc = 2 side
-planes (2C·A_blk; one plane if n_loc = 1). Pore pressure on the base is neglected, as in Part 3. Failure
-when F_drive > F_resist.
-
-**After failure** the block is not washed out at once: its volume goes into a "virtual tank"; erosion
-computed afterwards first empties the tank and changes the geometry only when the tank is empty
-(Wu 2016, §4.5). The breach floor is then the base, with bottom width b_d, and widening continues by
-Parts 2–3 on the fixed bed (§3.5-1). If the block never fails, the crest disappears when x_h reaches
-x_u(z_b), with the same result.
+with q the unit discharge over the drop (SIMBA treats it as uniform across the breach width, q = Q_b/b).
+This is a hydraulic condition — a nappe separates only when the drop exceeds the critical depth — and
+replaces DL Breach's assumption that the headcut starts at the toe and its H/h_x speed-up factor.
 
 ---
 
-## 4.5 Verification this part must pass (Phase 3)
+## 4.3 Stage 2 — headcut advance by base scour and face failure (default)
+
+Stress-based model of Hanson et al. (2001), as implemented in SIMBA/WinDAM and printed in DSO-2017-02
+(App. A1, Eqs. 2–8). Geometry (DSO-2017-02, Fig. A1-12): headcut of height H_h, critical depth d_c over
+the brink, backwater depth d_bw at the base (taken ≥ d_c); the jet undercuts the face by E_v before a
+block of width H_h/2 fails on a 45° plane.
+
+**Stress on the face from the impinging jet** (Robinson 1992):
+
+    C_n  = 0.146 + 27.5 [(H_h − d_bw)/H_h] (d_c/H_h)^0.852 · exp(−6.1 (H_h − d_bw)/H_h)        (4.3)
+    X_ws = d_c [ (0.823 + (H_h − d_bw)/d_c) / 0.483 ]^(1/(C_n + 1.6))                         (4.4)
+    S_ws = −0.483 (C_n + 1.6) (X_ws/d_c)^(C_n + 0.6)                                          (4.5)
+    X_p  = X_ws − d_bw/S_ws − 0.411 d_c                                                       (4.6)
+    τ_hf = 0.025 γ d_c (H_h/d_c)^0.026 (d_c/X_p)^1.06 (d_bw/d_c)^0.221                        (4.7)
+
+**Undercut at which the face fails** (force balance, soil tensile strength neglected):
+
+    E_v = (−b − √(b² − 4ac)) / (2a),   a = γ_t/2,   b = γ d_c − γ_t H_h/2 − 2 c_u,
+    c = c_u H_h + (γ/2) d_bw² − 0.375 γ_t H_h² − (γ/2) d_c H_h                                (4.8)
+
+γ: unit weight of water; γ_t: total unit weight of the soil; c_u: undrained shear strength.
+
+**Advance rate:**
+
+    dX/dt = (H_h / (2 E_v)) · k_d (τ_hf − τ_c),    0 if τ_hf ≤ τ_c                              (4.9)
+
+Valid while E_v > 0. **E_v ≤ 0 means the soil cannot stand an undercut vertical face of that height**:
+the flow then cascades down an unstable face, and WinDAM caps the advance at the erosion rate E_r of
+normal-depth flow on a 0.5H:1V slope (DSO-2017-02, App. A1). The same cap is used here.
+
+**Why this is the physics-based default.** Every quantity in (4.3)–(4.9) is either hydraulics
+(d_c, d_bw, H_h) or a measured soil property (k_d, τ_c from jet tests; c_u, γ_t). There is no
+migration coefficient to calibrate: f_kd, which already scales the measured k_d, also scales the
+headcut speed consistently. In the Reclamation/CEATI evaluation of breach models this stress-based
+model "performed very well and exhibited appropriate sensitivity to soil parameters" (DSO-2017-02).
+It also contains the mode switch of §4.1 by itself: a soil with c_u ≈ 0 gives E_v ≤ 0 and erodes as
+cascading surface flow.
+
+**Base deepening and widening during stage 2** (DSO-2017-02, App. A1): the base lowers at
+k_d (τ − τ_c) with τ the larger of the slope stress below the drop and the jet stress; it stops at the
+dam base. Width grows by the larger of the plunging-flow change (taken equal to the headcut advance,
+half to each side — the plunge pool scours sideways as fast as upstream) and the wall erosion of
+approach and exit flow (Part 3).
+
+**Inputs for our cases:** c_u = q_u/2 where the case gives unconfined compressive strength (E-series);
+otherwise the case's cohesion (GooseCreek 13.2 kPa, LaurelRun 25 kPa, IMPACT_1-02 4.9 kPa) — Phase 4
+records the source of each value. γ_t = (1 − p) ρ_s g + S_r p ρ_w g with saturation S_r = 1 at the face.
+
+---
+
+## 4.4 Stage 3 — headcut in the crest, control lowered
+
+When the headcut passes the upstream edge of the crest, the hydraulic control is at the headcut crest.
+The control lowers by whichever is faster (DSO-2017-02, App. A1): continued headcut advance (4.9), or
+downcutting of the control by the friction stress of critical flow, k_d (τ_c,flow − τ_c). Breach
+outflow is the weir of Part 1 at the current control elevation and width.
+
+**Residual-block sliding (option).** DL Breach also checks the crest block upstream of the headcut for
+horizontal sliding on the dam base (Wu 2016, §4.5, Fig. 4.14); WinDAM has no such mechanism. Our
+force balance per unit breach width, including the uplift that a saturated base carries:
+
+    F_drive  = ½ γ z_s² + τ_top L_top                                                         (4.10)
+    F_resist = c L_base + (W − U) tan φ + 2 c A_blk / b,   U = ½ γ (z_s + z_t⁺) L_base           (4.11)
+
+Failure moves the block volume into the eroded-sediment budget ("virtual tank", Wu 2016) and the control
+drops to the base.
+
+---
+
+## 4.5 Stage 4 — widening at the base
+
+Parts 2–3 on the fixed bed: wall erosion by the breach flow, side slope from bank stability (vertical
+while a vertical wall is stable — matching the near-vertical breach sides seen in cohesive tests),
+limited by the valley width.
+
+---
+
+## 4.6 DL Breach headcut laws (options, for the benchmark)
+
+Temple (1992) dx/dt = C_T q^(1/3) H^(1/2), C_T = 0.0049 m^(−1/6) s^(−2/3) (DL Breach default, calibrated
+on E1S1); SITES; Temple et al. (2005) — Wu (2016, Eqs. 4.28–4.32), with DL Breach's toe start, H/h_x
+factor and α_c = 0.165 widening. Used only for the like-for-like DL Breach comparison.
+
+---
+
+## 4.7 Verification this part must pass (Phase 3)
 
 | test | expected |
 |---|---|
-| (4.1) units | C_T 0.0049, q = 1 m²/s, H = 1 m, k_early = 1 → 0.0049 m/s |
-| (4.2) | k_early = 1 inside the flat top; finite at the toe (h_x = 0) |
-| SITES option | reproduces a hand value in ft/h converted to m/s |
-| (4.3) | b_d − b_d,0 = α_c n_loc (x_T − x_h) at all times |
-| (4.4)–(4.5) | hand example; failure flag switches once, monotonically, as x_h moves upstream |
-| virtual tank | sediment balance closes across the failure (< 1e-9 relative) |
-| mode switch | headcut mode and surface mode give identical results while Q_b = 0 |
-| dt convergence | Qp, Tp, B converge with p ≈ 1 on E1S1, E2S2, GooseCreek |
+| (4.3)–(4.7) | reproduce a hand calculation of τ_hf for a set (H_h, d_c, d_bw) |
+| (4.8) | E_v > 0 for low drops in strong soil; E_v ≤ 0 when H_h exceeds the vertical-cut height (~4 c_u/γ_t) |
+| (4.9) | zero below τ_c; capped at the 0.5H:1V surface-erosion rate when E_v ≤ 0 |
+| stage switch | stage 2 begins exactly when H_h > d_c; never for c_u = 0 |
+| mass balance | water and sediment balances < 1e-9 relative across all stage switches |
+| dt convergence | Qp, Tp, B with p ≈ 1 on E1S1, E2S2, GooseCreek, LaurelRun |
+| benchmark option | DL Breach option reproduces DL Breach's published E1S1 result within its reported accuracy |
 
 ---
 
-## 4.6 Decisions for review
+## 4.8 Decisions for review (physics-based)
 
-1. **Headcut mode is the default for cohesive overtopping cases** (DL Breach default); surface erosion
-   (current code) stays as an option — proposed.
-2. **Default law Temple (1992), C_T = C_h × 0.0049** — proposed. Note: the 2-D engine used a different law
-   and base value (energy law, 0.05 × C_h), so cal-2's C_h = 10 does not carry over.
-3. **α_c = 0.165 fixed** (DL Breach tested value) — proposed.
-4. **Early-stage correction read as H/max(h_x, 0.01H)** — proposed.
-5. **Unit discharge q = Q_b / b_d** (flow over the headcut, whose width is the downstream channel bottom
-   width) — proposed; DL Breach does not state which width.
-6. **Block failure:** use our horizontal-sliding derivation (4.4)–(4.5) with the virtual tank — proposed;
-   alternative: no block check, crest disappears when the headcut reaches the upstream face.
-7. **No erosion on the downstream-slope segment above the brink** in headcut mode — proposed.
+1. **One process model for all soils**: stage 1 surface erosion → stage 2 headcut only when the flow
+   plunges (4.2), with the soil's ability to hold a face entering through E_v (4.8). No mode switch by
+   material label.
+2. **Headcut advance: stress-based Hanson et al. (2001) / Robinson (1992) model (4.3)–(4.9)**, driven by
+   measured k_d, τ_c, c_u. No separate migration coefficient: **C_h is dropped as a calibration factor**
+   (kept only as a sensitivity multiplier on (4.9), fixed at 1). Calibration factors become f_kd and f_t.
+3. **Widening from processes**: plunge-pool widening equal to headcut advance (SIMBA) plus wall erosion
+   by the flow (Parts 2–3); no fitted α_c.
+4. **Wall shear = bed shear** for side-wall erosion (narrow breach; Knight et al. via Wu 2016), as in
+   Parts 2–3. SIMBA uses 0.7 × bed (Lane 1955, wide rectangular channel). Proposed: keep 1 now, test 0.7
+   in the sensitivity analysis.
+5. **Start location**: downstream crest edge (observed in the E-series and used by SIMBA), not the toe.
+6. **Residual-block sliding**: on, with uplift (4.10)–(4.11).
+7. **DL Breach laws** kept only as the benchmark option.
 
 ---
 
 ## References
 
+- Hanson, G. J., Robinson, K. M., and Cook, K. R. (2001). Prediction of headcut migration using a
+  deterministic approach. *Trans. ASAE*, 44(3), 525–531 (as given in DSO-2017-02).
 - Hanson, G. J., Cook, K. R., and Hunt, S. L. (2005). Physical modeling of overtopping erosion and breach
   formation of cohesive embankments. *Trans. ASAE*, 48(5), 1783–1794.
-- Temple, D. M. (1992). Estimating flood damage to vegetated deep soil spillways. *Appl. Eng. Agric.*,
-  8(2), 237–242 (as cited in Wu 2016).
-- Temple, D. M., Hanson, G. J., Neilsen, M. L., and Cook, K. R. (2005). Simplified breach analysis model
-  for homogeneous embankments: Part 1, background and model components. *USSD Conference*, Salt Lake
-  City (as cited in Wu 2016).
-- USDA-NRCS (1997). *SITES water resource site analysis computer program, user's guide* (as cited in
-  Wu 2016).
-- Wu, W. (2016). *Introduction to DLBreach*, version 2016.4, technical report, Clarkson University.
-  §2.1.2, §4.5, Ch. 6.
+- Lane, E. W. (1955). Design of stable channels. *Trans. ASCE*, 120, 1234–1279 (as cited in DSO-2017-02).
+- Robinson, K. M. (1992). Predicting stress and pressure at an overfall. *Trans. ASAE*, 35(2), 561–569.
+- Wahl, T. L., et al. (2017). *Evaluation of Numerical Models for Simulating Embankment Dam Erosion and
+  Breach Processes*. DSO-2017-02, Bureau of Reclamation, Denver. App. A1 (SIMBA).
+- Wahl, T. L. (2019). Breach modeling with WinDAM and DL Breach. PFHA workshop presentation.
+- Wu, W. (2016). *Introduction to DLBreach*, v2016.4. Clarkson University. §2.1.2, §4.5.
