@@ -160,7 +160,8 @@ solved for h by a bracketed root (Wu 2013, Eq. 3.10). If the normal depth comes 
 (Wu 2013, Eq. 3.11; Manning friction). Two options for n, as in the 2-D engine:
 
 - total shear: n from the case file (`manning_n`);
-- grain shear: n' = d50^(1/6) / 21.1 (Strickler 1923, d50 in m), used for bed-load capacity laws.
+- grain shear: defined by each transport law as published (Part 2, section 2.3); e.g. Wu (2000)
+  uses n' = d50^(1/6)/20.
 
 This fixes the TypeScript engine's shear (review item C1), which used the reservoir-side velocity
 Q/(W·H) with R from the full head and so underestimated the channel shear.
@@ -203,8 +204,9 @@ Q/(W·H) with R from the full head and so underestimated the channel shear.
 1. **Default weir form: exact critical flow (1.5) with C_d = 1.** The DL Breach formula (1.6) is an
    option, used for the benchmark runs.
 2. **c2 = 1.3** in the DL Breach option (Wu 2013), to match the benchmark.
-3. **Manning n:** keep the case files' `manning_n` for total shear and Strickler n' for grain shear;
-   the uniform 0.016 values are checked in Phase 4 (case database).
+3. **Manning n:** keep the case files' `manning_n` for total shear; the uniform 0.016 values are
+   checked in Phase 4 (case database). Grain shear is defined per transport law, as published
+   (Part 2, decision 5).
 
 Still open:
 

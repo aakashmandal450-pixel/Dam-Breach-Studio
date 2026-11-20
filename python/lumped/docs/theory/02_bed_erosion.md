@@ -1,6 +1,6 @@
 # Theory, Part 2 — Bed erosion
 
-*Lumped 1-D morphodynamic breach model · draft 1 · 2026-11-20 · status: for review*
+*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-20 · status: decisions made, source check open*
 
 Part 1 gives the breach discharge Q_b and the bed shear τ_b on two reaches: the flat breach top and the
 downstream slope. This part turns that flow into an eroded volume per reach and per time step. How the
@@ -53,7 +53,8 @@ submerged jet (JET) tests (Hanson & Cook 2004). DL Breach uses the same law for 
 
 ## 2.3 Non-cohesive material — transport capacity
 
-**Default: Wu, Wang & Jia (2000), bed load plus suspended load, single size class.**
+**Default (decision 2.7-1): DL Breach combination — Wu, Wang & Jia (2000) bed load (2.3) plus
+Zhang (1961) suspended load (2.4a), single size class, as in Wu (2013).**
 
 Bed load:
 
@@ -61,14 +62,22 @@ Bed load:
     τ_c = θ_c (ρ_s − ρ) g d50,   θ_c = 0.03
     τ_b′ = (n′/n)^(3/2) τ_b,     n′ = d50^(1/6) / 20
 
-Suspended load:
+Suspended load, default — Zhang (1961), as used in DL Breach (Wu 2013, Eq. 4.6):
+
+    C_s* = f_t · Zhang (1961) suspended-load capacity                                    (2.4a)
+
+The exact form and coefficients of (2.4a) are to be transcribed from the original sources (Zhang 1961,
+as implemented in Wu 2013/2016); the online report copy was not legible. This is a blocking item for
+coding Part 2.
+
+Suspended load, option `wu2000` — Wu, Wang & Jia (2000):
 
     q_s* = f_t · 2.62e-5 · [ (τ_b/τ_c − 1) U / ω_s ]^1.74 · √((s − 1) g d50³)            (2.4)
 
 ω_s: settling velocity of d50 (Soulsby 1997). s = ρ_s/ρ. Total capacity q_t* = q_b* + q_s* per unit
 width, and as a volumetric concentration C_t* = q_t* · B_w / Q_b, with B_w the water-surface width.
-Both formulas are from the same paper and were fitted together, with θ_c = 0.03 and the grain
-roughness n′ above — so they are used with those values, not with the 2-D engine's θ_c = 0.047.
+The Wu (2000) bed-load formula is used with its own θ_c = 0.03 and grain roughness n′, not with the
+2-D engine's θ_c = 0.047.
 
 **Calibration factor f_t:** multiplies the capacity, as `transport_capacity_factor` did in cal-2.
 
@@ -78,7 +87,7 @@ roughness n′ above — so they are used with those values, not with the 2-D en
 |---|---|---|
 | `mpm` | q_b* = f_t · 8 (θ′ − 0.047)^1.5 √((s−1) g d50³) | Meyer-Peter & Müller (1948) |
 | `vanrijn` | q_b* = f_t · 0.053 √((s−1) g) d50^1.5 T^2.1 / D*^0.3 | van Rijn (1984) |
-| `wu_zhang` | Wu (2000) bed load + Zhang (1961) suspended load, as in DL Breach | Wu (2013) |
+| `wu2000` | Wu (2000) bed load + Wu (2000) suspended load (2.4), one paper fitted together | Wu, Wang & Jia (2000) |
 
 Each law uses its own published grain-shear definition and θ_c. This refines Part 1's decision 3
 ("Strickler n′ for grain shear"): the grain shear is law-specific, and Strickler applies only where the
@@ -155,15 +164,19 @@ half of capacity, the transport reach set to the crest width only, and the per-s
 
 ---
 
-## 2.7 Decisions for review
+## 2.7 Decisions (Aakash, 2026-11-20)
 
-1. **Default non-cohesive law:** Wu (2000) bed + Wu (2000) suspended (proposed: one paper, fitted
-   together) or DL Breach's Wu bed + Zhang suspended (closer to the benchmark).
-2. **Chen cap:** leave out (proposed, no source) or keep.
-3. **Adaptation length λ:** Wu's 6 (field) / 3 (lab) (proposed).
-4. **Steep-slope critical shear:** Chiew & Parker (2.5) (proposed), pending comparison with DL Breach's
-   form once the original is checked.
-5. **Grain shear:** law-specific, as published (proposed). This refines Part 1 decision 3.
+1. **Default non-cohesive law: DL Breach combination** — Wu (2000) bed load + Zhang (1961) suspended
+   load. Wu (2000) bed + suspended is kept as option `wu2000`.
+2. **Chen cap: left out** (no published source for the 2-D values).
+3. **Adaptation length: λ = 6 field, 3 lab** (Wu 2013/2016).
+4. **Steep-slope critical shear: Chiew & Parker (2.5) for now**; compare with DL Breach's Eqs. 4.8–4.9
+   when the original is available.
+5. **Grain shear: law-specific, as published.** Supersedes the Strickler-for-all wording of Part 1
+   decision 3.
+
+Still open (source check, before coding Part 2): exact Zhang (1961) suspended-load formula and
+coefficients as implemented in DL Breach; DL Breach steep-slope Eqs. 4.8–4.9.
 
 ## 2.8 Flags for Phase 4 (case database)
 
