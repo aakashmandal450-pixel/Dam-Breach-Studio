@@ -1,6 +1,6 @@
 # Theory, Part 2 — Bed erosion
 
-*Lumped 1-D morphodynamic breach model · draft 3 · 2026-11-20 · status: sources checked against Wu (2016) PDF; one decision to revisit (2.7-4)*
+*Lumped 1-D morphodynamic breach model · draft 4 · 2026-11-20 · status: decisions made, sources checked against Wu (2016) PDF*
 
 Part 1 gives the breach discharge Q_b and the bed shear τ_b on two reaches: the flat breach top and the
 downstream slope. This part turns that flow into an eroded volume per reach and per time step. How the
@@ -105,24 +105,24 @@ Each law uses its own published grain-shear definition and θ_c. This refines Pa
 ("Strickler n′ for grain shear"): the grain shear is law-specific, and Strickler applies only where the
 law itself used it.
 
-**Steep slope.** On the downstream face the bed slope β (tan β = S_0) helps gravity move grains
-downslope, so the critical shear is lower:
-
-    τ_c,β = τ_c · sin(φ − β) / sin φ                                                     (2.5)
-
-φ: friction angle of the dam material (case `tan_phi`). Source: Chiew & Parker (1994) for streamwise
-slopes. (2.5) is 1 × τ_c on a flat bed and 0 at β = φ (the slope fails, Part 3).
-
-**DL Breach's form (now legible in the PDF).** DL Breach handles the same effect by raising the shear
-instead of lowering the threshold, and this correction is part of the bed-load formula it fitted
-("Wu et al. (2000) considering the effect of steep slope", Wu 2016 §4.4.3):
+**Steep slope (default: DL Breach correction, decision 2.7-4).** On the downstream face the bed slope
+β (tan β = S_0) helps gravity move grains downslope. DL Breach accounts for this by replacing the grain
+shear in (2.3) with an effective shear; the correction is part of the bed-load formula as DL Breach
+fitted it ("Wu et al. (2000) considering the effect of steep slope", Wu 2016 §4.4.3):
 
     τ_e = τ_b′ + λ_0 τ_c sin β / sin φ_r                                                  (2.5a)
     λ_0 = 1                                              for β ≤ 0
     λ_0 = 1 + 0.22 (τ_b′/τ_c)^0.15 · exp(2 sin β / sin φ_r)   for β > 0                     (2.5b)
 
-τ_e replaces τ_b′ in (2.3); φ_r: repose angle (case `tan_phi`). Source: Wu (2016, Eqs. 4.8–4.9),
-after Wu (2007). See decision 2.7-4.
+τ_e replaces τ_b′ in (2.3); β: longitudinal bed slope angle of the reach (0 on the flat top);
+φ_r: repose angle (case `tan_phi`). Source: Wu (2016, Eqs. 4.8–4.9), after Wu (2007).
+
+**Option `slope="chiew_parker"`.** Lower the threshold instead of raising the shear:
+
+    τ_c,β = τ_c · sin(φ − β) / sin φ                                                     (2.5)
+
+φ: friction angle (case `tan_phi`). Source: Chiew & Parker (1994) for streamwise slopes. Equals τ_c on
+a flat bed and 0 at β = φ. Kept for the sensitivity analysis.
 
 ---
 
@@ -179,7 +179,8 @@ half of capacity, the transport reach set to the crest width only, and the per-s
 | (2.1) units | k_d 1 cm³/(N·s), τ_b − τ_c = 1 Pa → ε = 1e-6 m/s |
 | (2.3), (2.4) | hand values for three grain sizes (sand, gravel, cobble) match to 1e-9 |
 | MPM, van Rijn options | match the 2-D engine's implementations for the same τ′ |
-| (2.5) | 1 at β = 0, 0 at β = φ, monotonic between |
+| (2.5a–b) | τ_e = τ_b′ at β = 0 (λ_0 τ_c sin 0 = 0); hand values at β = 10°, 20°, 30° |
+| (2.5) option | 1 at β = 0, 0 at β = φ, monotonic between |
 | (2.7) | L_r/L_s → ∞ gives C_t*; → 0 gives C_t,in; matches numerical integration of (2.6) |
 | sediment balance | eroded bulk volume × (1 − p) = solids carried out, < 1e-9 relative |
 | class guard | a detachment law requested for a non-cohesive case raises an error |
@@ -192,10 +193,10 @@ half of capacity, the transport reach set to the crest width only, and the per-s
    load. Wu (2000) bed + suspended is kept as option `wu2000`.
 2. **Chen cap: left out** (no published source for the 2-D values).
 3. **Adaptation length: λ = 6 field, 3 lab** (Wu 2013/2016).
-4. **Steep-slope correction: Chiew & Parker (2.5) for now.** *To revisit:* the PDF shows DL Breach's
-   own correction (2.5a–b) is part of the Wu bed-load formula as DL Breach fitted it. Since decision 1
-   adopts the DL Breach combination, the consistent choice is (2.5a–b) as default with Chiew & Parker as
-   an option. Pending your decision.
+4. **Steep-slope correction: DL Breach's effective shear (2.5a–b)** — consistent with decision 1,
+   since it is part of the Wu bed-load formula as DL Breach fitted it. Chiew & Parker (2.5) is kept as
+   option `slope="chiew_parker"`. (Revised 2026-11-20 after the source check; earlier choice was
+   Chiew & Parker "for now".)
 5. **Grain shear: law-specific, as published.** Supersedes the Strickler-for-all wording of Part 1
    decision 3.
 
