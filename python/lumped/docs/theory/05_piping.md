@@ -372,8 +372,8 @@ more cover and a different collapse time, so the largest peak can come from any 
    Sellmeijer is a future module. *(As reviewed.)*
 4. **Roof stability**: fall-in (A) and push-out (B), with the soffit pressure integrated along the
    pipe and no double counting. FS = 1 at collapse, with FS reported every step and FS_crit ≠ 1 for
-   sensitivity only. Tension cracks later; side friction for sensitivity only. *(Review adopted except
-   a configurable FS threshold as default — see 4 in the reply.)*
+   sensitivity only. Tension cracks later; side friction for sensitivity only. *(Review adopted, except that
+   the FS threshold stays at 1: a different threshold is not a physical quantity.)*
 5. **Uplift/heave**: a separate mechanism C at the **downstream** outlet, not upstream; it shortens
    the pipe. *(Review's mechanism adopted; location corrected.)*
 6. **Fallen roof**: a mass-conserving debris layer in the slot whose surface is the new weir control,
