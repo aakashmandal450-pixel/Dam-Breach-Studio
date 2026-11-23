@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 3 · 2026-11-24 · status: for review*
+*Lumped 1-D morphodynamic breach model · draft 4 · 2026-11-24 · status: ready to code*
 *Draft 1 (2026-11-20) proposed eight decisions. Draft 2 takes in the review of 2026-11-24:
 continuous culvert-type hydraulics, erosion only on wetted walls, HET k_d preferred, roof
 pressure integrated along the pipe, a separate uplift (heave) check, a debris layer that takes part in
@@ -8,7 +8,11 @@ the hydraulics, an optional exit headcut and stricter pipe-location inputs. Wher
 physics disagreed, the reasons are given (§5.9). Draft 3 takes in the second review: event location of
 the collapse time, mechanism C named and bounded as exit uplift (not a piping criterion), debris
 volume from solids and deposited porosity, an explicit deposition assumption, a solids budget, and
-the blocking criterion that follows from it.*
+the blocking criterion that follows from it. Draft 4 settles the last three points: the 1.2 D
+submergence threshold is removed (inlet control now follows from the maximum-discharge principle,
+with no threshold); the "no uplift under the reservoir" result is derived from an energy bound and
+is also computed, not assumed; and the blocking assumptions are stated, with self-healing under zero
+inflow labelled a model prediction.*
 
 ---
 
@@ -41,7 +45,7 @@ Piping-initiated breach tests on homogeneous cohesive embankments at the USDA-AR
    overtopping (Parts 1–4).
 
 Times to roof collapse in the three ARS tests: 0.23 h (silty sand, non-plastic), 17.2 h (CL-ML) and
-20.5 h (CL) (as tabulated in USBR PAP-1017, 2010). In test P1 the exit cut down to the base while the
+20.5 h (CL) (as tabulated in Wahl 2010, USBR PAP-1017). In test P1 the exit cut down to the base while the
 pipe was still growing. Field cases often take days to weeks for the pipe stage and hours for the
 breach (Wu 2016, §2.2).
 
@@ -82,29 +86,46 @@ not concrete-culvert coefficients and must be tested.
 
 Let HW = z_s − z_inv be the headwater above the invert, D = a_p and b = b_p.
 
-**Inlet control:**
+**Inlet control — maximum discharge through the entrance section.** The entrance is a rectangle of
+width b and height D. Flow enters from still water with energy HW above the invert and loses K_u of
+its velocity head. With a free surface at depth y in the entrance, the energy equation gives
+Q(y) = b y √(2g (HW − y)/(1 + K_u)). For a given energy, the section passes the largest discharge
+this allows at critical depth (the maximum-discharge principle; Chow 1959, Ch. 3) — limited here by
+the roof:
 
-    unsubmerged, HW ≤ D:        Q_iu = 1.705 b HW^1.5          (critical depth at the entrance, (1.5))
-    submerged,   HW ≥ 1.2 D:    Q_is = C_e b D √(2g (HW − D/2)),   C_e = 1/√(1 + K_u)
-    D < HW < 1.2 D:             linear in HW between Q_iu(D) and Q_is(1.2 D)                 (5.2)
+    y_e = min(2HW/3, D)
+    Q_i = b y_e √( 2g (HW − y_e) / (1 + K_u) )                                              (5.2)
+
+- **While y_e = 2HW/3 (HW ≤ 1.5 D)** this is the critical-depth weir, 1.705 b HW^1.5/√(1 + K_u),
+  i.e. Part 1 (1.5) with the entrance loss.
+- **At HW = 1.5 D** the free surface reaches the roof at the entrance, and the entrance runs full.
+
+There is no empirical submergence threshold. (The draft 3 interpolation over D–1.2 D is withdrawn:
+it was not shown to apply to an eroding soil pipe, and it is not needed.)
+
+**Why no submerged-inlet orifice.** For a full entrance, an orifice relation would only limit the flow
+if the jet separated and contracted at a sharp edge, so the barrel did not run full. With the small
+entrance loss of an eroded, rounded soil-pipe entrance (K_u ≈ 0.05), the barrel runs full, and outlet
+control (5.3) passes less than the entrance whenever f L_p/(4R) > 0.05 — that is, for any real pipe.
+A sharp-edged entrance (contraction coefficient) is a later option, to be tested on the ARS cases.
 
 **Outlet control** (energy equation from the reservoir to the outlet):
 
-    flowing depth   y = min(D, 2HW/3) for HW ≤ D; linear from 2D/3 to D for D < HW < 1.2 D; D above
-    roof wetted     w = 0 for HW ≤ D; linear 0 → 1 for D < HW < 1.2 D; 1 above
+    y = y_e;   w = 1 if y_e = D (pipe full, roof wetted), else 0
     A = b y,   P = b + 2y + w b,   R = A/P,   f = 8 g n_p² / R^(1/3)
     Q_o = A √( 2g (HW − max(y/2, h_t)) / (K_u + K_d + f L_p/(4R)) )                       (5.3)
 
     Q_b = min(Q_i, Q_o)                                                                   (5.4)
 
+**Priming.** When the pipe goes from part-full to full (y_e reaches D), the roof joins the wetted
+perimeter, so friction and Q_o change in one step. This is the physical priming of a pipe, not a
+modelling switch. It is reported as an event (time and size of the change). Everywhere else Q_b is
+continuous and non-decreasing in HW.
+
 - **Losses:** K_u ≈ 0.05 (entrance) and K_d ≈ 1 (exit velocity head) from Part 1, §1.4. Entrance,
   friction and exit losses are separate terms.
 - **Tailwater:** h_t is the tailwater above the invert. There is no tailwater model yet, so h_t = 0
   and the outlet is free; the term is in place for later.
-- **The transition zone** D < HW < 1.2 D carries both the inlet change from weir to orifice and the
-  roof becoming wetted. Because of it, Q_b is continuous in HW, with no switch at the crown. The 1.2 D
-  submergence threshold follows HDS-5 practice (value to be confirmed against the HDS-5 text before
-  coding).
 - **Roughness:** the pipe has its own Manning n_p, which defaults to the open-breach n so that no
   calibrated parameter is added. It is tested in the sensitivity analysis and constrained by
   hole-erosion data where a case has them.
@@ -129,8 +150,8 @@ In a long pipe, friction takes almost all the head, and (5.5) tends to the hole-
 | 50 m long | 91 Pa | 98 Pa |
 | 5 m long | 554 Pa | 981 Pa |
 
-The same formula is used whether the pipe is full or partly full, so the shear is continuous through
-the transition zone. It is recomputed every step from the current geometry.
+The same formula is used whether the pipe is full or partly full. It is recomputed every step from
+the current geometry.
 
 **Erosion, cohesive soils (detachment-limited).** Only wetted surfaces erode:
 
@@ -142,8 +163,10 @@ the transition zone. It is recomputed every step from the current geometry.
 Width and height therefore evolve independently: a partly full pipe deepens and widens but does not
 raise its roof. The dimensions only grow, so no minimum-size guard is needed.
 
-**Erodibility source.** The jet erosion test (JET) and the hole erosion test (HET) are known to give
-systematically different k_d and τ_c for the same soil (Wahl et al., USBR PAP-1000). The HET is a
+**Erodibility source.** The jet erosion test (JET) and the hole erosion test (HET) give systematically
+different k_d and τ_c for the same soil. In Reclamation's direct comparison the JET indicated much
+greater erodibility (Wahl, Regazzoni and Erdogan 2008, DSO-08-05; USBR PAP-1000), and the ARS piping
+soils were tested both ways (USBR PAP-1017). The HET is a
 small pipe flow, so the **HET k_d and τ_c are preferred** for the pipe stage. Where a case has only
 JET values, they are used, the source is recorded, and a JET→HET conversion is tested in the
 uncertainty analysis. τ_c is a separate soil parameter, never folded into k_d.
@@ -170,8 +193,8 @@ falls with the entrance loss and then linearly with friction:
 
     p_s(x) = γ_w · max( z_s − (1 + K_u + f ξ/(4R)) U²/2g − z_cr , 0 ),   ξ = x − x_up(z_bp)   (5.8)
 
-and p_s = w · (5.8) through the transition zone. The pressure is integrated exactly along the pipe; it
-is not taken as uniform.
+and p_s = 0 while the pipe is part-full (w = 0). The pressure is integrated exactly along the pipe;
+it is not taken as uniform.
 
 Only the soffit pressure acts on the roof block. Pressure on the side walls loads the intact soil
 beside the pipe, and pressure on the floor loads the soil below, so neither is counted against the
@@ -240,9 +263,22 @@ It lifts when
 
     F_C(x) = b_p (p_s(x) − p_top(x)) − γ_t b_p t(x) − 2 c_u t(x)  >  0                         (5.11)
 
-- **Under the reservoir:** p_top = γ_w (z_s − z_dam(x)) and, from (5.8), p_s ≤ γ_w (z_s − z_cr).
-  So p_s − p_top ≤ γ_w t < γ_t t, and F_C < 0 at every point: the prism cannot lift there. Upstream
-  "blow-out" is therefore the horizontal push-out of mechanism B, not uplift.
+- **Under the reservoir.** Two pressures act on the prism.
+  - *On top* the water is still or slowly moving toward the inlet, with velocity v_top. By Bernoulli
+    from the reservoir, p_top = γ_w (z_s − z_dam(x)) − ρ v_top²/2.
+  - *Underneath*, (5.8) gives p_s = γ_w (z_s − z_cr) − ρ U²/2 · (1 + K_u + f ξ/(4R)).
+  - Subtracting: p_s − p_top = γ_w t − ρ/2 [ U² (1 + K_u + f ξ/(4R)) − v_top² ].
+  - The flow converges into the pipe, so the velocity over the face is smaller than the velocity in
+    the pipe (v_top < U), and the bracket is positive. Hence p_s − p_top < γ_w t < γ_t t, and
+    F_C < 0 at every point under the reservoir.
+
+  The bound rests on three things: energy conservation (no point has more head than the reservoir),
+  the loss terms in the pipe, and v_top < U. It does not rest on comparing γ_t with γ_w alone.
+
+  Upstream "blow-out" is therefore the horizontal push-out of mechanism B, not uplift. The code does
+  not rely on this result: F_C(x) is computed along the whole pipe, under the reservoir included,
+  with v_top = 0 (the most adverse case for the prism). The free-body diagram is listed for an
+  independent geotechnical check before publication.
 - **Under the dry downstream face:** p_top = 0 while p_s is still positive, so uplift is possible near
   the outlet.
 
@@ -315,14 +351,30 @@ is needed.
 
 **Blocking criterion.** The same geometry decides whether the collapse blocks the flow:
 - **z_s > z_d:** flow continues over the debris as a weir.
-- **z_s ≤ z_d:** the collapsed roof has closed the flow path. Seepage through the debris is neglected
-  in this version. The reservoir rises with any inflow until it overtops the debris (Okeke and Wang
-  2016). Without inflow the breach stops — a "self-healed" collapse, which internal-erosion guidance
-  recognises (USBR 2019; Reclamation/FERC 2010) — and the run reports it.
+- **z_s ≤ z_d:** the collapsed roof has closed the open flow path.
 
-Since z_d ≈ H − a_p (with n_d = n), the outcome follows physically from comparing the pipe height at
-collapse with the freeboard H − z_s: a pipe taller than the freeboard leaves an opening below the
-reservoir. Seepage-driven re-piping through the debris is a later option.
+What happens next depends on the boundary conditions:
+- **With inflow** the reservoir rises until it overtops the debris. Okeke and Wang (2016) observed
+  this in landslide-dam piping experiments, which had a continuous upstream supply.
+- **With a constant-head supply** — the ARS tests held the reservoir level steady (USBR PAP-1017) —
+  the level stays put, so the opening stays closed unless z_s > z_d.
+- **Without inflow** the breach stops, and the run reports a "sealed" outcome.
+
+Sealing under zero inflow is a **model prediction**, not an observed result: no experiment cited here
+tested it. It rests on two stated assumptions:
+- the debris is impermeable enough that seepage through it cannot re-form a pipe;
+- there is no other water supply.
+
+Internal-erosion guidance recognises that collapse can temporarily stop pipe development
+(Reclamation/FERC 2010), which makes the prediction plausible but does not test it.
+
+Since z_d ≈ H − a_p (with n_d = n), the outcome follows from comparing the pipe height at collapse
+with the freeboard H − z_s.
+
+**Protocol if a historical breach comes out sealed (e.g. Teton).** No seepage mechanism is added first.
+The run's collapse time, pipe height, debris elevation and reservoir level are compared with the
+historical evidence, to find which assumption fails. Seepage-driven re-piping through the debris
+remains a later option, to be added only if that inspection points to it.
 
 **Erosion of the debris.** It follows the bed laws:
 
@@ -402,7 +454,7 @@ more cover and a different collapse time, so the largest peak can come from any 
 
 | case | type | why | status |
 |---|---|---|---|
-| ARS P1, P2, P3 (Hanson et al. 2010a) | lab, ~1.3 m (P1), JET k_d (HET: check PAP-1017) | measured erodibility, collapse 0.23–20.5 h, P1 exit headcut | data to obtain |
+| ARS P1, P2, P3 (Hanson et al. 2010a) | lab, ~1.3 m (P1), JET and HET k_d (Wahl 2010) | measured erodibility, collapse 0.23–20.5 h, P1 exit headcut | data to obtain |
 | ARS intermediate-scale tests (Ali et al. 2021) | lab, 4 embankments | pipe enlargement rates over orders of magnitude | data to obtain |
 | Big Bay, MS (2004) | field, 15.6 m | international benchmark (FWR6124), DL Breach card on file | card on file |
 | Teton, ID (1976) | field, 93 m | classic piping failure, DL Breach card on file | card on file |
@@ -413,14 +465,15 @@ more cover and a different collapse time, so the largest peak can come from any 
 
 | test | expected |
 |---|---|
-| (5.2)–(5.4) | Q_b continuous and non-decreasing in HW across D and 1.2 D; (5.3) → (1.9) for a long full pipe |
+| (5.2) | equals 1.705 b HW^1.5/√(1+K_u) for HW ≤ 1.5 D; continuous with continuous slope at HW = 1.5 D |
+| (5.3)–(5.4) | Q_b non-decreasing in HW except the reported priming step; (5.3) → (1.9) for a long full pipe; Q_o < Q_i once full when f L_p/4R > 0.05 |
 | (5.5) | τ_p → ρ g R Δh/L_p when f L_p/4R ≫ K_u + K_d |
 | (5.6)–(5.7) | no growth below τ_c; roof fixed while w = 0; eroded volume = wetted area × ε dt exactly |
 | (5.9) | dry limit gives b_crit = 2c_u/γ_t for any cover; FS_A written every step |
-| (5.11) | F_C < 0 everywhere under the reservoir; c_u = 0, p_top = 0 gives Δh/t > γ′/γ_w |
+| (5.11) | F_C computed along the whole pipe; < 0 everywhere under the reservoir for random geometries and flows (property test); c_u = 0, p_top = 0 gives Δh/t > γ′/γ_w |
 | (5.12) | solids conserved: V_d (1 − n_d) = (1 − n) b_p A_r to 1e-12; z_d ≈ H − a_p for n_d = n, constant L |
 | (5.13) | solids budget closes every step to 1e-12 |
-| blocking | z_s ≤ z_d with no inflow → zero outflow, reported as self-healed; with inflow → overtops debris |
+| blocking | z_s ≤ z_d: no inflow → zero outflow, reported as sealed; inflow → reservoir rises and overtops the debris |
 | collapse time | event-located; collapse time converges with p ≈ 1 in dt |
 | hand-over | Part 4/Parts 2–3 start from z_d with no change in reservoir state; water balance < 1e-9 |
 | locations | supplied invert used exactly; `scenario` cases excluded from primary validation |
@@ -429,15 +482,16 @@ more cover and a different collapse time, so the largest peak can come from any 
 
 ---
 
-## 5.9 Decisions (draft 3, after the two reviews of 2026-11-24)
+## 5.9 Decisions (draft 4, after the reviews of 2026-11-24)
 
 1. **Pipe shape**: rectangle, starting square. Hydraulics from actual area and wetted perimeter.
    Erosion only on wetted surfaces, so width and height evolve independently. *(Review adopted; the
    draft-1 claim "same R_h ⇒ same flow" withdrawn.)*
-2. **Pipe flow**: inlet control (weir → orifice) and outlet control (entrance + friction + exit
-   losses, tailwater term), taking the smaller. Continuous in head through a transition zone
-   D–1.2 D; pipe n_p defaults to the breach n and is tested separately. *(Review adopted; the draft-1
-   example that used a weir for a submerged inlet withdrawn.)*
+2. **Pipe flow**: inlet control from the maximum-discharge principle at the entrance (no
+   submergence threshold), and outlet control (entrance + friction + exit losses, tailwater term),
+   taking the smaller. Priming is a reported physical event. Pipe n_p defaults to the breach n and is
+   tested separately. *(Reviews adopted; the 1.2 D threshold and the draft-1 weir-for-submerged-inlet
+   example withdrawn.)*
 3. **Wall shear and erodibility**: friction-only momentum shear (5.5), recomputed every step. HET k_d
    and τ_c preferred, JET used with its source recorded and a conversion tested. τ_c kept separate.
    Sellmeijer is a future module. *(As reviewed.)*
@@ -446,13 +500,16 @@ more cover and a different collapse time, so the largest peak can come from any 
    minimum reported. FS_crit ≠ 1 for sensitivity only. c_u from the state the roof is in, with its
    source recorded. Tension cracks later; side friction for sensitivity only. *(Both reviews agree.)*
 5. **Downstream exit uplift (heave)**: a separate mechanism C, defined by a free body of the cover
-   prism with p_top, which shows it cannot act under the reservoir. It shortens the pipe from the
-   outlet. It is named and bounded as prism uplift, not a backward-erosion-piping criterion.
-   *(Second review's wording adopted.)*
+   prism. An energy bound shows it cannot act under the reservoir, but the code computes F_C along the
+   whole pipe and does not rely on that. It shortens the pipe from the outlet. It is named and bounded
+   as prism uplift, not a backward-erosion-piping criterion. Independent check of the free body
+   before publication. *(Reviews adopted.)*
 6. **Fallen roof**: a debris layer from conserved solids, V_d = (1 − n) b_p A_r/(1 − n_d), settled
    uniformly in the slot (an explicit assumption). Its surface is the new weir control, so it obstructs
-   the flow from the first step. It blocks the flow entirely when z_s ≤ z_d (self-healing; the
-   reservoir must rise to overtop it). It erodes by the bed laws, and the solids budget is closed every
+   the flow from the first step. It blocks the flow when z_s ≤ z_d; the reservoir must rise to
+   overtop it, and with no inflow the run ends sealed (a labelled model prediction, under stated
+   impermeability and no-other-supply assumptions; no seepage mechanism before the Teton
+   inspection). It erodes by the bed laws, and the solids budget is closed every
    step. n_d = n and debris erodibility = intact by default, all tested. Virtual tank and instant
    removal are kept as comparison modes. *(Second review's solids/porosity, deposition and budget
    adopted; blocking criterion added.)*
@@ -479,18 +536,23 @@ more cover and a different collapse time, so the largest peak can come from any 
   Agric.*, 37(3), 523–534.
 - FEMA (2015). *Evaluation and Monitoring of Seepage and Internal Erosion*. FEMA P-1032 (heave vs
   backward erosion piping).
+- Chow, V. T. (1959). *Open-Channel Hydraulics*. McGraw-Hill. Ch. 3 (specific energy, critical flow,
+  maximum discharge).
 - Norman, J. M., Houghtalen, R. J., and Johnston, W. J. (1985). *Hydraulic design of highway
-  culverts*. HDS-5, FHWA (inlet/outlet control; submergence threshold to be confirmed in the text).
+  culverts*. HDS-5, FHWA (inlet and outlet control concepts).
 - Okeke, A. C.-U., and Wang, F. (2016). Hydromechanical constraints on piping failure of landslide
-  dams: an experimental investigation (journal details to be confirmed).
+  dams: an experimental investigation. *Geoenvironmental Disasters*, 3, 4.
+  doi:10.1186/s40677-016-0038-9.
 - Reclamation / FERC (2010). *Dam Safety Risk Analysis Best Practices — Internal Erosion*.
 - Terzaghi, K. (1943). *Theoretical Soil Mechanics*. Wiley. Arching (trapdoor) and heave.
 - USBR (2019). *Best Practices in Dam and Levee Safety Risk Analysis*, Ch. D-6 Internal Erosion
   Risks for Embankments and Foundations (roof support, progression, heave).
 - USBR PAP-1000. Wahl, T. L., Hanson, G. J., and Regazzoni, P.-L. Quantifying erodibility of
   embankment materials for the modeling of dam breach processes (JET vs HET).
-- USBR PAP-1017 (2010). Soils of the ARS embankment piping erosion and breach tests (authors and full
-  title to be confirmed).
+- Wahl, T. L. (2010). Relating HET and JET test results to internal erosion field tests. *Joint
+  Federal Interagency Conf. on Sedimentation and Hydrologic Modeling*, Las Vegas. USBR PAP-1017.
+- Wahl, T. L., Regazzoni, P.-L., and Erdogan, Z. (2008). *Determining erosion indices of cohesive
+  soils with the hole erosion test and jet erosion test*. DSO-08-05, Bureau of Reclamation.
 - Wahl, T. L., et al. (2017). DSO-2017-02, Bureau of Reclamation.
 - Wan, C. F., and Fell, R. (2004). Laboratory tests on the rate of piping erosion of soils in
   embankment dams. *Geotech. Testing J.*, 27(3), 295–303.
