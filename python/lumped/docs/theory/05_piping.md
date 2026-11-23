@@ -1,11 +1,14 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 2 · 2026-11-24 · status: for review*
+*Lumped 1-D morphodynamic breach model · draft 3 · 2026-11-24 · status: for review*
 *Draft 1 (2026-11-20) proposed eight decisions. Draft 2 takes in the review of 2026-11-24:
 continuous culvert-type hydraulics, erosion only on wetted walls, HET k_d preferred, roof
 pressure integrated along the pipe, a separate uplift (heave) check, a debris layer that takes part in
 the hydraulics, an optional exit headcut and stricter pipe-location inputs. Where the review and the
-physics disagreed, the reasons are given (§5.9).*
+physics disagreed, the reasons are given (§5.9). Draft 3 takes in the second review: event location of
+the collapse time, mechanism C named and bounded as exit uplift (not a piping criterion), debris
+volume from solids and deposited porosity, an explicit deposition assumption, a solids budget, and
+the blocking criterion that follows from it.*
 
 ---
 
@@ -203,6 +206,16 @@ written to the output every step, so incipient instability is visible. A thresho
 not a physical quantity — the uncertainty belongs in c_u — so FS_crit ≠ 1 is offered only in the
 sensitivity analysis.
 
+**Collapse time independent of the step.** The crossing FS = 1 is located inside the step by
+linear interpolation of the margin (FS − 1), the step is redone to that instant, the collapse is
+applied there and the step is finished on the new geometry — the event location already used for the
+Part 4 residual block. The minimum FS before collapse is reported.
+
+**Which strength.** c_u is the undrained strength of the roof soil in the state it is in at failure.
+Below the phreatic surface that is the saturated strength. Above it, suction raises the strength, so
+the as-compacted value from the case data is used. The case file records which test the value comes
+from. One value per case is a simplification; a layered roof is a later option.
+
 **Later, not now:** tension cracking of the roof (needs tensile strength, rarely available) and
 friction on the side planes (a rigid block with K_0 friction overstates deep-roof stability compared
 with Terzaghi's slice analysis).
@@ -211,22 +224,35 @@ with Terzaghi's slice analysis).
 
 ## 5.6 Exit mechanisms — the pipe shortens from the downstream end
 
-**Mechanism C — uplift (heave) of the cover near the outlet.** The review proposed a blow-out near the
-*upstream* end. The physics puts it at the *downstream* end:
+**Mechanism C — downstream exit uplift (heave) of the cover.** This is the uplift of a defined soil
+prism: the cover above the pipe, width b_p, thickness t(x) = z_dam(x) − z_cr, per unit length along the
+pipe. It is *not* a criterion for backward erosion piping and does not predict its progression
+(FEMA P-1032, 2015, warns against using the heave factor of safety that way).
 
-- **Under the reservoir it cannot happen.** Water on the upstream face presses down on the cover as
-  hard as the pipe water pushes up — both are about γ_w × depth. Since γ_t > γ_w, a soil column there
-  always weighs more than the net uplift. Upstream "blow-out" is the push-out of mechanism B.
-- **Under the dry downstream face it can.** Nothing presses on the cover from above, yet the pipe
-  pressure is still positive.
+**Free body of the prism (total stress).** The forces on the prism are:
+- its weight γ_t b_p t;
+- the water pressure on its top surface, p_top b_p;
+- the soffit pressure from below, p_s b_p;
+- shear on its two vertical sides, at most c_u t each.
 
-Per unit length of pipe, the cover over x lifts where
+Pore pressures inside the prism are internal forces in a total-stress free body, so they do not enter.
+It lifts when
 
-    F_C(x) = b_p p_s(x) − γ_t b_p t(x) − 2 c_u t(x)  >  0,   t(x) = z_dam(x) − z_cr            (5.11)
+    F_C(x) = b_p (p_s(x) − p_top(x)) − γ_t b_p t(x) − 2 c_u t(x)  >  0                         (5.11)
 
-For c_u = 0 this is Terzaghi's heave condition: an exit gradient above the critical gradient
-γ′/γ_w, written in total stress (p_s > γ_t t). So the saturated cover and seepage force are already
-accounted for.
+- **Under the reservoir:** p_top = γ_w (z_s − z_dam(x)) and, from (5.8), p_s ≤ γ_w (z_s − z_cr).
+  So p_s − p_top ≤ γ_w t < γ_t t, and F_C < 0 at every point: the prism cannot lift there. Upstream
+  "blow-out" is therefore the horizontal push-out of mechanism B, not uplift.
+- **Under the dry downstream face:** p_top = 0 while p_s is still positive, so uplift is possible near
+  the outlet.
+
+With c_u = 0 and p_top = 0, (5.11) reads p_s > γ_t t. Writing p_s = γ_w (t + Δh), with Δh the excess
+head over hydrostatic, this is Δh/t > (γ_t − γ_w)/γ_w = γ′/γ_w = i_cr. That is the classical
+critical gradient for upward flow through a saturated cohesionless prism (Terzaghi 1943). The
+correspondence holds for this prism geometry only.
+
+γ_t is the unit weight of the cover as it is; saturated is the default, because the cover over a
+flowing pipe is wetted from below.
 
 Near the outlet both p_s and t fall to zero. Heave starts there if the pressure falls more slowly
 along the pipe than the cover thins. When F_C > 0 over a reach ending at x_o, the cover over that reach
@@ -255,49 +281,91 @@ soil volume is eroded by two routines.
 
 ## 5.7 Collapse, the debris layer and the hand-over
 
-**Where the roof goes.** At collapse (A or B) the roof block, of bulk volume V_r = b_p A_r, drops into
-the pipe below it. The block is much larger than the pipe (cover ≫ pipe height), so the debris does
-**not** leave a clear 7 m notch down to the pipe invert. It fills the slot from z_inv up to a debris
-surface z_d, given by mass conservation:
+**Where the roof goes.** At collapse (A or B) the roof block drops into the pipe below it. The block is
+much larger than the pipe (cover ≫ pipe height), so the debris does **not** leave a clear notch down
+to the pipe invert. Laboratory piping tests on landslide dams show the same thing: after the roof
+collapsed, the lake rose until the flow could dislodge and carry the collapsed sediment (Okeke and
+Wang 2016).
 
-    b_p ∫_{z_inv}^{z_d} L(z) dz = s V_r,    L(z) = x_down(z) − x_up(z)                     (5.12)
+**Volume from solids.** The roof's solids volume is conserved:
 
-Before collapse, the slot column above z_inv held the pipe void (already eroded and carried away)
-plus the roof. After collapse it holds only the roof material, so with bulking factor s = 1 the
-column has lost exactly the pipe volume. The debris surface then sits about one pipe height below the
-crest, z_d ≈ H − a_p for a slot of nearly constant length.
+    V_s = (1 − n) b_p A_r                     (intact roof, porosity n)
+    V_d = V_s / (1 − n_d)                     (deposited debris, porosity n_d)                (5.12a)
 
-The bulking factor s (loose debris occupies more volume than intact soil) defaults to 1 — the block
-falls as intact pieces at the same porosity — with 1.2–1.4 as a sensitivity range, typical of
-earthworks swell. Porosity is handled once: all volumes are bulk volumes at the soil's porosity, as in
-Parts 2–3.
+n_d defaults to n, the block falling as intact pieces, so V_d = b_p A_r. Looser packing, n_d > n, is
+part of the sensitivity analysis. Example: 10 m³ of solids at n_d = 0.40 occupy 16.7 m³.
+
+**Deposition geometry — an explicit first-version assumption.** The debris is taken to settle as a
+layer of uniform thickness along the slot of width b_p, filling it from z_inv up to z_d:
+
+    b_p ∫_{z_inv}^{z_d} L(z) dz = V_d,    L(z) = x_down(z) − x_up(z),    z_d ≤ H            (5.12b)
+
+The real deposit depends on where the roof breaks, whether it piles near the break, and how much the
+flow carries off at once. A wedge or a local mound are later options. With n_d = n and a slot of
+nearly constant length, the slot column loses exactly the pipe volume, so z_d ≈ H − a_p. This is a
+consequence of the geometry, not a general rule. If loose debris would rise above the crest, z_d is
+capped at H and the excess is set beside the slot as spoil (counted in the solids budget).
 
 **The debris is part of the hydraulics from the first step.** The breach after collapse is a notch of
 width b_p from the crest down to the debris surface z_d. The debris layer z_inv–z_d is the notch's
-bed, and the weir control sits on it. The reservoir therefore sees a shallow opening at first — the
-"temporary dam" — which deepens only as the flow erodes the debris. No separate timer or virtual tank
-is needed. The exposed debris area is the wetted bed area, and its erosion follows the same laws as
-the rest of the bed:
+bed, and the weir control sits on it. Flow area, hydraulic radius, resistance, discharge and the
+exposed (wetted) debris area all come from that geometry. The reservoir first sees a shallow opening —
+the "temporary dam" — which deepens as the flow erodes the debris. No separate timer or virtual tank
+is needed.
+
+**Blocking criterion.** The same geometry decides whether the collapse blocks the flow:
+- **z_s > z_d:** flow continues over the debris as a weir.
+- **z_s ≤ z_d:** the collapsed roof has closed the flow path. Seepage through the debris is neglected
+  in this version. The reservoir rises with any inflow until it overtops the debris (Okeke and Wang
+  2016). Without inflow the breach stops — a "self-healed" collapse, which internal-erosion guidance
+  recognises (USBR 2019; Reclamation/FERC 2010) — and the run reports it.
+
+Since z_d ≈ H − a_p (with n_d = n), the outcome follows physically from comparing the pipe height at
+collapse with the freeboard H − z_s: a pipe taller than the freeboard leaves an opening below the
+reservoir. Seepage-driven re-piping through the debris is a later option.
+
+**Erosion of the debris.** It follows the bed laws:
 
 - **Cohesive:** detachment-limited, k_d(τ − τ_c). Detached fines travel as wash load (Part 2).
 - **Non-cohesive:** transport-limited by the Part 2 capacity, so material detached beyond capacity
   stays in place. That is the "mobile store" the review asked for, already built into a
   capacity-limited law.
 
-Debris erodibility defaults to the intact soil's (no data). Remoulded soil is usually more erodible,
-so k_d,debris higher and τ_c,debris lower are part of the sensitivity analysis. Below z_inv the bed is
-intact soil again.
+Detachment and transport are therefore separate where they need to be: cohesive debris is
+detachment-limited, and non-cohesive debris is transport-limited. A separate "mobile sediment" store
+would only matter where detached material lingers in the breach. Here it is either carried as wash
+load (cohesive) or never detached beyond capacity (non-cohesive).
 
-**Comparison with other treatments.** DL Breach's virtual tank opens the full notch to the invert at
-once but freezes the geometry until the tank is emptied, which overstates the discharge just after
-collapse. Instant removal overstates it more. Both are kept as comparison modes.
+**Applicability caution.** The bed laws were set for intact, compacted soil. A loose, freshly collapsed
+deposit is not the same material. Debris erodibility defaults to the intact soil's, because no case
+has debris data. Remoulded soil is usually more erodible, so k_d,debris higher, τ_c,debris lower and
+n_d higher are tested in the sensitivity analysis. Below z_inv the bed is intact soil again.
+
+**Solids budget.** Tracked as solids volumes, closed to round-off every step:
+
+    V_s,collapsed = V_s,debris remaining + V_s,exported (+ V_s,spoil)                         (5.13)
+
+"Exported" means carried out of the breach. Deposition downstream is outside the model (there is no
+downstream reach), so exported material is not followed further.
+
+**Discharge at the collapse.** Outflow changes at the collapse instant because the controlling
+geometry changes: pipe flow before, weir over the debris after. That change is physical, not a
+numerical artefact, so it is not smoothed or ramped. The collapse instant is event-located (§5.5), so
+the hydrograph does not depend on the step. After the collapse, the discharge varies continuously as
+the debris erodes.
+
+**Comparison modes.** These show how much the collapse treatment matters:
+- **DL Breach's virtual tank** opens the notch to the invert at once but freezes the geometry until
+  the tank is emptied.
+- **Instant removal** gives the most open passage at first. It is not necessarily an upper bound on
+  every output, because peak flow and timing also depend on drawdown and later erosion.
 
 **Hand-over state.** These carry over unchanged (same engine state):
 - reservoir volume, level and inflow;
 - cumulative water and sediment balances;
 - time;
 - the pipe width as notch width b = b_p;
-- notch bed z_b = z_d, with the debris layer down to z_inv;
+- notch bed z_b = z_d, with the debris layer down to z_inv and its solids budget;
 - the intact walls.
 
 Wall angles come from Part 3: vertical only while a vertical bank of that height stands, otherwise
@@ -349,8 +417,11 @@ more cover and a different collapse time, so the largest peak can come from any 
 | (5.5) | τ_p → ρ g R Δh/L_p when f L_p/4R ≫ K_u + K_d |
 | (5.6)–(5.7) | no growth below τ_c; roof fixed while w = 0; eroded volume = wetted area × ε dt exactly |
 | (5.9) | dry limit gives b_crit = 2c_u/γ_t for any cover; FS_A written every step |
-| (5.11) | c_u = 0 reduces to p_s > γ_t t; never triggers under the reservoir |
-| (5.12) | debris volume = s × roof volume (to 1e-12); z_d ≈ H − a_p for s = 1 |
+| (5.11) | F_C < 0 everywhere under the reservoir; c_u = 0, p_top = 0 gives Δh/t > γ′/γ_w |
+| (5.12) | solids conserved: V_d (1 − n_d) = (1 − n) b_p A_r to 1e-12; z_d ≈ H − a_p for n_d = n, constant L |
+| (5.13) | solids budget closes every step to 1e-12 |
+| blocking | z_s ≤ z_d with no inflow → zero outflow, reported as self-healed; with inflow → overtops debris |
+| collapse time | event-located; collapse time converges with p ≈ 1 in dt |
 | hand-over | Part 4/Parts 2–3 start from z_d with no change in reservoir state; water balance < 1e-9 |
 | locations | supplied invert used exactly; `scenario` cases excluded from primary validation |
 | dt convergence | Qp, Tp and collapse time with p ≈ 1 on the piping cases |
@@ -371,16 +442,20 @@ more cover and a different collapse time, so the largest peak can come from any 
    and τ_c preferred, JET used with its source recorded and a conversion tested. τ_c kept separate.
    Sellmeijer is a future module. *(As reviewed.)*
 4. **Roof stability**: fall-in (A) and push-out (B), with the soffit pressure integrated along the
-   pipe and no double counting. FS = 1 at collapse, with FS reported every step and FS_crit ≠ 1 for
-   sensitivity only. Tension cracks later; side friction for sensitivity only. *(Review adopted, except that
-   the FS threshold stays at 1: a different threshold is not a physical quantity.)*
-5. **Uplift/heave**: a separate mechanism C at the **downstream** outlet, not upstream; it shortens
-   the pipe. *(Review's mechanism adopted; location corrected.)*
-6. **Fallen roof**: a mass-conserving debris layer in the slot whose surface is the new weir control,
-   so the debris obstructs the flow from the first step and erodes by the bed laws. Bulking s = 1 and
-   debris erodibility = intact by default, both tested. Virtual tank and instant removal are kept as
-   comparison modes. *(Goes further than the review's debris store: obstruction is built in now, not
-   later.)*
+   pipe and no double counting. FS = 1 at collapse, event-located inside the step, with FS and its
+   minimum reported. FS_crit ≠ 1 for sensitivity only. c_u from the state the roof is in, with its
+   source recorded. Tension cracks later; side friction for sensitivity only. *(Both reviews agree.)*
+5. **Downstream exit uplift (heave)**: a separate mechanism C, defined by a free body of the cover
+   prism with p_top, which shows it cannot act under the reservoir. It shortens the pipe from the
+   outlet. It is named and bounded as prism uplift, not a backward-erosion-piping criterion.
+   *(Second review's wording adopted.)*
+6. **Fallen roof**: a debris layer from conserved solids, V_d = (1 − n) b_p A_r/(1 − n_d), settled
+   uniformly in the slot (an explicit assumption). Its surface is the new weir control, so it obstructs
+   the flow from the first step. It blocks the flow entirely when z_s ≤ z_d (self-healing; the
+   reservoir must rise to overtop it). It erodes by the bed laws, and the solids budget is closed every
+   step. n_d = n and debris erodibility = intact by default, all tested. Virtual tank and instant
+   removal are kept as comparison modes. *(Second review's solids/porosity, deposition and budget
+   adopted; blocking criterion added.)*
 7. **Exit headcut**: optional, cohesive only, off by default until the ARS P1 on/off test. It reuses
    the Part 4 relations with the pipe discharge and moves the outlet x_o. *(As reviewed.)*
 8. **Pipe location**: always an input with a recorded source, checked for positive cover. A missing
@@ -402,10 +477,16 @@ more cover and a different collapse time, so the largest peak can come from any 
   FWR6124-RT001 R01-00.
 - Hunt, S. L., Temple, D. M., Neilsen, M. L., Ali, A., and Tejral, R. D. (2021). WinDAM C. *Appl. Eng.
   Agric.*, 37(3), 523–534.
+- FEMA (2015). *Evaluation and Monitoring of Seepage and Internal Erosion*. FEMA P-1032 (heave vs
+  backward erosion piping).
 - Norman, J. M., Houghtalen, R. J., and Johnston, W. J. (1985). *Hydraulic design of highway
   culverts*. HDS-5, FHWA (inlet/outlet control; submergence threshold to be confirmed in the text).
+- Okeke, A. C.-U., and Wang, F. (2016). Hydromechanical constraints on piping failure of landslide
+  dams: an experimental investigation (journal details to be confirmed).
 - Reclamation / FERC (2010). *Dam Safety Risk Analysis Best Practices — Internal Erosion*.
 - Terzaghi, K. (1943). *Theoretical Soil Mechanics*. Wiley. Arching (trapdoor) and heave.
+- USBR (2019). *Best Practices in Dam and Levee Safety Risk Analysis*, Ch. D-6 Internal Erosion
+  Risks for Embankments and Foundations (roof support, progression, heave).
 - USBR PAP-1000. Wahl, T. L., Hanson, G. J., and Regazzoni, P.-L. Quantifying erodibility of
   embankment materials for the modeling of dam breach processes (JET vs HET).
 - USBR PAP-1017 (2010). Soils of the ARS embankment piping erosion and breach tests (authors and full
