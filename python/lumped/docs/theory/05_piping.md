@@ -386,7 +386,7 @@ There are no post-piping erosion rules and no width ramp.
 - `invert_source`: `measured` | `estimated` | `scenario`;
 - c_u for the roof;
 - k_d and τ_c with `erodibility_test`: `HET` | `JET`;
-- optional n_p, s, k_d,debris, τ_c,debris.
+- optional n_p, n_d (debris porosity), k_d,debris, τ_c,debris.
 
 **Safeguards (errors, not warnings):**
 - 0 ≤ z_inv;
@@ -429,7 +429,7 @@ more cover and a different collapse time, so the largest peak can come from any 
 
 ---
 
-## 5.9 Decisions (draft 2, after the 2026-11-24 review)
+## 5.9 Decisions (draft 3, after the two reviews of 2026-11-24)
 
 1. **Pipe shape**: rectangle, starting square. Hydraulics from actual area and wetted perimeter.
    Erosion only on wetted surfaces, so width and height evolve independently. *(Review adopted; the
