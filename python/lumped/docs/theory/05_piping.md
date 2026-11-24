@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.1 · 2026-11-24 · status: §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.2 · 2026-11-24 · status: overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -771,7 +771,35 @@ reported separately. The fifth argument enters for a full pipe (above).
   - plus the support factors β_c, β_b of (5.16a) in the same four dimensions, at one reference
     γ_w b_p/c_u0. A fifth dimension is used only where the acceptance test fails.
 
-  - Inside the table: multilinear interpolation in (C/b_p, log a_p/b_p, γ b_p/c_u0, ρ b_p/c_u0). The
+  - **Overburden shift (draft 5.2, 2026-11-24).** For undrained Tresca soil the self-weight can be
+    split off exactly. Take z downward from the ground surface and compression positive. If σ' is any
+    stress field of the weightless problem, then σ = σ' + γ z I satisfies equilibrium with the body
+    force γ. The added field is isotropic, so it has no deviator. It therefore changes neither the
+    Tresca yield condition nor the strength c_u(z) = c_u0 + ρ d, nor the far-field condition of the
+    lower bound (§5.5a), which is written in σ_xx − γ z. Only the boundary loads change. The surface
+    load is unchanged at z = 0. The opening pressure p becomes p' = p − γ z on the opening wall. With
+    the opening centre at depth z_c = C + a_p:
+
+        N(C, a_p, γ, ρ) = N'(C, a_p, γ, ρ) − γ (C + a_p) / c_u0                              (5.15b)
+
+    N' is the stability number of the weightless problem in which the opening pressure falls by γ per
+    unit height across the opening. N' depends on γ only through that gradient over the height 2a_p,
+    not through the cover. The identity holds for both bounds, both mechanisms and the full-pipe
+    columns. It is exact for a Tresca material with any c_u(z). It does **not** hold for a frictional
+    (φ > 0) or tension-limited material, where the added mean stress changes the yield condition.
+    - *Use in the table.* The table interpolates N', a far flatter function of γ b_p/c_u0 than N, and
+      adds the shift (5.15b) back exactly at the query point.
+    - *Sparse self-weight axis.* For C/b_p ≥ 12 the nodes γ b_p/c_u0 = 0.5, 1 and 2 are not solved.
+      N' and β there are linear in γ b_p/c_u0 between the solved nodes 0, 1.5 and 3. Evidence: on the
+      344 points solved before the change, this rule reproduced the solved intermediate nodes. The
+      worst error was 0.05 of the half-bracket for C/b_p ≥ 12 (48 checks) and 0.27 for C/b_p ≥ 8
+      (96 checks). At shallow cover the rule is not accurate enough: 7 of 612 checks over all depths
+      exceeded the half-bracket (worst 2.9), all at C/b_p ≤ 4, so the full axis is kept there. A
+      straight line in γ without the shift was worse still: up to 8.7 half-brackets. The acceptance
+      test includes two derived nodes (§5.8). The rule removes 144 grid nodes from the build. 24 of
+      them had already been solved and are used as solved, so 120 of the deepest solves (3–9 min each)
+      are saved.
+  - Inside the table: multilinear interpolation in (C/b_p, log a_p/b_p, γ b_p/c_u0, ρ b_p/c_u0) of N'. The
     cover axis is linear because the weight and blow-out terms grow about linearly with cover. A log
     axis bent them and failed the acceptance test on a coarse test grid.
   - Full-pipe queries are limited to γ_w b_p/c_u0 ≤ 2, the range covered by the acceptance test.
@@ -792,7 +820,9 @@ reported separately. The fifth argument enters for a full pipe (above).
   - Build, interface and test: `verification/build_stability_table.py` (resumable, parallel),
     `lumped/stability_table.py` and `verification/table_acceptance.py`. The grid is C/b_p = 0.25–32
     (13 nodes), a_p/b_p = 0.5, 1, 2, γ b_p/c_u0 = 0–3 (6 nodes), ρ b_p/c_u0 = 0–1 (4 nodes), at
-    γ_w,ref b_p/c_u0 = 0.5. That is 936 points with 8 audited bound solves each.
+    γ_w,ref b_p/c_u0 = 0.5. That is 936 grid nodes. The build solves 792 of them with 8 audited bound
+    solves each. The other 144 (C/b_p ≥ 12, γ b_p/c_u0 = 0.5, 1, 2) are derived by the sparse rule
+    above, except where a solved row already exists.
   - Outside it: an error that names the parameter and its value. No extrapolation without separate
     verification.
 - **What the criterion replaces.** It replaces mechanism A as the collapse criterion. Mechanism A stays
@@ -1434,6 +1464,7 @@ published:
 | (5.6)–(5.7) | no growth below τ_c; roof fixed while w = 0; eroded volume = wetted area × ε dt exactly |
 | (5.9) | dry limit gives b_crit = 2c_u/γ_t for any cover; FS_A written every step (comparison only) |
 | bound code | brackets 2 + π (Prandtl) and overlaps Wilson et al. (2011) for ρ = 0 and ρ > 0; audits < 1e-6 (done, `fela_benchmarks.py`, `fela_rho_benchmark.py`) |
+| (5.15b) | the overburden shift is exact for Tresca: derived nodes (32, 0.5, 0.5, 1) and (16, 1, 1, 0.25) match direct solves to half the bracket width in the acceptance test; the check on 344 solved points is in §5.5b |
 | (5.15) | uniform pressure shifts N by exactly q; table interpolation reproduces direct solves to the bracket width; out-of-table section raises an error; M(x) and x* written every step |
 | debris modes | uniform, mound at x* and instant removal run on every piping case; solids budget closes in each |
 | table reduction (5.16a) | direct full-water solves at sample points, collapse and blow-out, both bounds; error ≤ half the bracket width (proposed criterion) |

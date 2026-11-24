@@ -14,6 +14,10 @@ import argparse, csv, itertools, os, sys, threading, time
 from math import nan
 from multiprocessing import Pool
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+if os.path.dirname(os.path.dirname(HERE)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))          # .../python
+
 GRIDS = {
     "full":  dict(C_b=[0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32], a_b=[0.5, 1, 2],
                   g_b=[0, 0.5, 1, 1.5, 2, 3], rho_b=[0, 0.25, 0.5, 1]),
@@ -90,7 +94,9 @@ def main():
     args.workers, note = choose_workers(args.workers)
     print("Workers: " + note, flush=True)
     G = GRIDS[args.grid]
-    pts = list(itertools.product(G["C_b"], G["a_b"], G["g_b"], G["rho_b"]))
+    from lumped.stability_table import SPARSE_C_MIN, SPARSE_G
+    pts = [p for p in itertools.product(G["C_b"], G["a_b"], G["g_b"], G["rho_b"])
+           if not (p[0] >= SPARSE_C_MIN and p[2] in SPARSE_G)]   # derived from N' in g (5.15b), not solved
     # deep points first is worse for the ETA; interleave so the estimate settles early
     pts.sort(key=lambda p: (p[0] * p[1]) % 7)
     done = set()

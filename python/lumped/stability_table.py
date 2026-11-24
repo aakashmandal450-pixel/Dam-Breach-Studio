@@ -8,6 +8,16 @@ Stores, on a 4-D grid of (C/b_p, a_p/b_p, gamma b_p/c_u0, rho b_p/c_u0):
 Full pipe (5.16a):  N_full = N_0 + beta * gamma_w a_p / c_u0, applied to each bound separately.
 Central estimate = midpoint of the two bounds (a central estimate, not a statistical expectation).
 
+Overburden shift (5.15b), exact for undrained Tresca: the field sigma = sigma' + gamma z I is deviator-free, so
+  N(C, a, g, rho) = N'(C, a, g, rho) - g (C/b_p + a_p/b_p),
+where N' is the stability number of the weightless problem whose opening pressure varies by gamma over the
+opening height; N' depends on g only through that gradient and is nearly linear in g. The table therefore
+interpolates N' (stored internally) and adds back the exact shift at the query point.
+Sparse self-weight axis: for C/b_p >= SPARSE_C_MIN the nodes g in SPARSE_G are not solved; N' and beta there
+are filled by linear interpolation in g between the solved neighbours (flag meta["derived"]). Justified by the
+check on 344 solved points (worst error 0.05 of the half-bracket for C/b_p >= 12; theory §5.5b, (5.15b)) and verified by the
+acceptance test, which includes derived nodes.
+
 Interpolation: multilinear in (C/b_p, log a_p/b_p, gamma b_p/c_u0, rho b_p/c_u0).
 Outside the grid: TableRangeError naming the parameter and its value. No extrapolation.
 Lengths are made dimensionless by b_p, stresses by c_u0 (surface strength).
@@ -22,6 +32,9 @@ import numpy as np
 
 AXES = ("C_b", "a_b", "g_b", "rho_b")
 GW_MAX = 2.0      # gamma_w b_p / c_u0 range covered by the acceptance test of (5.16a)
+SPARSE_C_MIN = 12.0
+SPARSE_G = (0.5, 1.0, 2.0)
+N_FIELDS = ("N_c0_lo", "N_c0_hi", "N_b0_lo", "N_b0_hi")
 FIELDS = ("N_c0_lo", "N_c0_hi", "N_b0_lo", "N_b0_hi", "beta_c_lo", "beta_c_hi", "beta_b_lo", "beta_b_hi")
 
 
@@ -78,6 +91,34 @@ class StabilityTable:
             for f in FIELDS:
                 data[f][idx] = r[f]
             status[idx] = r["status"]
+        # stored N -> N' (5.15b): add the exact overburden shift g (C + a)
+        Cg, Ag, Gg = np.meshgrid(grid["C_b"], grid["a_b"], grid["g_b"], indexing="ij")
+        shift = (Gg * (Cg + Ag))[..., None]
+        for f in N_FIELDS:
+            data[f] = data[f] + shift
+        derived = np.zeros(shape, bool)
+        gnodes = list(grid["g_b"])
+        for i, C in enumerate(grid["C_b"]):
+            if C < SPARSE_C_MIN - 1e-9:
+                continue
+            for k, g in enumerate(gnodes):
+                if not any(abs(g - s_) < 1e-9 for s_ in SPARSE_G):
+                    continue
+                for j in range(shape[1]):
+                    for l in range(shape[3]):
+                        if status[i, j, k, l] != "":
+                            continue
+                        lo = max((kk for kk in range(k) if status[i, j, kk, l] != "" and not derived[i, j, kk, l]), default=None)
+                        hi = min((kk for kk in range(k + 1, len(gnodes)) if status[i, j, kk, l] != "" and not derived[i, j, kk, l]), default=None)
+                        if lo is None or hi is None:
+                            continue
+                        w = (g - gnodes[lo]) / (gnodes[hi] - gnodes[lo])
+                        for f in FIELDS:
+                            data[f][i, j, k, l] = (1 - w) * data[f][i, j, lo, l] + w * data[f][i, j, hi, l]
+                        sl, sh = status[i, j, lo, l], status[i, j, hi, l]
+                        status[i, j, k, l] = "OK" if sl == sh == "OK" else (sl if sl != "OK" else sh)
+                        derived[i, j, k, l] = True
+        meta["derived"] = derived
         missing = int((status == "").sum())
         if missing:
             raise ValueError(f"table {path} is incomplete: {missing} grid points missing")
@@ -130,8 +171,9 @@ class StabilityTable:
         q = dict(C_b=C_b, a_b=a_b, g_b=g_b, rho_b=rho_b)
         self._check_stable(q)
         key = {"collapse": "c", "blowout": "b"}[mechanism]
-        lo = self._interp(f"N_{key}0_lo", q)
-        hi = self._interp(f"N_{key}0_hi", q)
+        shift = g_b * (C_b + a_b)                    # exact overburden term (5.15b)
+        lo = self._interp(f"N_{key}0_lo", q) - shift
+        hi = self._interp(f"N_{key}0_hi", q) - shift
         if full:
             if not (0.0 <= gw_b <= GW_MAX):
                 raise TableRangeError(f"gw_b = {gw_b:g} outside the acceptance-tested range [0, {GW_MAX:g}]")
