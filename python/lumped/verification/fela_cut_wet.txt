@@ -1,0 +1,5 @@
+xi=h_w/H=0.00  gamma_w/gamma=0.5: lower bound gamma*H/c = 3.7442  ratio to dry 1.0000  | 1/(1-r*xi^2) 1.0000  1/(1-r*xi^3) 1.0000  audit 4e-10 yield+ 0e+00
+xi=h_w/H=0.25  gamma_w/gamma=0.5: lower bound gamma*H/c = 3.9011  ratio to dry 1.0419  | 1/(1-r*xi^2) 1.0323  1/(1-r*xi^3) 1.0079  audit 8e-12 yield+ 0e+00
+xi=h_w/H=0.50  gamma_w/gamma=0.5: lower bound gamma*H/c = 4.3716  ratio to dry 1.1676  | 1/(1-r*xi^2) 1.1429  1/(1-r*xi^3) 1.0667  audit 5e-12 yield+ 0e+00
+xi=h_w/H=0.75  gamma_w/gamma=0.5: lower bound gamma*H/c = 5.3430  ratio to dry 1.4270  | 1/(1-r*xi^2) 1.3913  1/(1-r*xi^3) 1.2673  audit 4e-12 yield+ 0e+00
+xi=h_w/H=1.00  gamma_w/gamma=0.5: lower bound gamma*H/c = 7.4884  ratio to dry 2.0000  | 1/(1-r*xi^2) 2.0000  1/(1-r*xi^3) 2.0000  audit 2e-11 yield+ 0e+00

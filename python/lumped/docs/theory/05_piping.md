@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4.9 · 2026-11-24 · status: strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.0 · 2026-11-24 · status: §5.5b table decisions and §5.7a crater state/equation sequence written for review; strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -661,11 +661,26 @@ each run full (hydrostatic) and part-full (y = 0.9 a_p, roof dry). Every audit w
    That is comparable to N itself in many cases.
 3. **The centroid or mean pressure would overstate the support** (β < 0.5 in most cases, while the
    centroid assumes 0.5). It is not used.
-4. **Proposal for review.**
-   - Full pipe: the hydrostatic profile enters exactly, with γ_w b_p/c_u0 as a fifth table dimension.
-     The solver already handles it, and β barely depends on γ_w b_p/c_u0 (for example 0.206 and 0.197),
-     so a coarse grid in that dimension suffices.
-   - Part-full pipe: σ_t = 0 with the band (5.16), using the wetted depth y in place of a_p.
+4. **Decision (draft 5.0): a 4-D table plus a support factor, accepted only after a direct-solve
+   test.**
+   - **Full pipe:**
+
+         N_c,full ≈ N_c0 + β_c γ_w a_p / c_u0,      N_b,full ≈ N_b0 + β_b γ_w a_p / c_u0       (5.16a)
+
+     N_c0, N_b0, β_c and β_b are each tabulated in 4-D (C/b_p, a_p/b_p, γ b_p/c_u0, ρ b_p/c_u0), at
+     one reference γ_w b_p/c_u0, for both bounds. Collapse and blow-out have separate factors.
+   - **Why it is not assumed.** The small change of β between two water weights (0.206 and 0.197)
+     does not establish that β is constant across the whole parameter space.
+   - **Acceptance test.** Direct solves with the full hydrostatic profile, at sample points across the
+     range, including:
+     - the extreme cover ratios;
+     - tall and wide pipes;
+     - weak soil (high γ_w b_p/c_u0).
+
+     The error |N_pred − N_direct| is reported separately for collapse and blow-out and for each bound.
+     The proposed tolerance is half the bracket width at that point. This is a proposed criterion, not
+     a standard. Where it fails, γ_w b_p/c_u0 is kept as a fifth dimension for that part of the range.
+   - **Part-full pipe:** σ_t = 0, with the band (5.16) using the wetted depth y in place of a_p.
    - The uncertainty runs use the band.
 5. **One pressure for both regimes.** p_cr is the soffit pressure p_s(x) of (5.8), which is zero for a
    part-full pipe. The roof criterion and the hydraulics use the same pressure, so they stay
@@ -724,21 +739,41 @@ reported separately. The fifth argument enters for a full pipe (above).
   the margin there is large. Collapse is therefore expected under the crest or the downstream slope,
   where σ_s = 0 and p_s has fallen with friction. That matches where piping sinkholes are reported, and
   it follows from the criterion; nothing imposes it.
-- **N_c and N_b from both bounds.**
-  - The central value is the mean of the lower and upper bounds.
+- **N_c and N_b from both bounds (decision, draft 5.0).**
+  - The central estimate is the midpoint of the lower and upper bounds. It is described as a central
+    estimate, not a statistically expected value.
+  - Both bounds are stored in the table, and the engine can run on either. The lower bound on N_c (the
+    rigorous, earlier-collapse case) is available as the conservative stability run.
   - Runs with each bound give the uncertainty band.
   - The width of the bracket (10–25 % for the square opening now) is reported. It narrows when velocity
     discontinuities are added to the upper bound.
-- **Unit weight.** The table takes one γ per section. The first version uses the cover-weighted mean of
-  γ_moist and γ_sat (§5.5) over the section's cover; a layered γ is possible in the same code.
+- **Unit weight (decision, draft 5.0).** The table takes one γ per section, the cover-weighted mean
+
+      γ̄ = (γ_sat t_s + γ_moist (C − t_s)) / C,   t_s = clip(z_ph − z_cr, 0, C)                  (5.24)
+
+  - t_s is the saturated thickness of the cover above the crown, and z_ph is the phreatic level over
+    the section. The first version takes z_ph = z_s (§5.5).
+  - The moist-to-saturated transition is a sharp boundary at z_ph.
+  - *Limitation.* One mean hides where in the cover the heavier soil lies, and it does not represent
+    distinct layers. A layered γ is possible in the same bound code if the cases need it.
+- **Section spacing along the pipe (decision, draft 5.0).**
+  - The criterion is evaluated at sections Δx = b_p/2 apart. Since b_p grows, the spacing is reset
+    whenever b_p changes by more than 10 %.
+  - Selected runs are repeated with Δx = b_p/4, comparing x*, the collapse time and the hydrograph. The
+    coarser spacing is kept only if the differences are small; otherwise the spacing is refined.
+  - The spacing is a numerical choice, justified only by this convergence test.
+  - Between sections, M(x) is interpolated linearly to locate x*.
 - **Table.** N_c and N_b are precomputed offline with `fela_v2.py` over:
   - C/b_p from 0.25 to 20;
   - a_p/b_p from 0.5 to 2;
   - γ b_p/c_u0 from 0 to 3;
   - ρ b_p/c_u0 from 0 to 1;
-  - γ_w b_p/c_u0 from 0 to 2 (coarse; full pipe only).
+  - plus the support factors β_c, β_b of (5.16a) in the same four dimensions, at one reference
+    γ_w b_p/c_u0. A fifth dimension is used only where the acceptance test fails.
 
-  It is interpolated in the engine. A section outside the table is an error, not an extrapolation.
+  - Inside the table: multilinear interpolation.
+  - Outside it: an error that names the parameter and its value. No extrapolation without separate
+    verification.
 - **What the criterion replaces.** It replaces mechanism A as the collapse criterion. Mechanism A stays
   as a reported comparison. Mechanism B (horizontal push-out) is a different, longitudinal mechanism and
   stays as a separate check. The blow-out value N_b replaces the rigid prism in the uplift check of
@@ -982,57 +1017,237 @@ There are no post-piping erosion rules and no width ramp.
 
 ---
 
-## 5.7a Collapse spreading — from a local collapse to a collapsed reach (draft 4.7, for review)
+## 5.7a Collapse spreading and the crater (draft 5.0, for review)
 
-**Why it matters.** The criterion (5.15) makes the roof fail first at one section x*. How long the
-collapsed reach becomes sets three things: the debris volume, where that debris lies, and when the
-reservoir connects to an open breach. Through these it affects blockage, discharge and the hydrograph.
+This section is written as a complete sequence of states, equations and updates, so its internal
+consistency can be checked before implementation. The crater is a changing geometry with its own
+water balance. Its geometry, debris, water level and walls are updated together, and every check in a
+pass reads the same state.
 
-**Four physical routes by which collapse can spread, and what the model does with each.**
+### 5.7a.1 The four routes by which collapse spreads
 
-*Route 1 — loss of water support (in the model already).* When x* falls, the pipe is cut at the
-crater.
-- **Upstream reach.** Its outlet moves to the upstream edge of the crater: x_o, the existing outlet
-  state of §5.2, moves there. The soffit pressure along this reach falls towards the crater water
-  level, so the sections next to the crater lose the pressure that held them, and M(x) falls.
-- **Downstream reach.** It is fed only through the crater. It runs part-full or not at all, so p_s = 0
-  and M takes its dry value.
+1. **Loss of water support (represented).** The crater cuts the pipe. The upstream reach discharges
+   into the crater, and the downstream reach is fed only through it. Both change p_s, and with it M(x)
+   (§5.7a.4).
+2. **Loss of 3-D support at a crater edge (not represented; a stated, unverified limitation).**
+   - The plane-strain criterion (5.15) is the local roof check.
+   - Published comparisons point the other way: the plane-strain cross-section gives N = 1.90–2.08,
+     against 4.17–4.33 for a plane-strain heading and 6.77–7.15 for a 3-D square heading (cover =
+     height; Shiau and Al-Asadi 2018, Shiau et al. 2024). Shiau et al. report the 3-D values as
+     1.7–1.9 times the plane-strain ones. These comparisons suggest the assumption is reasonable.
+   - They are not a proof. A heading has intact soil ahead of its face, while a crater edge has open
+     void beyond it, with the open pipe beneath.
+   - Plane strain is therefore not claimed to be conservative at a crater edge.
+   - *Decision (2026-11-24):* no 3-D bound now. It becomes a pre-publication task only if the spread
+     cases differ materially (§5.8).
+3. **Crater-wall failure (represented)** by the undrained cut criterion, wet or dry (§5.7a.5).
+4. **Remoulding (sensitivity only).** c_u0 is reduced to c_u0/S_t within one cover depth of each
+   crater edge.
 
-Both follow from the existing hydraulics with the new outlet. No new rule is needed.
+### 5.7a.2 Crater state
 
-*Route 2 — loss of three-dimensional support from the fallen neighbour (not represented; a stated
-limitation).* M(x) is a plane-strain value: it is the stability of an infinitely long unsupported
-opening, which gives a section no help from its neighbours. The plane-strain criterion is used as the
-local roof criterion. Any further loss of support at a crater edge is **not represented**, and this
-assumption has **not been independently verified**. The comparison below suggests it is reasonable. It
-does not show that plane strain is conservative at a crater edge, and no such claim is made. For a
-square opening with cover equal to its height, weightless:
-- **cross-section** (our bounds): N = 1.90–2.08;
-- **plane-strain heading** (a face supported along the tunnel): 4.17–4.33 (Shiau and Al-Asadi 2018, as
-  tabulated in Shiau et al. 2024);
-- **3-D square heading**: 6.77–7.15 (Shiau et al. 2024).
+From the first collapse onward the model carries the following, besides the reservoir and the upstream
+pipe:
 
-Shiau et al. report that the 3-D analysis gives critical stability numbers about 1.7–1.9 times the
-plane-strain heading values. In those configurations, the extra 3-D support adds strength rather than
-removing it.
+| state | meaning |
+| --- | --- |
+| x_1, x_2 | upstream and downstream ends of the crater at the ground surface |
+| W | crater width (starts at b_p) |
+| V_fall | intact bulk volume of all soil that has fallen (roof pieces and wall wedges) |
+| V_pipe | volume of pipe void inside the crater reach, b_p a_p ℓ_pipe |
+| V_exp | bulk volume of debris carried out of the crater |
+| V_c | volume of water standing in the crater above the debris surface |
 
-*Why that is not a proof here.* A heading has intact soil ahead of its face. A crater edge has open
-void beyond it, with the open pipe continuing beneath. A mechanism that moves partly into the pipe and
-partly into the crater is not covered by either comparison.
+From these the geometry follows. With ℓ = x_2 − x_1, footprint A_c = ℓ W, and κ = (1 − n)/(1 − n_d) ≥ 1
+(the bulking of fallen soil):
 
-*Decision (2026-11-24): not verified now.* The reasons:
-- The maximum-spread bracket (whole roof) already shows the consequences of extensive collapse.
-- A 3-D bound might not settle the question. With von Mises criteria inscribed in and circumscribed
-  about Tresca, the 3-D bounds may differ by up to 15 % and could straddle the plane-strain value.
+    V_open = V_pipe − (κ − 1) V_fall + V_exp            open volume of the crater (air or water)  (5.18)
+    z_d   = z̄_g − V_open / A_c                         debris surface                           (5.19)
+    z_c   = z_d + V_c / A_c                             crater water level, z_c ≤ z_rim           (5.20)
 
-The 3-D calculation becomes a pre-publication task, done only if the spread cases show that the
-assumption matters to the breach (§5.8, "Spread sensitivity before publication").
+- z̄_g is the mean ground elevation over the footprint.
+- **Why (5.18) holds.** Collapse and wall failure only move soil downward inside the dam. The only
+  empty space created is the pipe void in the reach, reduced by the bulking of what fell and increased
+  by what has been carried out.
+- **Check against §5.7.** With n_d = n (κ = 1), W = b_p and nothing exported, (5.18)–(5.19) give a
+  crater depth z̄_g − z_d = a_p. That is the same as z_d ≈ H − a_p in §5.7.
+- **A wider crater is shallower.** If W grows by wall failures, the same void spreads over a larger
+  footprint and the crater gets shallower, which limits further wall failures.
+- **Solids budget.** V_s = (1 − n) V_fall = V_s,debris + V_s,exported, closed to round-off. This
+  replaces (5.13) inside the crater.
+- **First-version simplifications.**
+  - The debris surface is level over the footprint.
+  - Water held in the debris pores is not counted in V_c; the debris is taken as saturated when it
+    lands.
 
-*Route 3 — failure of the crater's end walls (added).* Each end of the collapsed reach is a wall of
-exposed height H_w, from the ground surface down to the debris surface at that end. An undrained wall
-stands while
+### 5.7a.3 Wall representation
 
-    H_w ≤ H_c = 3.776 c_u0 / (γ − 2ρ)        (no limit if γ ≤ 2ρ)                          (5.17)
+The crater has four walls k: the upstream end at x_1, the downstream end at x_2, and two side walls.
+For each wall:
+- exposed height H_w,k = z_g,k − z_d, where z_g,k is the ground elevation at the top of the wall: z_dam
+  at x_1 or x_2 for the end walls, and the mean of z_dam over the reach for the side walls;
+- water depth h_w,k = max(0, min(z_c, z_g,k) − z_d).
+
+When a wall fails, its failure plane runs at 45° (φ = 0), and the wedge has bulk volume ½ H_w² per unit
+length of wall.
+- **Lumped representation.** The wall retreats as a vertical face by Δ = ½ H_w. That conserves the
+  wedge volume and keeps the box geometry.
+  - End walls: x_1 → x_1 − Δ, or x_2 → x_2 + Δ.
+  - Side walls: W → W + Δ for each failing side.
+- **Bias.** The real face after failure is inclined at 45° and is much more stable than a vertical one.
+  Rechecking a vertical face is therefore biased toward more spreading. This is a stated
+  simplification.
+- **Volume updates.**
+  - V_fall increases by the wedge volume.
+  - An end-wall retreat also adds the newly exposed pipe void, so V_pipe increases by b_p a_p Δ.
+
+### 5.7a.4 Hydraulics with the crater (quasi-steady at each instant)
+
+- **Upstream reach** (x_up → x_1). Pipe flow follows (5.2)–(5.4), with:
+  - length L_p = x_1 − x_up(z_bp);
+  - outlet at x_1;
+  - tailwater h_t = max(z_c − z_inv, 0), the existing term in (5.3).
+
+  This gives Q_in, and p_s(x) along the reach follows (5.8) with the same tailwater.
+- **Downstream reach** (x_2 → outlet). Its entrance is blocked when z_d ≥ z_cr at x_2. In that case
+  Q_out = 0 and p_s = 0 along the reach. Seepage through the debris is neglected (as in §5.7). If the
+  entrance is partly open, the reach runs as a pipe fed by the crater level z_c over the open height
+  z_cr − max(z_d, z_inv).
+- **Spill over the rim.** z_rim is the lowest ground elevation on the rim. Spill follows the Part 1
+  critical weir (1.5):
+
+      Q_spill = 1.705 W (z_c − z_rim)^1.5   for z_c > z_rim                               (5.21)
+
+  The spill runs down the outer ground surface. Its erosion of the downstream face uses the optional
+  exit-headcut machinery of §5.6, off by default and tested on and off.
+- **Crater water balance:**
+
+      dV_c/dt = Q_in − Q_out − Q_spill                                                      (5.22)
+
+  - At a geometry update V_c is conserved, and z_c is recomputed from (5.20).
+  - Debris or a wedge falling into the water therefore raises the water level instead of destroying
+    water.
+  - The water budget, reservoir + crater storage + downstream outflow + spill, closes every step to
+    round-off.
+
+### 5.7a.5 Stability checks on one state
+
+On a given state, three checks are made, all reading that same state:
+
+(a) **Roof sections** in the upstream and downstream reaches use (5.15), with p_s from §5.7a.4 and σ_s
+from the reservoir.
+
+(b) **Walls.** Wall k is stable while
+
+    H_w ≤ H_c = 3.776 c_u0 / ( γ − γ_w (h_w/H_w)² − 2ρ )                                    (5.17)
+
+- **Dry wall** (h_w = 0): this is the rigorous undrained cut height (derivation and our bounds in §5.7a.10).
+- **Crater full to the top of the wall** (h_w = H_w): it is exact by the shift argument. Water standing
+  to the top of the wall is a hydrostatic field throughout the soil, which leaves the same problem with
+  buoyant weight γ − γ_w.
+- **Partial filling.** The ξ² form is safe-side against our rigorous lower bounds
+  (`verification/fela_cut_wet.py`, results in `fela_cut_wet.txt`, γ_w/γ = 0.5, ρ = 0):
+
+  | ξ = h_w/H_w | 0 | 0.25 | 0.5 | 0.75 | 1 |
+  | --- | --- | --- | --- | --- | --- |
+  | lower-bound ratio to dry | 1.000 | 1.042 | 1.168 | 1.427 | 2.000 |
+  | 1/(1 − (γ_w/γ) ξ²) | 1.000 | 1.032 | 1.143 | 1.391 | 2.000 |
+
+  The water support is about 1–3 % larger than the formula gives, so the formula slightly understates
+  it. That is checked here only at γ_w/γ = 0.5 and ρ = 0; other values are checked before use.
+- **Strength and saturation.** c_u0 and ρ refer to depth below the wall's own ground surface.
+  - **Water against the face** is an external load: it supports the wall.
+  - **Saturation** belongs to the strength. c_u is the saturated undrained strength wherever the soil is
+    saturated (§5.5, "Which strength"). The two effects are not interchangeable and are kept separate.
+  - **Time-dependent softening** from swelling is not represented. It is covered by the remoulding
+    sensitivity.
+- **Geometry of the two wall orientations.**
+  - **Side walls** are long (ℓ ≫ H_w) once the crater has spread, so the plane-strain cut applies.
+    While the crater is short, 3-D support makes them stronger than (5.17) predicts.
+  - **End walls** are only W wide and stand over the intact roof above the pipe. Their 3-D support
+    also makes them stronger than (5.17) predicts. A combined wall-and-roof mechanism falls under
+    route 2 (not represented).
+  - So applying (5.17) to both orientations is justified for long side walls and biased toward
+    spreading elsewhere. That bias is stated.
+- **Tension cut-off case:** 3.776 is replaced by 2. The same ξ² water term is assumed there, which has
+  not been checked.
+
+(c) **Push-out of the remnants** (mechanism B, with the crater water acting from the other side):
+
+    upstream remnant:   ½ γ_w b_p [ (z_s − z_cr)₊² − (z_c − z_cr)₊² ]  >  2 c̄_u A_r,up           (5.23)
+    downstream remnant: ½ γ_w b_p (z_c − z_cr)₊²                       >  2 c̄_u A_r,down
+
+A_r,up and A_r,down are the remnant roof areas, and c̄_u is the mean c_u over the remnant cover. As
+the remnant shortens, its resistance falls.
+
+### 5.7a.6 The synchronous cascade at an event
+
+An event is any failure crossing found during time integration: M(x) = 0, a wall reaching H_c, or
+(5.23). At an event:
+
+1. Compute the hydraulics of §5.7a.4 on the current geometry and z_c.
+2. Evaluate every roof section (a), every wall (b) and both remnants (c) on that same state.
+3. Collect all failures of the pass.
+4. Apply them together:
+   - extend the reach to the outermost failed roof section at each end;
+   - retreat every failed wall by Δ;
+   - remove any remnant that has been pushed out;
+   - update V_fall and V_pipe, then z_d from (5.19), then z_c from (5.20) with V_c conserved.
+5. Repeat from step 1 until a pass finds no failure.
+
+- **No order effects.** Every check in a pass reads the same state, so the result does not depend on
+  which section or wall is checked first.
+- **Termination.** Each pass either changes the geometry by a finite amount, within the dam, or ends.
+  Passes are capped at 200. If the cap is reached, the run stops with a non-convergence error; it does
+  not continue silently. Passes used are reported.
+- **One crater in the first version.** A section with M(x) ≤ 0 that is not contiguous with the crater
+  would start a second crater. It is recorded, and the run stops with a "multiple craters" flag rather
+  than merging the craters silently.
+
+### 5.7a.7 Between events
+
+The time-integrated states are:
+- the reservoir;
+- the upstream pipe dimensions (erosion continues there, §5.4);
+- V_c from (5.22);
+- V_exp, when debris erosion acts.
+
+Debris in the crater is eroded only by flow that actually crosses it. Before hand-over that flow is
+weak: the jet from the upstream pipe into the crater is not represented in the first version. This is
+stated, and it may delay spreading.
+
+M(x), the wall margins and (5.23) are tracked continuously, and their crossings are event-located. One
+case to note: **a falling crater level removes wall support**, so rapid drawdown of the crater can
+trigger wall failure. This follows from (5.17) without any extra rule.
+
+### 5.7a.8 Hand-over to the open breach
+
+Parts 2–4 take over when the reservoir connects to the crater by open flow. That happens in any of
+three ways:
+- the cascade reaches the upstream face;
+- the upstream remnant is pushed out (5.23);
+- the reservoir rises above the ground at x_1 (z_s > z_dam(x_1)).
+
+The open breach starts with:
+- width W;
+- bed z_d;
+- the crater debris and its solids budget;
+- the crater water added to the reservoir–breach flow.
+
+The rest of the hand-over state is as in §5.7.
+
+### 5.7a.9 Spread cases and sensitivities (reported separately)
+
+| case | what it does |
+| --- | --- |
+| minimum spread | the initial reach only; no cascade, no wall checks; crater water balance still computed |
+| rule S | §5.7a.2–5.7a.8 |
+| maximum spread | the whole roof collapses at the first collapse (the draft-4 assumption) |
+| sensitivities, with rule S | dry walls (h_w = 0 in (5.17)); tension cut-off (2 in place of 3.776); remoulding (c_u0/S_t near the crater) |
+
+The cases are reported side by side and never averaged into one prediction (§5.8).
+
+### 5.7a.10 Where (5.17) comes from (dry wall)
 
 - **Where (5.17) comes from (revised in draft 4.8).** Draft 4.7 used the Culmann wedge of Part 3 (3.12)
   with φ = 0, i.e. 4 c_u0/(γ − 2ρ). Culmann's value is a kinematic (upper-bound) estimate and is about
@@ -1064,59 +1279,6 @@ stands while
 - **Part 3, flagged.** Part 3 uses Culmann for vertical cohesive banks. For φ = 0 that is 6 % too
   high, which should be corrected there too.
 - **Consistency.** The crater walls obey the same physics as the breach walls after hand-over.
-- **What happens when it is exceeded.** The wall fails as the Part 3 wedge: the failure plane is at
-  45° for φ = 0, and the top of the wall moves back by H_w. The roof over the pipe within that retreat
-  is gone, and the wedge (½ H_w² per unit width) is added to the debris at that end.
-- **The retreat limits itself.** Each wedge raises the debris surface at the toe, which lowers H_w. The
-  wall stops caving once H_w ≤ H_c, or once it reaches thinner cover under a slope.
-- **Example.** c_u0 = 20 kPa, γ = 20 kN/m³ and ρ = 0 give H_c = 3.78 m (2.0 m with zero tensile
-  strength). A crater exposing more wall than that keeps caving until its own debris or the slope
-  brings the exposed height down to it. With ρ = 2 kPa/m, H_c = 4.72 m.
-
-*Route 4 — loss of strength near the failure (sensitivity only).* Real clays lose strength when
-sheared and remoulded (sensitivity S_t), which can drive progressive failure. Perfect plasticity does
-not represent it. It is tested by reducing c_u0 to c_u0/S_t within one cover depth of each crater edge.
-
-**Proposed rule S (for review).** At each collapse event:
-1. **Initial reach:** the contiguous reach around x* where M(x) ≤ 0.
-2. **Cascade at the same instant:**
-   - recompute the hydraulics with the crater (route 1);
-   - check M(x) along both remaining reaches;
-   - check both end walls with (5.17) (route 3);
-   - add every section that fails and every wall wedge, depositing its debris where it falls;
-   - repeat until a full pass changes nothing, as in the Part 3 bank sweeps. The passes are counted;
-     the cap is a safeguard only.
-3. **In time:** M(x), the wall heights and the debris are tracked. Pipe enlargement, debris erosion
-   (which re-exposes the walls) and further failures continue, each event-located.
-
-Additional 3-D loss of support at the crater edge (route 2) is not represented. That is a stated,
-unverified limitation (above).
-
-**Three spread cases, run and reported separately on every case:**
-- **minimum spread:** step 1 only, frozen;
-- **intermediate:** rule S;
-- **maximum spread:** the whole roof (the draft-4 assumption).
-
-Further sensitivities are run with rule S: remoulding (route 4) and the tension cut-off on the crater
-walls (5.17). The hydrographs are reported case by case. How much they differ is itself a result
-(§5.8).
-
-**First-version simplifications, stated.**
-- The crater has the pipe width b_p while it is a sinkhole. Its side walls are handled by Part 3 after
-  hand-over.
-- The crater drains freely, so its water level is the debris surface. A crater storage, which would
-  give the upstream reach a tailwater h_t, is a later option.
-- The crater walls are taken dry.
-
-**Hand-over to the open breach.** Until the collapsed reach reaches the upstream face, the reservoir
-reaches the crater only through the upstream pipe. The flow path is upstream pipe → crater → over the
-debris and the downstream reach. Parts 2–4 take over when the collapsed reach reaches the upstream
-face, in one of two ways:
-- through the cascade;
-- through push-out of the shortening upstream roof (mechanism B), whose resistance 2 c_u A_r falls as
-  the remaining roof shortens.
-
-Every roof piece and wall wedge enters the solids budget (5.13).
 
 ---
 
@@ -1178,9 +1340,11 @@ published:
 | bound code | brackets 2 + π (Prandtl) and overlaps Wilson et al. (2011) for ρ = 0 and ρ > 0; audits < 1e-6 (done, `fela_benchmarks.py`, `fela_rho_benchmark.py`) |
 | (5.15) | uniform pressure shifts N by exactly q; table interpolation reproduces direct solves to the bracket width; out-of-table section raises an error; M(x) and x* written every step |
 | debris modes | uniform, mound at x* and instant removal run on every piping case; solids budget closes in each |
+| table reduction (5.16a) | direct full-water solves at sample points, collapse and blow-out, both bounds; error ≤ half the bracket width (proposed criterion) |
+| section spacing | x*, collapse time and hydrograph at Δx = b_p/2 vs b_p/4 |
 | pressure | shift exact for any p_cr (done); 0 ≤ β < 1 and monotone over the range (done, 120 cases); band (5.16) used in the uncertainty runs |
 | blow-out | N_b bounds bracket the rigid prism at C/B ≤ 1; uniform-pressure shift exact; uplift check uses N_b |
-| spreading (§5.7a) | cascade terminates; collapsed length: minimum bracket ≤ rule S ≤ whole roof; (5.17) gives 3.776 c_u0/γ for ρ = 0 (bounds done, `fela_cut.py`); tension cut-off run uses 2 c_u0/(γ − 2ρ); wall-wedge volume ½ H_w² per unit width; spread converges in dt |
+| spreading (§5.7a) | cascade terminates within the cap and is independent of check order; water budget with crater storage (5.22) and the void identity (5.18) close to round-off; wet-wall (5.17) exact at h_w = H_w (done, `fela_cut_wet.py`); collapsed length: minimum bracket ≤ rule S ≤ whole roof; (5.17) gives 3.776 c_u0/γ for ρ = 0 (bounds done, `fela_cut.py`); tension cut-off run uses 2 c_u0/(γ − 2ρ); wall-wedge volume ½ H_w² per unit width; spread converges in dt |
 | (5.11) | F_C computed along the whole pipe; < 0 everywhere under the reservoir for random geometries and flows (property test); c_u = 0, p_top = 0 gives Δh/t > γ′/γ_w |
 | (5.12) | solids conserved: V_d (1 − n_d) = (1 − n) b_p A_r to 1e-12; z_d ≈ H − a_p for n_d = n, constant L |
 | (5.13) | solids budget closes every step to 1e-12 |
@@ -1211,10 +1375,16 @@ published:
 4. **Roof stability**: *criterion written for review (§5.5b).* Undrained, with c_u = c_u0 + ρ d
    (constant c_u is ρ = 0); drained deferred until a pore-pressure field exists. Collapse at the first
    section where σ_s − p_s reaches c_u0 N_c (5.15). N_c comes from our own verified bound code,
-   tabulated offline, with the mean of the bounds as the central value and each bound as the band.
-   The uniform-pressure shift is exact. The crown-pressure treatment of the hydrostatic profile is an
-   approximation with a guaranteed band (5.16), so a full pipe enters exactly as a fifth table
-   dimension. Blow-out (N_b) is a separate, pressure-driven mechanism, and it replaces the rigid prism
+   tabulated offline, with the midpoint of the bounds as the central estimate and each bound stored
+   and runnable.
+   - The uniform-pressure shift is exact.
+   - The crown-pressure treatment of the hydrostatic profile is an approximation with a guaranteed band
+     (5.16).
+   - A full pipe enters through the 4-D table plus support factors (5.16a), accepted after a
+     direct-solve test; a fifth dimension is used where that test fails.
+   - Sections are Δx = b_p/2 apart, checked at b_p/4.
+   - Unit weight from (5.24).
+   - Out-of-table values give an error that names the parameter. Blow-out (N_b) is a separate, pressure-driven mechanism, and it replaces the rigid prism
    in the uplift check. The rigid block (A) stays as a comparison and push-out (B) as a separate check. As reviewed: soffit pressure integrated along the pipe with no double counting; water force resolved
    into its vertical (A) and horizontal (B) components. FS = 1 at collapse, event-located inside the step, with FS and its
    minimum reported. FS_crit ≠ 1 for sensitivity only. c_u from the state the roof is in, with its
@@ -1239,20 +1409,23 @@ published:
 8. **Pipe location**: always an input with a recorded source, checked for positive cover. A missing
    location gives three `scenario` runs kept out of primary validation. The base is not assumed
    worst-case. *(As reviewed.)*
-9. **Collapse spreading** *(proposed, for review; §5.7a)*: rule S.
-   - The initial reach is where M(x) ≤ 0.
-   - A cascade at the same instant follows, driven by two routes: the loss of water support, through
-     the recomputed hydraulics, and crater end-wall failure by the rigorous undrained cut height (5.17), with a tension cut-off sensitivity.
-   - Failures continue in time and are event-located.
-   - Additional 3-D loss of support at a crater edge is not represented. This is stated as an
-     unverified limitation; plane strain is not claimed to be conservative there. *(Decision of
-     2026-11-24: the 3-D bound is deferred, and becomes a pre-publication task only if the spread
-     cases show the assumption matters.)*
-   - Three spread cases reported separately: minimum (frozen initial reach), rule S, and maximum (whole
-     roof). Sensitivities: remoulding, and the tension cut-off on the crater walls.
-   - Hand-over to the open breach when the collapsed reach reaches the upstream face, by the cascade or
-     by push-out of the remaining upstream roof.
-
+9. **Collapse spreading and the crater** *(proposed, for review; §5.7a, draft 5.0)*.
+   - **Crater state:** x_1, x_2, W, V_fall, V_pipe, V_exp and V_c. The geometry follows from (5.18)–(5.20).
+     The crater water level is a state with its own balance (5.22); the crater does not drain freely.
+   - **Walls:** end and side walls are all checked with the wet undrained cut criterion (5.17), with the
+     geometric justification of §5.7a.5. A failed wall retreats by the area-equivalent Δ = ½ H_w.
+   - **Wall water:** the wet wall is the default. The dry wall is a sensitivity case. Water against the
+     face (support) and saturation (strength) are kept separate.
+   - **Cascade:** a synchronous pass on one state (hydraulics, roof sections, walls, remnant push-out),
+     with all failures applied together. Capped at 200 passes, with an error if the cap is reached. One
+     crater only in the first version, with a flag otherwise.
+   - **Not represented:** additional 3-D loss of support at a crater edge. This is an unverified
+     limitation; plane strain is not claimed to be conservative there. *(Decision of 2026-11-24: the 3-D
+     bound is deferred, and becomes a pre-publication task only if the spread cases show the
+     assumption matters.)*
+   - **Spread cases, reported separately:** minimum, rule S and maximum. Sensitivities: dry walls,
+     tension cut-off and remoulding.
+   - **Hand-over:** when the reservoir connects to the crater by open flow (§5.7a.8).
 ---
 
 ## References
