@@ -274,7 +274,10 @@ def hydrostatic(gw, zw, p0=0.0):
 
 
 # ----------------------------------------------------------------------------------- lower bound
-def lower_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure, rigorous_far=True):
+def lower_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure, rigorous_far=True, passive=False):
+    """Static bound. Active (default): largest surface load with an admissible field, a lower bound on
+    the collapse (fall-in) load. Passive: smallest surface load with an admissible field, an upper bound
+    on the blow-out load (failure upward, driven by the internal pressure)."""
     P, T = m.P, m.T
     nt = len(T); N3 = 3 * nt
     A, bx, cz = shape_grads(P, T)
@@ -368,7 +371,7 @@ def lower_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure, rig
     # yield imposed with a margin DELTA so that solver feasibility error cannot push the field past c_u
     crow = strength(rho, zrow)
     cons.append(cp.SOC(2.0 * (1.0 - DELTA) * crow, cp.vstack([S[:, 0] - S[:, 1], 2 * S[:, 2]]), axis=0))
-    prob = solve(cp.Problem(cp.Maximize(p), cons))
+    prob = solve(cp.Problem(cp.Minimize(p) if passive else cp.Maximize(p), cons))
     out = dict(value=float(p.value), status=prob.status, ntri=nt, dropped_rows=ndrop)
     out["audit"] = audit_lower(m, gam, S.value, float(p.value), Bx, Cz, rows,
                                float(kf.value) if rigorous_far else None, rho, pressure)
@@ -435,7 +438,10 @@ def _pressure_row(m, pressure):
     return ru, rw
 
 
-def upper_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure):
+def upper_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure, passive=False):
+    """Kinematic bound. Active: unit downward flux through the loaded surface, an upper bound on the
+    collapse load. Passive: unit upward flux, a lower bound on the blow-out load."""
+    sgn = -1.0 if passive else 1.0
     P, T = m.P, m.T
     nn, nt = len(P), len(T)
     A, bx, cz = shape_grads(P, T)
@@ -450,16 +456,16 @@ def upper_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure):
     cons = [exx + ezz == 0, cp.SOC(s, cp.vstack([exx - ezz, gxz]), axis=0),
             u[far] == 0, w[far] == 0, u[sym] == 0]
     flux = _flux_row(m)
-    cons.append(flux @ w == 1.0)
+    cons.append(flux @ w == sgn)
     grav = _grav_row(m, A)
     zc = P[T, 1].mean(1)
     wD = A * strength(rho, zc)          # c(z) is linear in z, so its element integral is A*c(centroid)
     ru, rw = _pressure_row(m, pressure)
     # load power = dissipation - gravity power - water power;  p_load*1 = D + gam*int(w) + int p n.v
     prob = solve(cp.Problem(cp.Minimize(wD @ s + gam * (grav @ w) + ru @ u + rw @ w), cons))
-    out = dict(value=float(prob.value), status=prob.status, ntri=nt)
+    out = dict(value=sgn * float(prob.value), status=prob.status, ntri=nt)
     out["audit"] = audit_upper(m, gam, u.value, w.value, Gx, Gz, wD, flux, grav, far, sym,
-                               float(prob.value), ru, rw)
+                               sgn * float(prob.value), ru, rw)
     return out
 
 
@@ -488,7 +494,7 @@ def audit_upper(m, gam, uv, wv, Gx, Gz, wD, flux, grav, far, sym, objective, ru=
     return dict(incompressibility=float(np.abs(exx + ezz).max() / max(shear.max(), 1e-30)),
                 far_bc=float(max(np.abs(uv[far]).max(), np.abs(wv[far]).max())),
                 sym_bc=float(np.abs(uv[sym]).max()), flux=F,
-                recomputed=(Dint + gam * G + Wp) / F, objective=objective,
+                recomputed=(Dint + gam * G + Wp) / F, objective=objective,  # F = -1 for passive: load = -(D + ...)
                 gravity_power=float(-gam * G), water_power=-Wp, dissipation=Dint)
 
 
@@ -496,10 +502,10 @@ def block(C, gam):
     return 2.0 * C - gam * C
 
 
-def run(kind, C, D, gam, h, ext=3.0, rho=0.0, pressure=no_pressure):
+def run(kind, C, D, gam, h, ext=3.0, rho=0.0, pressure=no_pressure, passive=False):
     m = {"rect": lambda: rect_mesh(C, D, h, ext), "circle": lambda: circle_mesh(C, h, ext),
          "footing": lambda: footing_mesh(h)}[kind]()
-    return lower_bound(m, gam, rho, pressure), upper_bound(m, gam, rho, pressure), m
+    return (lower_bound(m, gam, rho, pressure, passive=passive), upper_bound(m, gam, rho, pressure, passive=passive), m)
 
 
 if __name__ == "__main__":
