@@ -17,9 +17,12 @@ Status labels used below:
 | Slopes | 3H:1V on both faces | M | PAP-1017 |
 | Embankment length | — | — | Not in any source found |
 | Pipe | 40 mm steel; upstream end capped while filling | M | Chen et al. 2019; PAP-1017 gives 1.5 in |
-| Pipe elevation | — | — | PAP-1017 says only "lowest row of markers" on the downstream slope |
-| Reservoir level | 1.1 m (P1 only) | M | Chen et al. 2019 |
-| Reservoir behaviour | Held constant by a weir | S | The supply capacity is unknown, so the level may drop near the peak |
+| Embankment length | 100 m (P1) | E | Chen et al. 2019, Table 1 (a model input) |
+| Pipe elevation | 0.2 m above the base (P1) | E | Chen et al. 2019, Table 1. Stated to follow Hanson et al. 2010 |
+| Reservoir level | 1.1 m (P1) | M | Chen et al. 2019 |
+| Reservoir behaviour | A 43 m weir holds the pool during piping; later, all supply passes through the breach | M | Chen et al. 2019, §3.1 |
+| Supply inflow | ≈ 2.45 m³/s (P1) | E | The plateau of the measured outflow at 0.5–1.0 h |
+| Reservoir area–height curve | — | — | Chen used one but does not give it. The facility is the same as overtopping test 1, so the E1S1 curve is an option (S) |
 
 ## 2. Soil, compaction and erodibility
 

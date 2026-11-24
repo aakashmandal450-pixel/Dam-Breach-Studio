@@ -20,7 +20,7 @@
     1.98
    ],
    "status": "measured",
-   "src": "6 ft: PAP-1017; 1.98 m (1.78-2.18) is the GeoHazards 2024 model mode"
+   "src": "6 ft: PAP-1017; 1.98 m (1.78-2.18) is the GeoHazards 2024 model mode; Chen et al. 2019 Table 1 uses 1.8 m"
   },
   "zu": {
    "value": 3.0,
@@ -33,22 +33,31 @@
    "src": "PAP-1017"
   },
   "section_width_m": {
-   "value": null,
-   "status": "missing",
-   "src": "length not given in any source found"
+   "value": 100,
+   "status": "estimated",
+   "src": "Chen et al. 2019 Table 1 lists dam length 100 m (model input; unclear whether measured)"
   },
   "pipe": {
    "diameter_m": 0.04,
    "type": "steel, upstream end capped, pulled out after filling",
-   "elevation_m": null,
-   "elevation_status": "missing",
+   "elevation_m": 0.2,
+   "elevation_status": "estimated (Chen et al. 2019 Table 1 input, said to follow Hanson et al. 2010)",
    "src": "Chen et al. 2019; PAP-1017 (1.5 in). Elevation only described as the lowest marker row on the d/s slope"
   },
   "reservoir": {
-   "type": "constant_head",
-   "level_m": null,
-   "status": "scenario",
-   "src": "PAP-1017: continuous supply, level held by long-crested weir. Supply capacity unknown, so head may drop near peak"
+   "type": "constant_head_then_supply_limited",
+   "level_m": 1.1,
+   "weir_length_m": 43,
+   "inflow_m3s": {
+    "value": 2.45,
+    "status": "estimated",
+    "src": "post-peak plateau of measured Q (2.4-2.55 m3/s, 0.5-1.0 h) = supply once the weir stops spilling"
+   },
+   "area_height": {
+    "status": "missing",
+    "note": "Chen used an As-H curve not given; same facility as overtopping test 1, so the E1S1 curve is a scenario option"
+   },
+   "src": "Chen et al. 2019 sec. 3.1: 43-m weir kept the pool near constant during piping; later all flow passed through the breach"
   }
  },
  "soil": {
@@ -97,10 +106,21 @@
  },
  "obs": {
   "Tc_s": 828,
-  "Tc_src": "0.23 h, PAP-1017 Table 1",
-  "Qp_m3s": 2.979,
-  "Tp_s": 1560,
-  "B_m": 6.46,
-  "src": "GeoHazards 2024 Table 2 (data from HERU, no table citation); check against Hanson et al. 2010"
+  "Tc_src": "0.23 h PAP-1017 Table 1; 0.22 h Chen 2019 Table 2",
+  "Qp_m3s": 2.98,
+  "Tp_s": 1548,
+  "Tp_src": "0.43 h Chen 2019 Table 2 (1560 s GeoHazards 2024)",
+  "B_final_m": 5.4,
+  "B_final_src": "Chen 2019 Table 2 at ~1 h; GeoHazards 2024 gives max width 6.46 m (likely later in test)",
+  "hydrograph_csv": "ARS_P1_obs_hydrograph_digitised.csv",
+  "width_csv": "ARS_P1_obs_width_digitised.csv",
+  "src": "measured values cited to Hanson et al. 2010"
+ },
+ "strength_alt": {
+  "c_kPa": 15,
+  "phi_deg": 40,
+  "porosity": 0.36,
+  "d50_mm": 0.05,
+  "status": "estimated (Chen 2019 model inputs)"
  }
 }
