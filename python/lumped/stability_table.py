@@ -29,6 +29,13 @@ class TableRangeError(ValueError):
     """A query lies outside the tabulated range (no extrapolation)."""
 
 
+class UnstableOpening(ValueError):
+    """The query lies in a region where the bound solves show no stable state at any surface load.
+    SELF_UNSTABLE: a kinematic mechanism collapses the opening under its own weight (rigorous: it
+    collapses). NO_STATIC_BOUND: no admissible stress field exists (no certificate of stability; the
+    lower bound is open). The engine treats both as collapse and flags the region (policy for review)."""
+
+
 def _t(axis: str, v):
     """Interpolation coordinate. Linear in C/b_p: the weight and blow-out terms grow about linearly with
     cover (a log axis bent them and failed the acceptance test on a coarse grid). Logarithmic in a_p/b_p,
@@ -57,17 +64,24 @@ class StabilityTable:
                 break
             rdr = csv.DictReader(l for l in fh if not l.startswith("#"))
             for r in rdr:
-                rows.append({k: float(v) for k, v in r.items() if k in AXES + FIELDS})
+                if r.get("status") not in ("OK", "SELF_UNSTABLE", "NO_STATIC_BOUND"):
+                    continue                     # failed or unfinished rows are not part of the table
+                row = {k: float(v) if v not in ("", None) else float("nan") for k, v in r.items() if k in AXES + FIELDS}
+                row["status"] = r["status"]
+                rows.append(row)
         grid = {a: np.array(sorted({r[a] for r in rows})) for a in AXES}
         shape = tuple(len(grid[a]) for a in AXES)
         data = {f: np.full(shape, np.nan) for f in FIELDS}
+        status = np.full(shape, "", dtype=object)
         for r in rows:
             idx = tuple(int(np.searchsorted(grid[a], r[a])) for a in AXES)
             for f in FIELDS:
                 data[f][idx] = r[f]
-        missing = int(np.isnan(data["N_c0_lo"]).sum())
+            status[idx] = r["status"]
+        missing = int((status == "").sum())
         if missing:
             raise ValueError(f"table {path} is incomplete: {missing} grid points missing")
+        meta["status"] = status
         return cls(grid, data, float(meta.get("gw_ref", "nan")), meta)
 
     # ------------------------------------------------------------------ queries
@@ -86,10 +100,8 @@ class StabilityTable:
             cell.append((i, i + 1)); w.append(float(np.clip(f, 0.0, 1.0)))
         return cell, w
 
-    def _interp(self, field: str, q: dict) -> float:
+    def _corners(self, q: dict):
         cell, w = self._weights(q)
-        arr = self.data[field]
-        tot = 0.0
         for corner in range(16):
             idx, wt = [], 1.0
             for k in range(4):
@@ -97,13 +109,26 @@ class StabilityTable:
                 idx.append(cell[k][bit])
                 wt *= w[k] if bit else (1.0 - w[k])
             if wt:
-                tot += wt * arr[tuple(idx)]
-        return float(tot)
+                yield tuple(idx), wt
+
+    def _check_stable(self, q: dict):
+        st = self.meta.get("status")
+        if st is None:
+            return
+        bad = {st[idx] for idx, wt in self._corners(q) if st[idx] != "OK"}
+        if bad:
+            raise UnstableOpening(f"{', '.join(sorted(bad))} at a neighbouring grid point of "
+                                  + ", ".join(f"{a} = {q[a]:g}" for a in AXES))
+
+    def _interp(self, field: str, q: dict) -> float:
+        arr = self.data[field]
+        return float(sum(wt * arr[idx] for idx, wt in self._corners(q)))
 
     def query(self, C_b, a_b, g_b, rho_b, gw_b=0.0, full=False, mechanism="collapse"):
         """Return dict(lo, hi, mid) of the stability number (sigma_s - p_cr)/c_u0.
         full=True adds the hydrostatic support of a full pipe, beta * gw_b * a_b (5.16a)."""
         q = dict(C_b=C_b, a_b=a_b, g_b=g_b, rho_b=rho_b)
+        self._check_stable(q)
         key = {"collapse": "c", "blowout": "b"}[mechanism]
         lo = self._interp(f"N_{key}0_lo", q)
         hi = self._interp(f"N_{key}0_hi", q)

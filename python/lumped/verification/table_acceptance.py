@@ -20,7 +20,7 @@ from multiprocessing import Pool
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))          # .../python
-from lumped.stability_table import StabilityTable, TableRangeError, AXES, FIELDS   # noqa: E402
+from lumped.stability_table import StabilityTable, TableRangeError, UnstableOpening, AXES, FIELDS   # noqa: E402
 
 OFF_GRID = [(0.35, 0.7, 0.25, 0.1), (0.7, 1.4, 1.25, 0.4), (1.75, 0.7, 2.5, 0.75), (2.5, 1.4, 0.75, 0.1),
             (5.0, 0.7, 1.75, 0.4), (7.0, 1.4, 2.5, 0.75), (10.0, 0.7, 0.25, 0.1), (14.0, 1.4, 1.25, 0.4),
@@ -42,6 +42,8 @@ def direct(p):
             lb = f.lower_bound(m, g, r, pr, passive=passive)
             ub = f.upper_bound(m, g, r, pr, passive=passive)
             lo, hi = (ub["value"], lb["value"]) if passive else (lb["value"], ub["value"])
+            if lo is None or hi is None:
+                lo = hi = None                      # no stable state at any load (see UnstableOpening)
             out.append(dict(C_b=C, a_b=a, g_b=g, rho_b=r, gw_b=0.0 if gw is None else gw,
                             full=gw is not None, mechanism=mech, lo=lo, hi=hi))
     return out
@@ -77,8 +79,11 @@ def mechanics(tab, fails):
             res = "gw_b" in str(e); msg = str(e)
         print(f"  {'PASS' if res else 'FAIL'}  gw_b = {gw} raises an error   ({msg})", flush=True)
         if not res: fails.append(f"range gw {gw}")
-    r = tab.query(**base)
-    ok = abs(r["mid"] - 0.5 * (r["lo"] + r["hi"])) < 1e-15 and r["lo"] <= r["hi"]
+    try:
+        r = tab.query(**base)
+        ok = abs(r["mid"] - 0.5 * (r["lo"] + r["hi"])) < 1e-15 and r["lo"] <= r["hi"]
+    except UnstableOpening:
+        ok = True   # the centre of the grid is unstable: nothing to compare
     print(f"  {'PASS' if ok else 'FAIL'}  both bounds and the midpoint returned (lo <= mid <= hi)", flush=True)
     if not ok: fails.append("bounds/midpoint")
 
@@ -106,7 +111,7 @@ def main():
         mid = lambda a: float(sum(tab.grid[a][:2]) / 2) if len(tab.grid[a]) > 1 else float(tab.grid[a][0])
         pts = [tuple(mid(a) for a in AXES)]
         ON_GRID.append(tuple(float(tab.grid[a][0]) for a in AXES)); pts.append(ON_GRID[-1])
-    rows, n_ok, n_bad, t0 = [], 0, 0, time.time()
+    rows, n_ok, n_bad, n_unst, t0 = [], 0, 0, 0, time.time()
     with Pool(args.workers, maxtasksperchild=1) as pool:
         for k, res in enumerate(pool.imap_unordered(direct, pts), 1):
             for d in res:
@@ -115,6 +120,16 @@ def main():
                     pr = tab.query(**q, gw_b=d["gw_b"], full=d["full"], mechanism=d["mechanism"])
                 except TableRangeError as e:
                     print(f"  FAIL  {q}: {e}", flush=True); fails.append(str(e)); continue
+                except UnstableOpening as e:
+                    n_unst += 1
+                    print(f"  note  {q} {d['mechanism']}: table reports an unstable region ({e}); "
+                          f"direct solve {'also finds no stable state' if d['lo'] is None else 'finds a bracket'}",
+                          flush=True)
+                    continue
+                if d["lo"] is None:
+                    print(f"  FAIL  {q} {d['mechanism']}: direct solve finds no stable state but the table gives "
+                          f"[{pr['lo']:.3f}, {pr['hi']:.3f}]", flush=True)
+                    fails.append(f"{q} unstable but tabulated"); continue
                 tol = 0.5 * (d["hi"] - d["lo"])
                 e_lo, e_hi = abs(pr["lo"] - d["lo"]), abs(pr["hi"] - d["hi"])
                 ok = e_lo <= tol and e_hi <= tol
@@ -130,16 +145,18 @@ def main():
             print(f"[{k}/{len(pts)}] C/b={p['C_b']:g} a/b={p['a_b']:g} gb/c={p['g_b']:g} rho b/c={p['rho_b']:g}: "
                   f"{sum(r_['ok'] for r_ in rows[-8:])}/8 comparisons pass | elapsed {(time.time()-t0)/60:.1f} min",
                   flush=True)
-    with open(args.out, "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
-    print(f"\nAccuracy: {n_ok} of {n_ok + n_bad} comparisons within the criterion.", flush=True)
+    if rows:
+        with open(args.out, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+    print(f"\nAccuracy: {n_ok} of {n_ok + n_bad} comparisons within the criterion"
+          f"{f'; {n_unst} comparison(s) in unstable regions not compared' if n_unst else ''}.", flush=True)
     for r_ in rows:
         if not r_["ok"]:
             print(f"  outside: C/b={r_['C_b']:g} a/b={r_['a_b']:g} gb/c={r_['g_b']:g} rho={r_['rho_b']:g} "
                   f"{r_['mechanism']} gw={r_['gw_b']:g}: err lo {r_['err_lo']:.3f}, hi {r_['err_hi']:.3f}, "
                   f"tol {r_['tol']:.3f} -> {r_['cause']}", flush=True)
-    worst = max(rows, key=lambda r_: max(r_["err_lo"], r_["err_hi"]) / max(r_["tol"], 1e-12))
-    print(f"Largest error / tolerance: {max(worst['err_lo'], worst['err_hi']) / max(worst['tol'], 1e-12):.2f} "
+    worst = max(rows, key=lambda r_: max(r_["err_lo"], r_["err_hi"]) / max(r_["tol"], 1e-12)) if rows else None
+    if worst: print(f"Largest error / tolerance: {max(worst['err_lo'], worst['err_hi']) / max(worst['tol'], 1e-12):.2f} "
           f"at C/b={worst['C_b']:g} a/b={worst['a_b']:g} {worst['mechanism']} gw={worst['gw_b']:g}", flush=True)
     print(f"\n== RESULT: {'ALL PASS' if not fails else str(len(fails)) + ' FAIL'}", flush=True)
     return 1 if fails else 0

@@ -49,26 +49,39 @@ TOL = 1e-7
 DELTA = 1e-5          # lower-bound yield margin (fraction of c_u)
 
 
+class SolveFailed(RuntimeError):
+    """No solution and no consistent infeasibility certificate at any setting."""
+
+
 def solve(prob):
     """Clarabel. The lower-bound equality system is rank-deficient (redundant traction rows), which
     makes the interior-point KKT solve unstable near the optimum unless static regularisation is
     raised (1e-6 instead of the 1e-8 default). Rigour does not rest on the optimality gap: the audit
-    checks that the returned field is admissible, and its load is then a valid bound."""
+    checks that the returned field is admissible, and its load is then a valid bound.
+    An infeasible lower bound (no admissible stress field at any surface load) or an unbounded upper
+    bound (a mechanism that collapses under self-weight whatever the surface load) is a physical
+    result, not a failure: it is returned once two settings agree on it."""
     base = dict(max_iter=300, tol_gap_abs=1e-6, tol_gap_rel=1e-6, tol_feas=1e-8)
-    for kw in (dict(static_regularization_constant=1e-6),
+    settings = (dict(static_regularization_constant=1e-6),
                dict(static_regularization_constant=1e-7),
                dict(static_regularization_constant=1e-6, equilibrate_enable=False),
                dict(static_regularization_constant=1e-8),
                dict(static_regularization_constant=1e-6, iterative_refinement_max_iter=50,
                     iterative_refinement_stop_ratio=2),
-               dict(static_regularization_constant=1e-5, tol_gap_abs=1e-4, tol_gap_rel=1e-4, tol_feas=1e-7)):
+               dict(static_regularization_constant=1e-5, tol_gap_abs=1e-4, tol_gap_rel=1e-4, tol_feas=1e-7))
+    certs = []
+    for kw in settings:
         try:
             prob.solve(solver=cp.CLARABEL, **{**base, **kw})
             if prob.status in ("optimal", "optimal_inaccurate"):
                 return prob
+            if prob.status in ("infeasible", "unbounded"):
+                certs.append(prob.status)
+                if certs.count(prob.status) >= 2:      # the same certificate at two settings: accept it
+                    return prob
         except cp.error.SolverError:
             pass
-    raise RuntimeError("Clarabel failed at all regularisation levels")
+    raise SolveFailed("Clarabel failed at all regularisation levels")
 
 
 def graded(a, b, h0, hmax, r=1.15, fine_at="a"):
@@ -374,6 +387,9 @@ def lower_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure, rig
     crow = strength(rho, zrow)
     cons.append(cp.SOC(2.0 * (1.0 - DELTA) * crow, cp.vstack([S[:, 0] - S[:, 1], 2 * S[:, 2]]), axis=0))
     prob = solve(cp.Problem(cp.Minimize(p) if passive else cp.Maximize(p), cons))
+    if prob.status in ("infeasible", "unbounded"):
+        # no admissible field at any load: no static certificate exists for this opening
+        return dict(value=None, status=prob.status, ntri=nt, dropped_rows=ndrop, audit={})
     out = dict(value=float(p.value), status=prob.status, ntri=nt, dropped_rows=ndrop)
     out["audit"] = audit_lower(m, gam, S.value, float(p.value), Bx, Cz, rows,
                                float(kf.value) if rigorous_far else None, rho, pressure)
@@ -465,6 +481,9 @@ def upper_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure, pas
     ru, rw = _pressure_row(m, pressure)
     # load power = dissipation - gravity power - water power;  p_load*1 = D + gam*int(w) + int p n.v
     prob = solve(cp.Problem(cp.Minimize(wD @ s + gam * (grav @ w) + ru @ u + rw @ w), cons))
+    if prob.status in ("infeasible", "unbounded"):
+        # unbounded: a mechanism releases gravity energy faster than it dissipates, at zero net load
+        return dict(value=None, status=prob.status, ntri=nt, audit={})
     out = dict(value=sgn * float(prob.value), status=prob.status, ntri=nt)
     out["audit"] = audit_upper(m, gam, u.value, w.value, Gx, Gz, wD, flux, grav, far, sym,
                                sgn * float(prob.value), ru, rw)

@@ -775,6 +775,20 @@ reported separately. The fifth argument enters for a full pipe (above).
     cover axis is linear because the weight and blow-out terms grow about linearly with cover. A log
     axis bent them and failed the acceptance test on a coarse test grid.
   - Full-pipe queries are limited to γ_w b_p/c_u0 ≤ 2, the range covered by the acceptance test.
+  - **Openings with no stable state (found in the table build, 2026-11-24).** For tall pipes in heavy,
+    weak soil under thin cover there is no stable state at any surface load. Example: a_p/b_p = 2,
+    γ b_p/c_u0 = 3, C/b_p = 0.25, while C/b_p = 0.5 is stable. The bound solves record two outcomes:
+    - **SELF_UNSTABLE.** The kinematic bound is unbounded: a mechanism releases more gravity energy than
+      it dissipates at zero net surface load. Rigorously, the opening collapses under its own weight.
+    - **NO_STATIC_BOUND.** No admissible stress field exists at any load. The lower bound is open, so no
+      certificate of stability exists. Seen at γ b_p/c_u0 = 2.5 for the same geometry, where the
+      kinematic bound is still finite (−0.83).
+
+    Both are physical results, accepted once two solver settings agree, and kept in the table with their
+    status. A query whose interpolation cell touches such a point raises `UnstableOpening`. **Proposed
+    engine policy (for review):** treat it as collapse at that section, flagged in the output. A pipe
+    reaching such a state would in practice have collapsed earlier, so the flag also marks where the
+    table is being used at its edge.
   - Build, interface and test: `verification/build_stability_table.py` (resumable, parallel),
     `lumped/stability_table.py` and `verification/table_acceptance.py`. The grid is C/b_p = 0.25–32
     (13 nodes), a_p/b_p = 0.5, 1, 2, γ b_p/c_u0 = 0–3 (6 nodes), ρ b_p/c_u0 = 0–1 (4 nodes), at
