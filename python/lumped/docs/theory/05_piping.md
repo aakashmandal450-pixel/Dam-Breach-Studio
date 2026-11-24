@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4.1 · 2026-11-24 · status: geotechnical review requested (§5.5–5.6); implementation on hold*
+*Lumped 1-D morphodynamic breach model · draft 4.2 · 2026-11-24 · status: geotechnical review received; roof-collapse criterion under investigation (§5.5a); implementation on hold*
 *Draft 1 (2026-11-20) proposed eight decisions. Draft 2 takes in the review of 2026-11-24:
 continuous culvert-type hydraulics, erosion only on wetted walls, HET k_d preferred, roof
 pressure integrated along the pipe, a separate uplift (heave) check, a debris layer that takes part in
@@ -199,10 +199,16 @@ concentrated leak that already crosses the dam.
 
 ## 5.5 Roof stability — two mechanisms, both checked every step
 
-Assumptions, stated: soil above the pipe is homogeneous, with uniform undrained strength c_u and
-total unit weight γ_t; total-stress analysis (failure is fast; the roof is saturated); failure
-surfaces are the two vertical planes above the pipe walls (as in DL Breach). A_r is the longitudinal
-area of the roof — the dam section above z_cr between x_up(z_cr) and x_o.
+Assumptions, stated: soil above the pipe is homogeneous, with uniform undrained strength c_u;
+total-stress analysis (failure is fast); the roof is a rigid block with vertical undrained shear
+surfaces above the two pipe walls (as in DL Breach), with the full c_u mobilised on both. This is a
+rigid-block approximation, not a soil-arching solution. A_r is the longitudinal area of the roof —
+the dam section above z_cr between x_up(z_cr) and x_o.
+
+**Unit weight by saturation state (review, 2026-11-24).** The roof is saturated below the phreatic
+surface and moist above it, so it takes γ_sat below and γ_moist above. As a first-version assumption
+the phreatic surface is taken at the reservoir level z_s over the roof; both unit weights are case
+inputs. In a total-stress analysis the pore pressure inside the block is not subtracted again.
 
 **Water pressure on the soffit.** When the pipe flows full, the piezometric head along the soffit
 falls with the entrance loss and then linearly with friction:
@@ -222,15 +228,20 @@ roof — no hydraulic force is counted twice.
     resisting R_A = 2 c_u A_r
     FS_A = R_A / D_A;    collapse when FS_A ≤ 1                                            (5.9)
 
-A_w is the area of reservoir water standing on the part of the roof under the upstream face.
+A_w is the area of the water wedge above the wetted part of the upstream face over the roof.
+γ_w A_w is the vertical component of the hydrostatic force on that inclined face, used only in
+mechanism A. Its horizontal component is the driving force of mechanism B. The resultant is never
+counted in both.
 
 **What the dry limit says.** Without the water terms, (5.9) gives
 
     b_p,crit = 2 c_u / γ_t
 
-for any cover thickness, because both weight and side resistance grow with cover. This rectangular
-block is a simplified idealisation. Its critical width coincides with the condition for a
-stress-free trapdoor in Terzaghi's (1943) arching analysis, but it is not that full solution.
+for any cover thickness, because both weight and side resistance grow with cover. This is the
+cohesion-controlled, zero-friction limiting result of the simplified vertical-plane trapdoor
+formulation. It does not reproduce Terzaghi's (1943) full arching solution, which includes friction
+and stress redistribution, and §5.5a shows that its independence of cover is an artefact of the
+mechanism.
 
 Example: c_u = 10 kPa and γ_t = 20 kN/m³ give 1.0 m dry. With 10 m of cover and the soffit pressure
 falling from 10 m of water at the inlet to zero at the outlet (mean 49 kPa), it rises to about 1.3 m,
@@ -240,8 +251,12 @@ before adding the water standing on the upstream face.
 
     ½ γ_w max(z_s − z_cr, 0)² b_p  >  2 c_u A_r                                            (5.10)
 
-**Factor of safety.** Collapse is at FS = 1, the limit-equilibrium condition. FS_A and FS_B are
-written to the output every step, so incipient instability is visible. A threshold other than 1 is
+**Factor of safety and signed imbalance.** Collapse is at FS = 1, the limit-equilibrium condition.
+The event is decided from the signed force balance, not from the ratio: the margin M = resisting −
+driving is computed and written every step with FS, and collapse occurs when M ≤ 0 with the driving
+force acting in the mechanism's direction. If the soffit pressure exceeds the downward forces in
+mechanism A, D_A ≤ 0 and FS_A is not defined. The roof is then pushed upward, which is mechanism C
+over the whole roof, checked by F_C. A threshold other than 1 is
 not a physical quantity — the uncertainty belongs in c_u — so FS_crit ≠ 1 is offered only in the
 sensitivity analysis.
 
@@ -250,14 +265,79 @@ linear interpolation of the margin (FS − 1), the step is redone to that instan
 applied there and the step is finished on the new geometry — the event location already used for the
 Part 4 residual block. The minimum FS before collapse is reported.
 
-**Which strength.** c_u is the undrained strength of the roof soil in the state it is in at failure.
-Below the phreatic surface that is the saturated strength. Above it, suction raises the strength, so
-the as-compacted value from the case data is used. The case file records which test the value comes
-from. One value per case is a simplification; a layered roof is a later option.
+**Which strength.** c_u must represent the roof soil's moisture state, density, stress state and
+loading rate at failure.
+- Below the phreatic surface, a saturated undrained strength is used where measured.
+- Above it, an as-compacted or unsaturated strength is used where available.
+- Residual strength is not used: it applies to surfaces already sheared, not a new roof failure.
+
+The case file records, for each c_u, the test (UCS, vane, triaxial UU, …), the saturation state and
+the density. One value per saturation zone is the first-version simplification.
 
 **Later, not now:** tension cracking of the roof (needs tensile strength, rarely available) and
 friction on the side planes (a rigid block with K_0 friction overstates deep-roof stability compared
 with Terzaghi's slice analysis).
+
+---
+
+## 5.5a Roof collapse — investigation before implementation (2026-11-24)
+
+The rigid two-plane block (mechanism A) is kept only as a benchmark. Before a collapse criterion is
+coded, the undrained stability of shallow openings in clay is being reviewed, because that literature
+answers the same question — when does the soil over a void collapse — with rigorous bounds.
+
+**The established framework.** For a plane-strain opening of width B and height D under cover C in
+undrained clay, with surface surcharge σ_s and internal pressure σ_t, collapse is governed by the
+stability number
+
+    N = (σ_s − σ_t)/c_u  compared with  N_crit = f(C/B, D/B, γB/c_u)
+
+following Broms and Bennermark (1967) and Davis et al. (1980). Upper and lower bounds on N_crit come
+from finite element limit analysis and bracket the true collapse load within a few per cent:
+- square tunnels: Assadi and Sloan (1991);
+- wide rectangular tunnels: Abbo et al. (2013);
+- tall tunnels: Wilson et al. (2014);
+- rectangular tunnels with c_u increasing with depth: Wilson et al. (2017).
+
+The mapping to the roof is direct: σ_t is the soffit water pressure p_s, σ_s is the water standing on
+a submerged roof, B = b_p, D = a_p, and C is the cover.
+
+**What this shows about the rigid block.** In the same terms, the two-plane block gives
+
+    N_block = 2C/b_p − γC/c_u.
+
+Its strength term grows linearly with cover. In the bounds, the weightless term grows only about
+logarithmically with cover (circular tunnel fit: N_0 ≈ 1.5 ln(C/D) + 2.4; Wilson et al. 2011),
+because a deep failure stays near the opening and does not shear the full height to the surface.
+So for deep cover the block overstates the roof's strength. Its cover-independent critical width
+2c_u/γ_t is an artefact of the mechanism. The bounds instead show that, with constant c_u, a deep
+opening collapses once (γC − σ_t)/c_u exceeds the critical stability number, largely whatever its
+width.
+
+**Consequences to settle before coding:**
+1. **Strength regime.** With constant c_u, any deep pipe is predicted to collapse early unless the
+   pipe water pressure supports it. Example: 40 m of cover, c_u = 25 kPa and γ = 20 kN/m³ give
+   γC/c_u = 32, far above typical critical values. The real fill strength increases with
+   confinement. Three options:
+   - c_u increasing with depth (covered by Wilson et al. 2017);
+   - a drained (c′, φ′) analysis for pipes that develop over days in coarser soils, where friction
+     and arching support the roof;
+   - a time-scale criterion (consolidation time a_p²/c_v against pipe development time) that
+     selects between them.
+2. **Where collapse starts.** Cover varies along the pipe. The criterion is evaluated section by
+   section, so the first section to reach its limit marks a local collapse (sinkhole) and its
+   location. This is closer to observed piping failures than a full-length roof failure, and it
+   affects the debris geometry (§5.7).
+3. **Bounds data.** The FELA bounds are published as charts and tables. Using them needs either those
+   tables (Abbo et al. 2013; Wilson et al. 2017; drained equivalents) interpolated in the code, or a
+   rigid multi-block upper-bound mechanism derived and optimised here. An upper bound alone is on the
+   unsafe side for a collapse prediction.
+4. **Geometry differences.** The tunnel solutions assume a horizontal ground surface and plane strain
+   across the pipe. The embankment's sloping faces and the variable cover must be handled by applying
+   the solution at each section with its local cover, and the error of doing so stated.
+
+Jafari and Fahimifar (2022) treat the *face* (heading) stability of rectangular shield tunnels, a 3-D
+problem. They are relevant to the method but not to the cross-section collapse of the roof.
 
 ---
 
@@ -279,14 +359,23 @@ It lifts when
 
     F_C(x) = b_p (p_s(x) − p_top(x)) − γ_t b_p t(x) − 2 c_u t(x)  >  0                         (5.11)
 
+- **Top boundary condition (review, 2026-11-24).** p_top is the external pressure on the prism's
+  actual top surface:
+  - hydrostatic, γ_w (z_s − z_dam), where that surface is the upstream face below the reservoir;
+  - 0 where it is exposed to air — the crest and the downstream face, and the upstream face above
+    z_s.
+
+  The code uses exactly this piecewise boundary condition along the whole pipe.
 - **Under the reservoir.** Two pressures act on the prism.
   - *On top* the water is still or slowly moving toward the inlet, with velocity v_top. By Bernoulli
     from the reservoir, p_top = γ_w (z_s − z_dam(x)) − ρ v_top²/2.
   - *Underneath*, (5.8) gives p_s = γ_w (z_s − z_cr) − ρ U²/2 · (1 + K_u + f ξ/(4R)).
   - Subtracting: p_s − p_top = γ_w t − ρ/2 [ U² (1 + K_u + f ξ/(4R)) − v_top² ].
-  - The flow converges into the pipe, so the velocity over the face is smaller than the velocity in
-    the pipe (v_top < U), and the bracket is positive. Hence p_s − p_top < γ_w t < γ_t t, and
-    F_C < 0 at every point under the reservoir.
+  - If the velocity over the face is smaller than the velocity in the pipe (v_top < U), the bracket
+    is positive. Hence p_s − p_top < γ_w t < γ_t t, and F_C < 0 at every point under the
+    reservoir. v_top < U is a flow-field assumption, not a guaranteed condition, so the model uses
+    v_top = 0 (hydrostatic top), and the local pressure drop in the approach flow right at the inlet is
+    not represented.
   - Where (5.8) would give a negative soffit pressure, p_s is set to 0, a lower bound on a
     cavitating or separated flow. With p_top ≥ 0 that case gives p_s − p_top ≤ 0, so the bound still
     holds.
@@ -305,8 +394,19 @@ It lifts when
   not rely on this result: F_C(x) is computed along the whole pipe, under the reservoir included,
   with v_top = 0 (the most adverse case for the prism). The free-body diagram is listed for an
   independent geotechnical check before publication.
-- **Under the dry downstream face:** p_top = 0 while p_s is still positive, so uplift is possible near
-  the outlet.
+- **Where the top is dry** (crest, downstream face): p_top = 0. Since p_s ≤ γ_w (z_s − z_cr) everywhere,
+  uplift needs cover t < (γ_w/γ_t)(z_s − z_cr). Under the crest t = H − z_cr ≥ z_s − z_cr, so the crest
+  cannot lift while the reservoir is below it. Near the outlet both p_s and t fall to zero. Uplift
+  starts there only if the friction slope in the pipe exceeds the cover gradient:
+
+      S_f = f U²/(8 g R)  >  (γ_t + 2 c_u/b_p) / (γ_w z_d)
+
+  For c_u = 0 and z_d = 2, this needs S_f > 1, which is possible only in a very short or steep pipe.
+
+  **Numerical check with this boundary condition (rerun, 2026-11-24):** 1.2 million points sampled
+  over the upstream face, crest and downstream face of random dams. No point lifted (largest
+  F_C/(γ_t b_p t): −0.45 upstream, −0.57 crest, −0.65 downstream). Mechanism C is therefore kept, but
+  for dam-scale pipes it is expected to be rare.
 
 With c_u = 0 and p_top = 0, (5.11) reads p_s > γ_t t. Writing p_s = γ_w (t + Δh), with Δh the excess
 head over hydrostatic, this is Δh/t > (γ_t − γ_w)/γ_w = γ′/γ_w = i_cr. That is the classical
@@ -523,8 +623,11 @@ more cover and a different collapse time, so the largest peak can come from any 
 3. **Wall shear and erodibility**: friction-only momentum shear (5.5), recomputed every step. HET k_d
    and τ_c preferred, JET used with its source recorded and a conversion tested. τ_c kept separate.
    Sellmeijer is a future module. *(As reviewed.)*
-4. **Roof stability**: fall-in (A) and push-out (B), with the soffit pressure integrated along the
-   pipe and no double counting. FS = 1 at collapse, event-located inside the step, with FS and its
+4. **Roof stability**: *under investigation (§5.5a).* The rigid two-plane block (A) and push-out (B)
+   are kept as benchmarks; the collapse criterion to be coded will come from the undrained (and,
+   where justified, drained) stability-number framework with published limit-analysis bounds. As
+   reviewed: soffit pressure integrated along the pipe with no double counting; water force resolved
+   into its vertical (A) and horizontal (B) components. FS = 1 at collapse, event-located inside the step, with FS and its
    minimum reported. FS_crit ≠ 1 for sensitivity only. c_u from the state the roof is in, with its
    source recorded. Tension cracks later; side friction for sensitivity only. *(Both reviews agree.)*
 5. **Downstream exit uplift (heave)**: a separate mechanism C, defined by a free body of the cover
@@ -562,8 +665,16 @@ more cover and a different collapse time, so the largest peak can come from any 
   FWR6124-RT001 R01-00.
 - Hunt, S. L., Temple, D. M., Neilsen, M. L., Ali, A., and Tejral, R. D. (2021). WinDAM C. *Appl. Eng.
   Agric.*, 37(3), 523–534.
+- Davis, E. H., Gunn, M. J., Mair, R. J., and Seneviratne, H. N. (1980). The stability of shallow
+  tunnels and underground openings in cohesive material. *Géotechnique*, 30(4), 397–416.
 - FEMA (2015). *Evaluation and Monitoring of Seepage and Internal Erosion*. FEMA P-1032 (heave vs
   backward erosion piping).
+- Abbo, A. J., Wilson, D. W., Sloan, S. W., and Lyamin, A. V. (2013). Undrained stability of wide
+  rectangular tunnels. *Computers and Geotechnics*, 53, 46–59. doi:10.1016/j.compgeo.2013.04.005.
+- Assadi, A., and Sloan, S. W. (1991). Undrained stability of shallow square tunnel. *J. Geotech. Eng.*,
+  117(8), 1152–1173.
+- Broms, B. B., and Bennermark, H. (1967). Stability of clay at vertical openings. *J. Soil Mech.
+  Found. Div.*, ASCE, 93(SM1), 71–94.
 - Chow, V. T. (1959). *Open-Channel Hydraulics*. McGraw-Hill. Ch. 3 (specific energy, critical flow,
   maximum discharge).
 - Norman, J. M., Houghtalen, R. J., and Johnston, W. J. (1985). *Hydraulic design of highway
@@ -584,4 +695,12 @@ more cover and a different collapse time, so the largest peak can come from any 
 - Wahl, T. L., et al. (2017). DSO-2017-02, Bureau of Reclamation.
 - Wan, C. F., and Fell, R. (2004). Laboratory tests on the rate of piping erosion of soils in
   embankment dams. *Geotech. Testing J.*, 27(3), 295–303.
+- Jafari, P., and Fahimifar, A. (2022). Upper-bound face stability analysis of rectangular
+  shield-driven tunnels in undrained clays. *Computers and Geotechnics*, 146.
+- Wilson, D. W., Abbo, A. J., Sloan, S. W., and Lyamin, A. V. (2011). Undrained stability of a circular
+  tunnel where the shear strength increases linearly with depth. *Can. Geotech. J.*, 48.
+- Wilson, D. W., Abbo, A. J., and Sloan, S. W. (2014). Undrained stability of tall tunnels. *Proc. 14th
+  IACMAG*, Kyoto, 447–452.
+- Wilson, D. W., Abbo, A. J., Sloan, S. W., and Yamamoto, K. (2017). Undrained stability of rectangular
+  tunnels where shear strength increases linearly with depth. *Can. Geotech. J.*, 54(4), 469–480.
 - Wu, W. (2016). *Introduction to DLBreach*, v2016.4. §2.2, §3.2, §4.7, §6.4.

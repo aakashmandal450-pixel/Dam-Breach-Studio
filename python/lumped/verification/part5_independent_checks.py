@@ -53,3 +53,39 @@ for _ in range(100000):
     worst_jump=max(worst_jump,after/before)
 print("full pipe: outlet > pressurised entrance in %d of 100000 cases (must be 0)"%bad)
 print("largest upward priming step (roof-wetting change in R ignored): x%.4f (sqrt2 = 1.4142)"%worst_jump)
+
+
+# --- 4. Mechanism C with the reviewed piecewise top boundary condition (2026-11-24) ---
+# Mechanism C with the reviewer's boundary condition: p_top = hydrostatic where the dam surface is
+# under the reservoir (v_top = 0), 0 where it is exposed to air (crest, downstream face).
+g=9.81; rw=1000.; gw=rw*g; random.seed(2)
+cnt={'upstream':[0,0],'crest':[0,0],'downstream':[0,0]}; worst={'upstream':-9,'crest':-9,'downstream':-9}
+bound_ok=0; bound_n=0
+for _ in range(60000):
+    H=random.uniform(2,100); zu=random.uniform(1.5,4); zd=random.uniform(1.5,4); Wc=random.uniform(1,20)
+    zinv=random.uniform(0,0.8*H); a=random.uniform(0.05,0.3*(H-zinv)); b=random.uniform(0.05,3)
+    zcr=zinv+a; zs=random.uniform(zinv+1.5*a,H)
+    if zcr>=H or zs<=zcr: continue
+    n=random.uniform(0.012,0.05); Ku=random.uniform(0,0.5); gt=random.uniform(17e3,23e3); cu=random.choice([0,random.uniform(0,50e3)])
+    zbp=zinv+a/2; xT=zu*H+Wc+zd*H; xo=xT-zd*zbp; xi0=zu*zbp; L=xo-xi0
+    A=a*b; R=A/(2*(a+b)); f=8*g*n*n/R**(1/3)
+    U=math.sqrt(2*g*(zs-zbp)/(Ku+1+f*L/(4*R)))
+    for k in range(20):
+        x=zu*zcr+random.random()*(xT-zd*zcr-zu*zcr)
+        zdam = x/zu if x<zu*H else (H if x<=zu*H+Wc else (xT-x)/zd)
+        t=zdam-zcr
+        if t<=1e-6: continue
+        ps=gw*max(zs-(1+Ku+f*(x-xi0)/(4*R))*U*U/(2*g)-zcr,0)
+        sub = zdam<zs and x<zu*H
+        ptop=gw*(zs-zdam) if sub else 0.0
+        FC=b*(ps-ptop)-gt*b*t-2*cu*t
+        zone='upstream' if x<zu*H else ('crest' if x<=zu*H+Wc else 'downstream')
+        cnt[zone][1]+=1
+        if FC>0: cnt[zone][0]+=1
+        worst[zone]=max(worst[zone],FC/(gt*b*t))
+        # analytic necessary condition for uplift on a dry surface: t < (gw/gt)(zs-zcr)
+        if not sub:
+            bound_n+=1
+            if FC<=0 or t < (gw/gt)*(zs-zcr): bound_ok+=1
+for z in cnt: print("%-10s points %7d  uplift %6d  max F_C/(gt b t) %+.3f"%(z,cnt[z][1],cnt[z][0],worst[z]))
+print("dry points obeying 'uplift only where t < (gamma_w/gamma_t)(z_s - z_cr)': %d of %d"%(bound_ok,bound_n))
