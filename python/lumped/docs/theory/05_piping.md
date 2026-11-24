@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4 · 2026-11-24 · status: ready to code*
+*Lumped 1-D morphodynamic breach model · draft 4.1 · 2026-11-24 · status: geotechnical review requested (§5.5–5.6); implementation on hold*
 *Draft 1 (2026-11-20) proposed eight decisions. Draft 2 takes in the review of 2026-11-24:
 continuous culvert-type hydraulics, erosion only on wetted walls, HET k_d preferred, roof
 pressure integrated along the pipe, a separate uplift (heave) check, a debris layer that takes part in
@@ -93,21 +93,21 @@ Q(y) = b y √(2g (HW − y)/(1 + K_u)). For a given energy, the section passes 
 this allows at critical depth (the maximum-discharge principle; Chow 1959, Ch. 3) — limited here by
 the roof:
 
-    y_e = min(2HW/3, D)
-    Q_i = b y_e √( 2g (HW − y_e) / (1 + K_u) )                                              (5.2)
+    HW ≤ 1.5 D:   y_e = 2HW/3,  Q_i = b y_e √( 2g (HW − y_e) / (1 + K_u) ) = 1.705 b HW^1.5/√(1 + K_u)
+    HW > 1.5 D:   entrance full and pressurised,  Q_i = b D √( 2g (HW − D/2) / (1 + K_u) )       (5.2)
 
-- **While y_e = 2HW/3 (HW ≤ 1.5 D)** this is the critical-depth weir, 1.705 b HW^1.5/√(1 + K_u),
-  i.e. Part 1 (1.5) with the entrance loss.
-- **At HW = 1.5 D** the free surface reaches the roof at the entrance, and the entrance runs full.
+- **Below HW = 1.5 D** this is the critical-depth weir, i.e. Part 1 (1.5) with the entrance loss.
+- **At HW = 1.5 D** the free surface reaches the roof at the entrance.
+- **Above it** the entrance is a rounded, pressurised opening with loss K_u, and its head is measured
+  to the centroid.
 
 There is no empirical submergence threshold. (The draft 3 interpolation over D–1.2 D is withdrawn:
-it was not shown to apply to an eroding soil pipe, and it is not needed.)
+it was not shown to apply to an eroding soil pipe.) A sharp-edged entrance (contraction coefficient)
+is a later option, to be tested on the ARS cases.
 
-**Why no submerged-inlet orifice.** For a full entrance, an orifice relation would only limit the flow
-if the jet separated and contracted at a sharp edge, so the barrel did not run full. With the small
-entrance loss of an eroded, rounded soil-pipe entrance (K_u ≈ 0.05), the barrel runs full, and outlet
-control (5.3) passes less than the entrance whenever f L_p/(4R) > 0.05 — that is, for any real pipe.
-A sharp-edged entrance (contraction coefficient) is a later option, to be tested on the ARS cases.
+**Once full, outlet control always governs.** For a full pipe the pressurised entrance (5.2) has loss
+1 + K_u and outlet control (5.3) has K_u + K_d + f L_p/(4R), with K_d ≈ 1. So Q_o ≤ Q_i always, and
+Q_b = Q_o once the entrance is full.
 
 **Outlet control** (energy equation from the reservoir to the outlet):
 
@@ -117,10 +117,26 @@ A sharp-edged entrance (contraction coefficient) is a later option, to be tested
 
     Q_b = min(Q_i, Q_o)                                                                   (5.4)
 
-**Priming.** When the pipe goes from part-full to full (y_e reaches D), the roof joins the wetted
-perimeter, so friction and Q_o change in one step. This is the physical priming of a pipe, not a
-modelling switch. It is reported as an event (time and size of the change). Everywhere else Q_b is
-continuous and non-decreasing in HW.
+**Priming — a real, reported jump.** At HW = 1.5 D the pipe changes from part-full to full flow.
+Two things change in one step: the roof joins the wetted perimeter, and the control passes from the
+entrance to the barrel. The size and direction of the step depend on F = f L_p/(4R):
+- **Long pipes, F > K_u + K_d ≈ 1.05:** the barrel already controlled just before priming, and the
+  only change is the wetted roof, a small drop in Q.
+- **Short or wide pipes, F < 1.05:** the part-full flow was entrance-controlled, and the full barrel
+  passes more, so Q jumps up — at most by √2, as F → 0.
+
+Since R ≈ D/4, F < 1.05 means L_p/D below about 20–35 for f = 0.03–0.05. That happens mainly late in
+the pipe stage of a thin dam.
+
+This is the culvert priming transition, which is physically abrupt. It is the reason HDS-5 has a
+transition zone, for which no band applicable to soil pipes is available. The model does not smooth
+it. It is event-located in time like the collapse, and its time, F and the size of the step are
+reported. Everywhere else Q_b is continuous and non-decreasing in HW.
+
+*Correction from draft 4:* draft 4 stated that the barrel governs once full whenever F > 0.05. The
+denominator was miscounted (K_u + K_d is 1.05, not 2.05). The independent numerical check found
+counter-examples. The statement is replaced by the exact result above: Q_o ≤ Q_i always once full,
+and an upward jump at priming when F < 1.05.
 
 - **Losses:** K_u ≈ 0.05 (entrance) and K_d ≈ 1 (exit velocity head) from Part 1, §1.4. Entrance,
   friction and exit losses are separate terms.
@@ -271,9 +287,19 @@ It lifts when
   - The flow converges into the pipe, so the velocity over the face is smaller than the velocity in
     the pipe (v_top < U), and the bracket is positive. Hence p_s − p_top < γ_w t < γ_t t, and
     F_C < 0 at every point under the reservoir.
+  - Where (5.8) would give a negative soffit pressure, p_s is set to 0, a lower bound on a
+    cavitating or separated flow. With p_top ≥ 0 that case gives p_s − p_top ≤ 0, so the bound still
+    holds.
 
-  The bound rests on three things: energy conservation (no point has more head than the reservoir),
-  the loss terms in the pipe, and v_top < U. It does not rest on comparing γ_t with γ_w alone.
+  The bound rests on four things: energy conservation (no point has more head than the reservoir),
+  the loss terms in the pipe, v_top < U, and p_top ≥ 0 — the approach-velocity head over the face
+  cannot exceed the water depth there. It does not rest on comparing γ_t with γ_w alone.
+
+  **Numerical check, independent of the engine:** 905 300 random points (H 2–100 m, slopes, pipe
+  size and position, n, K_u 0–0.5, c_u 0–50 kPa, γ_t 17–23 kN/m³, any v_top within the two limits)
+  gave max F_C/(γ_t b_p t) = −0.49, i.e. no uplift anywhere. A first version of the check that let
+  v_top exceed √(2g × water depth) produced spurious positive values from negative top pressures. That
+  is why p_top ≥ 0 is listed as an assumption.
 
   Upstream "blow-out" is therefore the horizontal push-out of mechanism B, not uplift. The code does
   not rely on this result: F_C(x) is computed along the whole pipe, under the reservoir included,
@@ -465,8 +491,8 @@ more cover and a different collapse time, so the largest peak can come from any 
 
 | test | expected |
 |---|---|
-| (5.2) | equals 1.705 b HW^1.5/√(1+K_u) for HW ≤ 1.5 D; continuous with continuous slope at HW = 1.5 D |
-| (5.3)–(5.4) | Q_b non-decreasing in HW except the reported priming step; (5.3) → (1.9) for a long full pipe; Q_o < Q_i once full when f L_p/4R > 0.05 |
+| (5.2) | equals 1.705 b HW^1.5/√(1+K_u) for HW ≤ 1.5 D |
+| (5.3)–(5.4) | Q_b non-decreasing in HW except the reported priming step; Q_o ≤ Q_i always once full; priming step down for F > 1.05, up (≤ √2) for F < 1.05; (5.3) → (1.9) for a long full pipe |
 | (5.5) | τ_p → ρ g R Δh/L_p when f L_p/4R ≫ K_u + K_d |
 | (5.6)–(5.7) | no growth below τ_c; roof fixed while w = 0; eroded volume = wetted area × ε dt exactly |
 | (5.9) | dry limit gives b_crit = 2c_u/γ_t for any cover; FS_A written every step |
@@ -487,9 +513,11 @@ more cover and a different collapse time, so the largest peak can come from any 
 1. **Pipe shape**: rectangle, starting square. Hydraulics from actual area and wetted perimeter.
    Erosion only on wetted surfaces, so width and height evolve independently. *(Review adopted; the
    draft-1 claim "same R_h ⇒ same flow" withdrawn.)*
-2. **Pipe flow**: inlet control from the maximum-discharge principle at the entrance (no
-   submergence threshold), and outlet control (entrance + friction + exit losses, tailwater term),
-   taking the smaller. Priming is a reported physical event. Pipe n_p defaults to the breach n and is
+2. **Pipe flow**: inlet control from the maximum-discharge principle at the entrance below the roof,
+   and a rounded pressurised entrance above it (no submergence threshold), and outlet control
+   (entrance + friction + exit losses, tailwater term), taking the smaller; outlet control always
+   governs once full. Priming is a physical step, event-located and reported, upward for short pipes
+   (F < 1.05). Pipe n_p defaults to the breach n and is
    tested separately. *(Reviews adopted; the 1.2 D threshold and the draft-1 weir-for-submerged-inlet
    example withdrawn.)*
 3. **Wall shear and erodibility**: friction-only momentum shear (5.5), recomputed every step. HET k_d
