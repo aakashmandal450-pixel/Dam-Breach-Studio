@@ -889,7 +889,11 @@ more cover and a different collapse time, so the largest peak can come from any 
 - Jafari, P., and Fahimifar, A. (2022). Upper-bound face stability analysis of rectangular
   shield-driven tunnels in undrained clays. *Computers and Geotechnics*, 146.
 - Wilson, D. W., Abbo, A. J., Sloan, S. W., and Lyamin, A. V. (2011). Undrained stability of a circular
-  tunnel where the shear strength increases linearly with depth. *Can. Geotech. J.*, 48.
+  tunnel where the shear strength increases linearly with depth. *Can. Geotech. J.*, 48(9), 1328–1342.
+  doi:10.1139/t11-041 (Table A1: FELA bounds used as the circular-tunnel benchmark).
+- Wilson, D. W., Abbo, A. J., Sloan, S. W., and Lyamin, A. V. (2013). Undrained stability of a square
+  tunnel where the shear strength increases linearly with depth. *Computers and Geotechnics*, 49,
+  314–325. doi:10.1016/j.compgeo.2012.09.005.
 - Wilson, D. W., Abbo, A. J., and Sloan, S. W. (2014). Undrained stability of tall tunnels. *Proc. 14th
   IACMAG*, Kyoto, 447–452.
 - Wilson, D. W., Abbo, A. J., Sloan, S. W., and Yamamoto, K. (2017). Undrained stability of rectangular
