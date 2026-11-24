@@ -1161,8 +1161,9 @@ published:
    verified. It does not claim that plane-strain stability is conservative there.
 3. **Trigger for the 3-D bound.** If the hydrograph changes materially between rule S and the maximum
    spread, the 3-D lower and upper bounds of the crater-edge configuration (§5.7a, route 2) are
-   computed before publication. "Materially" means beyond the spread of the uncertainty runs on the
-   same case. If the cases show little difference, the limitation is stated and the 3-D calculation
+   computed before publication. "Materially" is taken as beyond the spread of the uncertainty runs on
+   the same case. This is a **proposed decision criterion** for this project, not an established
+   engineering standard, and it is reported as such alongside the results. If the cases show little difference, the limitation is stated and the 3-D calculation
    is not needed for the conclusions.
 
 **Verification this part must pass (Phase 3):**
