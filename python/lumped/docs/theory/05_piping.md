@@ -336,6 +336,45 @@ width.
    across the pipe. The embankment's sloping faces and the variable cover must be handled by applying
    the solution at each section with its local cover, and the error of doing so stated.
 
+**Arching (checked 2026-11-24).** Terzaghi's (1943) arching analysis gives the vertical stress on the
+base of a strip of half-width B = b_p/2 above an opening, with friction on its sides:
+
+    σ_v(C) = B (γ − c/B)/(K tan φ) · (1 − e^(−K tan φ · C/B)) + q e^(−K tan φ · C/B)
+
+The roof stands while σ_v(C) ≤ σ_t, the support at the soffit. Four consequences follow:
+1. **No friction, no arching.** With φ = 0 (undrained, total stress) the formula becomes
+   σ_v = (γ − c_u/B) C + q, which is exactly the two-plane block of mechanism A. Mechanism A is
+   Terzaghi's undrained limit. It contains no arching.
+2. **With friction, the load on the roof is capped.** For φ′ > 0, σ_v tends to B(γ − c′/B)/(K tan φ′)
+   as cover grows, so a deep pipe does not carry more load than a shallow one. Example: b_p = 1 m,
+   γ = 20 kN/m³, c′ = 5 kPa, φ′ = 30°, K = 1 caps the support needed at 8.7 kPa for any cover
+   (17.3 kPa with c′ = 0).
+3. **Arching does not hold an unsupported roof.** σ_v ≤ 0 still needs γB ≤ c, i.e. b_p ≤ 2c/γ, at
+   any φ. Arching reduces the support a roof needs; it does not remove the need for cohesion,
+   cementation or suction in an open void. That is "a pipe needs a roof" again.
+4. **In a drained analysis the pipe water is not support by itself.** In effective stress, the water
+   in the pipe matches the pore pressure at the soffit. It holds the roof only through the seepage
+   field. Water flowing from the surrounding soil into a lower-pressure pipe drags the roof toward
+   it, which destabilises it. A drained arching criterion therefore needs the pore-pressure field
+   around the pipe, which the lumped model does not have yet.
+
+Arching also depends on displacement: centrifuge tests of a yielding trapdoor measured how the load
+changes as the door moves (Iglesia, Einstein and Whitman 2014). The arching that a slowly enlarging
+pipe mobilises is therefore not fixed.
+
+**The three idealisations disagree.** Same opening (b_p = a_p = 1 m, γ = 20 kN/m³, no support):
+
+| cover C | block = Terzaghi φ = 0, c_u = 25 kPa | Terzaghi drained, c′ = 5 kPa, φ′ = 30° | undrained bounds, c_u = 25 kPa (circular fit) |
+| --- | --- | --- | --- |
+| 2 m | stable at any depth | collapses unless ≥ 7.8 kPa support | stable |
+| 10 m | stable | collapses unless ≥ 8.7 kPa support | collapses |
+| 40 m | stable | collapses unless ≥ 8.7 kPa support | collapses |
+
+The undrained-bounds column uses the closed-form fit of Wilson et al. (2011) for a circular tunnel,
+for illustration only; its coefficients are to be checked against the paper. The table shows why the
+strength regime (consequence 1 above) must be settled first: it decides whether a deep pipe's roof is
+stable, needs a few kPa of support, or collapses outright.
+
 Jafari and Fahimifar (2022) treat the *face* (heading) stability of rectangular shield tunnels, a 3-D
 problem. They are relevant to the method but not to the cross-section collapse of the roof.
 
@@ -695,6 +734,8 @@ more cover and a different collapse time, so the largest peak can come from any 
 - Wahl, T. L., et al. (2017). DSO-2017-02, Bureau of Reclamation.
 - Wan, C. F., and Fell, R. (2004). Laboratory tests on the rate of piping erosion of soils in
   embankment dams. *Geotech. Testing J.*, 27(3), 295–303.
+- Iglesia, G. R., Einstein, H. H., and Whitman, R. V. (2014). Investigation of soil arching with
+  centrifuge tests. *J. Geotech. Geoenviron. Eng.*, 140(2).
 - Jafari, P., and Fahimifar, A. (2022). Upper-bound face stability analysis of rectangular
   shield-driven tunnels in undrained clays. *Computers and Geotechnics*, 146.
 - Wilson, D. W., Abbo, A. J., Sloan, S. W., and Lyamin, A. V. (2011). Undrained stability of a circular
