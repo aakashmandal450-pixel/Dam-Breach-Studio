@@ -1,0 +1,24 @@
+
+--- C/B = 1, rho B/c_u0 = 0.0, gamma B/c_u0 = 1, gamma_w B/c_u0 = 0.5
+dry / uniform sigma_t (N0)                   [  0.833,   0.963]  audit 4e-07  2s
+full, hydrostatic, p_cr = 0                  [  0.903,   1.045]  audit 1e-07  2s
+part-full y = 0.5 D (roof dry)               [  0.856,   0.983]  audit 4e-07  2s
+part-full y = 0.9 D (roof dry)               [  0.896,   1.029]  audit 2e-07  2s
+
+--- C/B = 2, rho B/c_u0 = 0.0, gamma B/c_u0 = 1, gamma_w B/c_u0 = 0.5
+dry / uniform sigma_t (N0)                   [  0.681,   0.846]  audit 6e-08  2s
+full, hydrostatic, p_cr = 0                  [  0.849,   1.001]  audit 2e-07  2s
+part-full y = 0.5 D (roof dry)               [  0.727,   0.883]  audit 2e-07  2s
+part-full y = 0.9 D (roof dry)               [  0.819,   0.972]  audit 2e-07  2s
+
+--- C/B = 4, rho B/c_u0 = 0.0, gamma B/c_u0 = 1, gamma_w B/c_u0 = 0.5
+dry / uniform sigma_t (N0)                   [ -0.261,  -0.065]  audit 2e-09  5s
+full, hydrostatic, p_cr = 0                  [ -0.092,   0.104]  audit 7e-09  5s
+part-full y = 0.5 D (roof dry)               [ -0.214,  -0.019]  audit 2e-09  5s
+part-full y = 0.9 D (roof dry)               [ -0.122,   0.074]  audit 9e-09  5s
+
+--- C/B = 2, rho B/c_u0 = 0.25, gamma B/c_u0 = 1, gamma_w B/c_u0 = 0.5
+dry / uniform sigma_t (N0)                   [  2.018,   2.227]  audit 5e-08  2s
+full, hydrostatic, p_cr = 0                  [  2.139,   2.344]  audit 1e-07  2s
+part-full y = 0.5 D (roof dry)               [  2.050,   2.252]  audit 1e-07  2s
+part-full y = 0.9 D (roof dry)               [  2.117,   2.320]  audit 2e-07  2s

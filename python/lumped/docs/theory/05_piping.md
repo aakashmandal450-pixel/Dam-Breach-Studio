@@ -1,6 +1,12 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4.5 · 2026-11-24 · status: geotechnical review received; roof-collapse criterion under investigation (§5.5a); implementation on hold*
+*Lumped 1-D morphodynamic breach model · draft 4.6 · 2026-11-24 · status: strength regime decided (undrained, c_u increasing with depth); roof criterion written for review (§5.5b); implementation on hold until reviewed*
+
+*What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
+bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
+dam pipe roof behaves like the idealised plane-strain opening, and whether the hydraulics, erosion and
+debris rules reproduce observed pipe growth, collapse timing, blockage and outflow, can only be shown
+against the ARS experiments and field cases (§5.8).
 *Draft 1 (2026-11-20) proposed eight decisions. Draft 2 takes in the review of 2026-11-24:
 continuous culvert-type hydraulics, erosion only on wetted walls, HET k_d preferred, roof
 pressure integrated along the pipe, a separate uplift (heave) check, a debris layer that takes part in
@@ -179,6 +185,11 @@ the current geometry.
 Width and height therefore evolve independently: a partly full pipe deepens and widens but does not
 raise its roof. The dimensions only grow, so no minimum-size guard is needed.
 
+*Validation target, not an assumption to defend.* (5.7) applies the same law to floor, walls and roof.
+They may differ physically: eroded grains can settle back on the floor, and a wetted roof can also lose
+soil by sloughing, not only by shear erosion. The ARS tests reported the evolving pipe shape, so the
+ratio of height to width growth is a test of (5.7), not a tuning target.
+
 **Erodibility source.** The jet erosion test (JET) and the hole erosion test (HET) give systematically
 different k_d and τ_c for the same soil. In Reclamation's direct comparison the JET indicated much
 greater erodibility (Wahl, Regazzoni and Erdogan 2008, DSO-08-05; USBR PAP-1000), and the ARS piping
@@ -324,6 +335,10 @@ width.
      and arching support the roof;
    - a time-scale criterion (consolidation time a_p²/c_v against pipe development time) that
      selects between them.
+
+   **Decided (draft 4.6): undrained, with c_u increasing with depth, c_u = c_u0 + ρ d** (§5.5b).
+   Constant c_u is the case ρ = 0. A drained criterion is deferred until the model has a
+   pore-pressure field around the pipe (arching consequence 4).
 2. **Where collapse starts.** Cover varies along the pipe. The criterion is evaluated section by
    section, so the first section to reach its limit marks a local collapse (sinkhole) and its
    location. This is closer to observed piping failures than a full-length roof failure, and it
@@ -528,6 +543,133 @@ problem. They are relevant to the method but not to the cross-section collapse o
 
 ---
 
+## 5.5b Roof collapse criterion — undrained, c_u increasing with depth (draft 4.6, for review)
+
+**Strength profile.** In each cross-section the undrained strength increases linearly with depth d
+below that section's ground surface:
+
+    c_u(d) = c_u0 + ρ d                                                                   (5.14)
+
+- c_u0 is the strength at the surface and ρ (kPa/m) the rate of increase. Both are case inputs with
+  their source recorded (§5.5 "Which strength"). ρ = 0 recovers constant c_u.
+- **Why depth-dependent.** In compacted fill, confinement grows with depth and undrained strength
+  with it. With constant c_u every deep pipe is predicted to collapse early (§5.5a, consequence 1).
+- **Dimensionless form.** The section is described by C/b_p, a_p/b_p, γ b_p/c_u0 and ρ b_p/c_u0
+  (Wilson et al. 2011, 2013, 2017 use the same set).
+
+**c_u(z) in the bound code** (`verification/fela_v2.py`, functions `lower_bound` and `upper_bound` with
+`rho`):
+- **Lower bound:** the yield limit at each node is c_u(d) at that node. The far-field conditions of
+  §5.5a use c_u(d) beyond the side. Below the bottom they use c_u at the bottom, which is the weakest
+  point of that region since ρ ≥ 0.
+- **Upper bound:** the dissipation in each element is c_u(d) × the constant shear-strain rate,
+  integrated exactly (c_u is linear in d, so the element integral is the area × c_u at the centroid).
+
+Benchmark against Wilson et al. (2011), Table A1/A2 (circular tunnel; their r D/c_u0 = our ρ D/c_u0;
+mesh h = 0.1; `verification/fela_rho_benchmark.py`, results in `fela_rho_benchmark.txt`):
+
+| C/D | ρD/c_u0 | γD/c_u0 | our lower–upper | Wilson et al. lower–upper |
+| --- | --- | --- | --- | --- |
+| 1 | 0.25 | 0 | 2.918–2.965 | 2.93–2.95 |
+| 1 | 0.25 | 2 | 0.602–0.638 | 0.61–0.63 |
+| 1 | 1.00 | 0 | 4.318–4.406 | 4.33–4.37 |
+| 1 | 1.00 | 2 | 2.082–2.161 | 2.10–2.13 |
+| 2 | 0.25 | 0 | 4.829–4.892 | 4.83–4.88 |
+| 2 | 0.25 | 2 | 0.381–0.445 | 0.39–0.43 |
+| 2 | 0.50 | 1 | 3.983–4.062 | 3.99–4.04 |
+| 2 | 1.00 | 0 | 8.793–8.914 | 8.80–8.87 |
+| 2 | 1.00 | 2 | 4.455–4.571 | 4.46–4.54 |
+| 3 | 0.25 | 0 | 6.594–6.691 | 6.60–6.68 |
+| 3 | 0.25 | 2 | 0.078–0.183 | 0.09–0.17 |
+| 3 | 0.50 | 3 | −0.707 to −0.576 | −0.70 to −0.59 |
+| 3 | 1.00 | 0 | 13.747–13.916 | 13.75–13.91 |
+| 3 | 1.00 | 2 | 7.344–7.513 | 7.34–7.51 |
+
+All 14 overlap (pass). Our brackets enclose theirs, slightly wider, and every independent audit
+residual is below 2·10⁻⁸. The strength gradient matters a great deal: at C/D = 3 and γD/c_u0 = 2,
+raising ρD/c_u0 from 0 to 1 lifts the stability number from about −2.6 to about +7.4.
+
+**The pipe water pressure on the walls.** The stability number uses one internal pressure σ_t. A real
+pipe section does not have one:
+- **full:** the pressure increases hydrostatically from the crown to the invert, by γ_w a_p;
+- **part-full:** the water presses on the floor and the wetted walls, and the roof is dry.
+
+The bound code now applies the actual pressure as a traction on the opening walls:
+- **Lower bound:** σ·n = −p n on each opening edge, with n the outward normal of the soil.
+- **Upper bound:** the power of the water, −∫ p (n·v) ds, integrated exactly along each edge.
+
+Checks:
+- A uniform pressure q shifts both bounds by exactly q (C/B = 2: 0.681 → 1.181 and 0.846 → 1.346).
+- With a crown pressure of 3 c_u0 added to the hydrostatic profile, both bounds shift by exactly 3.
+
+**Only σ_s − p_cr matters.** Adding the same pressure everywhere changes neither equilibrium nor Tresca
+yield. So for a full pipe the result depends on the surface load minus the crown pressure, plus the
+effect of the hydrostatic increase below the crown. That increase is a separate, small term.
+
+Results for a square opening (D/B = 1), γB/c_u0 = 1, γ_w B/c_u0 = 0.5 (`verification/
+fela_pressure_study.py`, results in `fela_pressure_study.txt`): critical (σ_s − p_cr)/c_u0, lower–upper:
+
+| C/B | ρB/c_u0 | single σ_t = p_cr | full, hydrostatic | part-full, y = 0.5 D | part-full, y = 0.9 D |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 0 | 0.833–0.963 | 0.903–1.045 | 0.856–0.983 | 0.896–1.029 |
+| 2 | 0 | 0.681–0.846 | 0.849–1.001 | 0.727–0.883 | 0.819–0.972 |
+| 4 | 0 | −0.261 to −0.065 | −0.092 to 0.104 | −0.214 to −0.019 | −0.122 to 0.074 |
+| 2 | 0.25 | 2.018–2.227 | 2.139–2.344 | 2.050–2.252 | 2.117–2.320 |
+
+(For part-full pipes p_cr = 0.)
+
+What the table shows:
+1. **The crown pressure is the right single value, with a known bias.** The hydrostatic increase below
+   the crown adds support worth 0.07–0.17 c_u0 here. That is less than γ_w a_p/2 = 0.25 c_u0, the
+   centroid pressure. So:
+   - using the crown pressure as σ_t understates the support, by at most about 0.7 γ_w a_p/2;
+   - using the centroid or mean pressure would overstate it, which is not acceptable.
+2. **Part-full pipes: σ_t = 0** (the roof is dry), understating the support from the wetted walls by
+   0.02–0.14 c_u0.
+3. **The bias is toward earlier collapse.** That is not automatically conservative for the hazard: an
+   earlier collapse of a smaller pipe can give a lower peak. So it is a stated approximation, quantified
+   above. If the cases show it matters, γ_w b_p/c_u0 becomes a fifth table dimension (the solver
+   already handles it).
+4. **One pressure for both regimes.** σ_t is the soffit pressure p_s(x) of (5.8), which is already zero
+   for a part-full pipe. The roof criterion and the hydraulics use the same pressure, so they stay
+   consistent.
+
+**The criterion.** At each section x along the pipe, with cover C(x) above the crown:
+
+    stable while   σ_s(x) − p_s(x)  <  c_u0 · N_crit( C(x)/b_p, a_p/b_p, γ b_p/c_u0, ρ b_p/c_u0 )     (5.15)
+
+- **Surface load:** σ_s(x) = γ_w max(z_s − z_dam(x), 0), the water standing on the section under the
+  reservoir; zero elsewhere.
+- **Soffit pressure:** p_s(x) from (5.8).
+- **Margin:** M(x) = c_u0 N_crit − (σ_s − p_s), computed along the pipe every step. Collapse is the first
+  instant at which min_x M(x) reaches 0. It is event-located in time as in §5.5, and its location x* is
+  reported.
+- **Where it can start.** Under the reservoir a full pipe gives σ_s − p_s ≈ −γ_w t + (head losses), so
+  the margin there is large. Collapse is therefore expected under the crest or the downstream slope,
+  where σ_s = 0 and p_s has fallen with friction. That matches where piping sinkholes are reported, and
+  it follows from the criterion; nothing imposes it.
+- **N_crit from both bounds.**
+  - The central value is the mean of the lower and upper bounds.
+  - Runs with each bound give the uncertainty band.
+  - The width of the bracket (10–25 % for the square opening now) is reported. It narrows when velocity
+    discontinuities are added to the upper bound.
+- **Unit weight.** The table takes one γ per section. The first version uses the cover-weighted mean of
+  γ_moist and γ_sat (§5.5) over the section's cover; a layered γ is possible in the same code.
+- **Table.** N_crit is precomputed offline with `fela_v2.py` over:
+  - C/b_p from 0.25 to 20;
+  - a_p/b_p from 0.5 to 2;
+  - γ b_p/c_u0 from 0 to 3;
+  - ρ b_p/c_u0 from 0 to 1.
+
+  It is interpolated in the engine. A section outside the table is an error, not an extrapolation.
+- **What the criterion replaces.** It replaces mechanism A as the collapse criterion. Mechanism A stays
+  as a reported comparison. Mechanism B (horizontal push-out) is a different, longitudinal mechanism and
+  stays as a separate check.
+- **Applicability.** The limits of §5.5a apply: plane strain per section; out-of-plane shear under the
+  slopes, with the c_u reduction to be checked; the outlet face is covered by §5.6.
+
+---
+
 ## 5.6 Exit mechanisms — the pipe shortens from the downstream end
 
 **Mechanism C — downstream exit uplift (heave) of the cover.** This is the uplift of a defined soil
@@ -560,7 +702,8 @@ It lifts when
   - Subtracting: p_s − p_top = γ_w t − ρ/2 [ U² (1 + K_u + f ξ/(4R)) − v_top² ].
   - If the velocity over the face is smaller than the velocity in the pipe (v_top < U), the bracket
     is positive. Hence p_s − p_top < γ_w t < γ_t t, and F_C < 0 at every point under the
-    reservoir. v_top < U is a flow-field assumption, not a guaranteed condition, so the model uses
+    reservoir. This is derived under the stated assumptions; it does not show that uplift under the
+    reservoir is impossible in general. v_top < U is a flow-field assumption, not a guaranteed condition, so the model uses
     v_top = 0 (hydrostatic top), and the local pressure drop in the approach flow right at the inlet is
     not represented.
   - Where (5.8) would give a negative soffit pressure, p_s is set to 0, a lower bound on a
@@ -650,7 +793,26 @@ layer of uniform thickness along the slot of width b_p, filling it from z_inv up
     b_p ∫_{z_inv}^{z_d} L(z) dz = V_d,    L(z) = x_down(z) − x_up(z),    z_d ≤ H            (5.12b)
 
 The real deposit depends on where the roof breaks, whether it piles near the break, and how much the
-flow carries off at once. A wedge or a local mound are later options. With n_d = n and a slot of
+flow carries off at once. A wedge is a later option.
+
+**Required comparison: a localised mound (draft 4.6).** The criterion (5.15) makes the roof fail first
+at one section x*, a sinkhole, not along the whole pipe. Spreading that debris uniformly along the
+slot then contradicts the collapse criterion itself. Every piping case is therefore run with three
+debris treatments, and the hydrograph sensitivity is reported:
+1. uniform layer (5.12b);
+2. a localised mound centred on x*, holding the same solids volume;
+3. instant removal.
+
+DL Breach's virtual tank remains a further comparison mode.
+
+**Open question: how far does collapse spread along the pipe?** The debris volume and where it lies
+depend on the length of roof that fails, and the draft has no rule for it. Candidates:
+- the reach where M(x) < 0 at the collapse instant;
+- progressive collapse, rechecking each neighbouring section once its neighbour has fallen, since it
+  loses the 3-D support of that neighbour;
+- the whole roof (the draft-4 assumption).
+
+The choice will be set out as theory for review. None is coded before then. With n_d = n and a slot of
 nearly constant length, the slot column loses exactly the pipe volume, so z_d ≈ H − a_p. This is a
 consequence of the geometry, not a general rule. If loose debris would rise above the crest, z_d is
 capped at H and the excess is set beside the slot as spoil (counted in the solids budget).
@@ -749,7 +911,7 @@ There are no post-piping erosion rules and no width ramp.
 - invert elevation **above the dam base** — converted from depth below the crest if the source gives
   depth;
 - `invert_source`: `measured` | `estimated` | `scenario`;
-- c_u for the roof;
+- c_u0 and ρ for the roof (5.14), with test, saturation state and density recorded; ρ = 0 allowed;
 - k_d and τ_c with `erodibility_test`: `HET` | `JET`;
 - optional n_p, n_d (debris porosity), k_d,debris, τ_c,debris.
 
@@ -782,7 +944,10 @@ more cover and a different collapse time, so the largest peak can come from any 
 | (5.3)–(5.4) | Q_b non-decreasing in HW except the reported priming step; Q_o ≤ Q_i always once full; priming step down for F > 1.05, up (≤ √2) for F < 1.05; (5.3) → (1.9) for a long full pipe |
 | (5.5) | τ_p → ρ g R Δh/L_p when f L_p/4R ≫ K_u + K_d |
 | (5.6)–(5.7) | no growth below τ_c; roof fixed while w = 0; eroded volume = wetted area × ε dt exactly |
-| (5.9) | dry limit gives b_crit = 2c_u/γ_t for any cover; FS_A written every step |
+| (5.9) | dry limit gives b_crit = 2c_u/γ_t for any cover; FS_A written every step (comparison only) |
+| bound code | brackets 2 + π (Prandtl) and overlaps Wilson et al. (2011) for ρ = 0 and ρ > 0; audits < 1e-6 (done, `fela_benchmarks.py`, `fela_rho_benchmark.py`) |
+| (5.15) | uniform pressure shifts N by exactly q; table interpolation reproduces direct solves to the bracket width; out-of-table section raises an error; M(x) and x* written every step |
+| debris modes | uniform, mound at x* and instant removal run on every piping case; solids budget closes in each |
 | (5.11) | F_C computed along the whole pipe; < 0 everywhere under the reservoir for random geometries and flows (property test); c_u = 0, p_top = 0 gives Δh/t > γ′/γ_w |
 | (5.12) | solids conserved: V_d (1 − n_d) = (1 − n) b_p A_r to 1e-12; z_d ≈ H − a_p for n_d = n, constant L |
 | (5.13) | solids budget closes every step to 1e-12 |
@@ -795,7 +960,7 @@ more cover and a different collapse time, so the largest peak can come from any 
 
 ---
 
-## 5.9 Decisions (draft 4, after the reviews of 2026-11-24)
+## 5.9 Decisions (draft 4.6, after the reviews of 2026-11-24)
 
 1. **Pipe shape**: rectangle, starting square. Hydraulics from actual area and wetted perimeter.
    Erosion only on wetted surfaces, so width and height evolve independently. *(Review adopted; the
@@ -810,16 +975,18 @@ more cover and a different collapse time, so the largest peak can come from any 
 3. **Wall shear and erodibility**: friction-only momentum shear (5.5), recomputed every step. HET k_d
    and τ_c preferred, JET used with its source recorded and a conversion tested. τ_c kept separate.
    Sellmeijer is a future module. *(As reviewed.)*
-4. **Roof stability**: *under investigation (§5.5a).* The rigid two-plane block (A) and push-out (B)
-   are kept as benchmarks; the collapse criterion to be coded will come from the undrained (and,
-   where justified, drained) stability-number framework with published limit-analysis bounds. As
-   reviewed: soffit pressure integrated along the pipe with no double counting; water force resolved
+4. **Roof stability**: *criterion written for review (§5.5b).* Undrained, with c_u = c_u0 + ρ d
+   (constant c_u is ρ = 0); drained deferred until a pore-pressure field exists. Collapse at the first
+   section where σ_s − p_s reaches c_u0 N_crit (5.15). N_crit comes from our own verified bound code,
+   tabulated offline, with the mean of the bounds as the central value and each bound as the band.
+   σ_t = the crown (soffit) pressure, with the neglected hydrostatic support quantified. The rigid
+   block (A) stays as a comparison and push-out (B) as a separate check. As reviewed: soffit pressure integrated along the pipe with no double counting; water force resolved
    into its vertical (A) and horizontal (B) components. FS = 1 at collapse, event-located inside the step, with FS and its
    minimum reported. FS_crit ≠ 1 for sensitivity only. c_u from the state the roof is in, with its
    source recorded. Tension cracks later; side friction for sensitivity only. *(Both reviews agree.)*
 5. **Downstream exit uplift (heave)**: a separate mechanism C, defined by a free body of the cover
-   prism. An energy bound shows it cannot act under the reservoir, but the code computes F_C along the
-   whole pipe and does not rely on that. It shortens the pipe from the outlet. It is named and bounded
+   prism. An energy bound shows it does not act under the reservoir under stated flow assumptions
+   (v_top < U, p_top ≥ 0). The code computes F_C along the whole pipe and does not rely on that. It shortens the pipe from the outlet. It is named and bounded
    as prism uplift, not a backward-erosion-piping criterion. Independent check of the free body
    before publication. *(Reviews adopted.)*
 6. **Fallen roof**: a debris layer from conserved solids, V_d = (1 − n) b_p A_r/(1 − n_d), settled
@@ -828,8 +995,9 @@ more cover and a different collapse time, so the largest peak can come from any 
    overtop it, and with no inflow the run ends sealed (a labelled model prediction, under stated
    impermeability and no-other-supply assumptions; no seepage mechanism before the Teton
    inspection). It erodes by the bed laws, and the solids budget is closed every
-   step. n_d = n and debris erodibility = intact by default, all tested. Virtual tank and instant
-   removal are kept as comparison modes. *(Second review's solids/porosity, deposition and budget
+   step. n_d = n and debris erodibility = intact by default, all tested. A localised mound at the
+   collapse section and instant removal are required comparisons on every case; the virtual tank is
+   kept as a further mode. How far collapse spreads along the pipe is an open question (§5.7). *(Second review's solids/porosity, deposition and budget
    adopted; blocking criterion added.)*
 7. **Exit headcut**: optional, cohesive only, off by default until the ARS P1 on/off test. It reuses
    the Part 4 relations with the pipe discharge and moves the outlet x_o. *(As reviewed.)*

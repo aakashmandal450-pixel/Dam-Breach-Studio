@@ -246,8 +246,35 @@ def _unit(P, a, b):
     return tz, -tx                                # a unit normal
 
 
+# ----------------------------------------------------------------------------------- strength and pressure
+def strength(rho, z):
+    """c_u(z)/c_u0 = 1 + rho*depth, depth = -z (z = 0 at the ground surface); rho = (dc_u/dz) B / c_u0."""
+    return 1.0 + rho * np.maximum(-np.asarray(z, float), 0.0)
+
+
+def outward_normal(P, T, t, a, b):
+    """Unit normal of edge (a, b) of triangle t pointing out of the soil (T is counter-clockwise)."""
+    tri = list(T[t])
+    i, j = tri.index(a), tri.index(b)
+    if (i + 1) % 3 != j:
+        a, b = b, a
+    (xa, za), (xb, zb) = P[a], P[b]
+    L = math.hypot(xb - xa, zb - za)
+    return (zb - za) / L, -(xb - xa) / L
+
+
+def no_pressure(x, z):
+    return 0.0
+
+
+def hydrostatic(gw, zw, p0=0.0):
+    """Water pressure on the opening walls: p = p0 + gw*max(zw - z, 0).
+    Full pipe, crown pressure p0: zw = z_crown.  Part-full, free surface at zw: p0 = 0."""
+    return lambda x, z: p0 + gw * max(zw - z, 0.0)
+
+
 # ----------------------------------------------------------------------------------- lower bound
-def lower_bound(m: Mesh, gam: float, rigorous_far=True):
+def lower_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure, rigorous_far=True):
     P, T = m.P, m.T
     nt = len(T); N3 = 3 * nt
     A, bx, cz = shape_grads(P, T)
@@ -261,17 +288,19 @@ def lower_bound(m: Mesh, gam: float, rigorous_far=True):
     cons = [Bx @ S[:, 0] + Cz @ S[:, 2] == 0, Bx @ S[:, 2] + Cz @ S[:, 1] == gam]
     edges, kinds = edges_of(m)
     loc = {(int(T[t, k]), t): 3 * t + k for t in range(nt) for k in range(3)}
-    groups = {}                                   # node -> list of rows (all right-hand sides are 0)
+    groups = {}                                   # node -> list of (terms, rhs)
     cur = [None]
 
     def add(terms, value):
-        assert value == 0.0
-        groups.setdefault(cur[0], []).append(terms)
+        groups.setdefault(cur[0], []).append((terms, value))
 
     rows = {k: set() for k in ("load", "free", "side", "bottom")}
     for (a, b), own in edges.items():
         kind = kinds[(a, b)]
-        nx, nz = _unit(P, a, b)
+        if kind == "opening":
+            nx, nz = outward_normal(P, T, own[0], a, b)
+        else:
+            nx, nz = _unit(P, a, b)
         for nd in (a, b):
             cur[0] = nd
             ents = [loc[(nd, t)] for t in own]
@@ -285,54 +314,68 @@ def lower_bound(m: Mesh, gam: float, rigorous_far=True):
                     add([(r, 2, 1.0)], 0.0)           # zero shear traction on these boundaries
                 if kind in rows:
                     rows[kind].add(r)
-                if kind == "opening":                 # traction free (sigma_t = 0)
-                    add([(r, 0, nx), (r, 2, nz)], 0.0)
-                    add([(r, 2, nx), (r, 1, nz)], 0.0)
+                if kind == "opening":                 # traction = -p n (water pressure pushes on the soil)
+                    pv = pressure(*P[nd])
+                    add([(r, 0, nx), (r, 2, nz)], -pv * nx)
+                    add([(r, 2, nx), (r, 1, nz)], -pv * nz)
     # Continuity and boundary rows at a node involve only the stresses at that node, so linear
     # dependence (e.g. one redundant row wherever two straight edges cross at a node) is removed
-    # node by node with a pivoted QR. The kept rows imply the dropped ones exactly.
-    rI, cI, vI = [], [], []
+    # node by node with a pivoted QR. A dropped row is kept anyway if its right-hand side is not
+    # implied by the kept rows (cannot happen for a consistent load; checked, not assumed).
+    rI, cI, vI, rhs = [], [], [], []
     nrow = ndrop = 0
     for nd, rows_ in groups.items():
-        cols = sorted({col * N3 + r for terms in rows_ for (r, col, v) in terms})
+        cols = sorted({col * N3 + r for terms, _ in rows_ for (r, col, v) in terms})
         cpos = {c: i for i, c in enumerate(cols)}
         Mloc = np.zeros((len(rows_), len(cols)))
-        for i, terms in enumerate(rows_):
+        bloc = np.array([v for _, v in rows_])
+        for i, (terms, _) in enumerate(rows_):
             for (r, col, v) in terms:
                 Mloc[i, cpos[col * N3 + r]] += v
         _, R, piv = sla.qr(Mloc.T, pivoting=True)
         d = np.abs(np.diag(R)) if R.size else np.array([])
         rank = int((d > 1e-10 * max(d.max(initial=0.0), 1.0)).sum())
-        ndrop += len(rows_) - rank
-        for i in piv[:rank]:
+        keep = list(piv[:rank])
+        if rank < len(rows_):
+            K = Mloc[keep]
+            for i in piv[rank:]:
+                coef, *_ = np.linalg.lstsq(K.T, Mloc[i], rcond=None)
+                if abs(coef @ bloc[keep] - bloc[i]) > 1e-9 * max(1.0, abs(bloc[i])):
+                    keep.append(i)
+                else:
+                    ndrop += 1
+        for i in keep:
             for j, c in enumerate(cols):
                 if Mloc[i, j] != 0.0:
                     rI.append(nrow); cI.append(c); vI.append(Mloc[i, j])
-            nrow += 1
+            rhs.append(bloc[i]); nrow += 1
     M = sp.csr_matrix((vI, (rI, cI)), shape=(nrow, 3 * N3))
-    rhs = np.zeros(nrow)
+    rhs = np.array(rhs)
     cons.append(M @ cp.vec(S, order="F") == rhs)
     lr = np.array(sorted(rows["load"])); cons.append(S[lr, 1] == -p)
     if rows["free"]:
         fr = np.array(sorted(rows["free"])); cons.append(S[fr, 1] == 0)
     s_ext = p if m.s_ext_is_load else 0.0
+    zrow = np.array([P[T[r // 3, r % 3], 1] for r in range(N3)])
     if rigorous_far:
-        zr = lambda rr_: np.array([P[T[r // 3, r % 3], 1] for r in rr_])
         sr = np.array(sorted(rows["side"])); br = np.array(sorted(rows["bottom"]))
-        geo_side = gam * zr(sr)
-        cons += [S[sr, 0] - geo_side + s_ext <= 2, S[sr, 0] - geo_side + s_ext >= -2]
+        cside = 2.0 * strength(rho, zrow[sr])          # exterior beyond x = X has strength c(z)
+        cbot = 2.0 * float(strength(rho, -m.Z))        # exterior below z = -Z: weakest at z = -Z (rho >= 0)
+        geo_side = gam * zrow[sr]
+        cons += [S[sr, 0] - geo_side + s_ext <= cside, S[sr, 0] - geo_side + s_ext >= -cside]
         ub_ = S[br, 1] + gam * m.Z + s_ext
-        cons += [ub_ <= kf + 2, ub_ >= kf - 2, kf <= 2, kf >= -2]
+        cons += [ub_ <= kf + cbot, ub_ >= kf - cbot, kf <= cbot, kf >= -cbot]
     # yield imposed with a margin DELTA so that solver feasibility error cannot push the field past c_u
-    cons.append(cp.SOC(2.0 * (1.0 - DELTA) * np.ones(N3), cp.vstack([S[:, 0] - S[:, 1], 2 * S[:, 2]]), axis=0))
+    crow = strength(rho, zrow)
+    cons.append(cp.SOC(2.0 * (1.0 - DELTA) * crow, cp.vstack([S[:, 0] - S[:, 1], 2 * S[:, 2]]), axis=0))
     prob = solve(cp.Problem(cp.Maximize(p), cons))
     out = dict(value=float(p.value), status=prob.status, ntri=nt, dropped_rows=ndrop)
-    out["audit"] = audit_lower(m, gam, S.value, float(p.value), M, rhs, Bx, Cz, rows,
-                               float(kf.value) if rigorous_far else None)
+    out["audit"] = audit_lower(m, gam, S.value, float(p.value), Bx, Cz, rows,
+                               float(kf.value) if rigorous_far else None, rho, pressure)
     return out
 
 
-def audit_lower(m, gam, Sv, p, M, rhs, Bx, Cz, rows, kf):
+def audit_lower(m, gam, Sv, p, Bx, Cz, rows, kf, rho=0.0, pressure=no_pressure):
     P, T = m.P, m.T
     eq = np.concatenate([Bx @ Sv[:, 0] + Cz @ Sv[:, 2], Bx @ Sv[:, 2] + Cz @ Sv[:, 1] - gam])
     # independent of the (reduced) constraint matrix: every edge, every node, from the field itself
@@ -341,35 +384,58 @@ def audit_lower(m, gam, Sv, p, M, rhs, Bx, Cz, rows, kf):
     res = [0.0]
     for (a_, b_), own in edges.items():
         kind = kinds[(a_, b_)]
-        nx, nz = _unit(P, a_, b_)
+        nx, nz = outward_normal(P, T, own[0], a_, b_) if kind == "opening" else _unit(P, a_, b_)
         for nd in (a_, b_):
             sg = [Sv[loc[(nd, t)]] for t in own]
             tr = [np.array([s_[0] * nx + s_[2] * nz, s_[2] * nx + s_[1] * nz]) for s_ in sg]
             if kind == "interior":
                 res.append(np.abs(tr[0] - tr[1]).max())
             elif kind == "opening":
-                res.append(np.abs(tr[0]).max())
+                pv = pressure(*P[nd])
+                res.append(np.abs(tr[0] + pv * np.array([nx, nz])).max())
             else:
                 res.append(abs(sg[0][2]))
                 if kind == "free":
                     res.append(abs(sg[0][1]))
     lin = np.array(res)
+    zrow = np.array([P[T[r // 3, r % 3], 1] for r in range(len(Sv))])
+    crow = strength(rho, zrow)
     tau = np.sqrt(0.25 * (Sv[:, 0] - Sv[:, 1]) ** 2 + Sv[:, 2] ** 2)
     a = dict(equilibrium=float(np.abs(eq).max()), traction_and_bc=float(np.abs(lin).max()),
-             yield_excess=float(max(0.0, (tau - 1.0).max())), max_tau=float(tau.max()))
+             yield_excess=float(max(0.0, (tau / crow - 1.0).max())), max_tau=float((tau / crow).max()))
     lr = np.array(sorted(rows["load"])); a["load_bc"] = float(np.abs(Sv[lr, 1] + p).max())
     if kf is not None:
         s_ext = p if m.s_ext_is_load else 0.0
         sr = np.array(sorted(rows["side"])); br = np.array(sorted(rows["bottom"]))
-        z = np.array([P[T[r // 3, r % 3], 1] for r in sr])
-        a["side_excess"] = float(max(0.0, (np.abs(Sv[sr, 0] - gam * z + s_ext) - 2).max()))
+        z = zrow[sr]
+        a["side_excess"] = float(max(0.0, (np.abs(Sv[sr, 0] - gam * z + s_ext) - 2 * strength(rho, z)).max()))
+        cb = 2 * float(strength(rho, -m.Z))
         v = Sv[br, 1] + gam * m.Z + s_ext
-        a["bottom_excess"] = float(max(0.0, (np.abs(v - kf) - 2).max(), abs(kf) - 2))
+        a["bottom_excess"] = float(max(0.0, (np.abs(v - kf) - cb).max(), abs(kf) - cb))
     return a
 
 
 # ----------------------------------------------------------------------------------- upper bound
-def upper_bound(m: Mesh, gam: float):
+def _pressure_row(m, pressure):
+    """Row r with r @ v_n-form: returns sparse rows (Ru, Rw) so that the power of the opening water
+    pressure on the soil is -(Ru @ u + Rw @ w), i.e. P_water = -integral of p (n . v) ds, n out of the soil.
+    p and v are linear along each edge, so the integral is exact."""
+    P, T = m.P, m.T
+    edges, kinds = edges_of(m)
+    ru, rw = np.zeros(len(P)), np.zeros(len(P))
+    for (a, b), own in edges.items():
+        if kinds[(a, b)] != "opening":
+            continue
+        nx, nz = outward_normal(P, T, own[0], a, b)
+        L = math.hypot(*(P[b] - P[a]))
+        pa, pb = pressure(*P[a]), pressure(*P[b])
+        wa, wb = L / 6 * (2 * pa + pb), L / 6 * (pa + 2 * pb)   # integral of p*N_a, p*N_b
+        ru[a] += wa * nx; ru[b] += wb * nx
+        rw[a] += wa * nz; rw[b] += wb * nz
+    return ru, rw
+
+
+def upper_bound(m: Mesh, gam: float, rho: float = 0.0, pressure=no_pressure):
     P, T = m.P, m.T
     nn, nt = len(P), len(T)
     A, bx, cz = shape_grads(P, T)
@@ -386,9 +452,14 @@ def upper_bound(m: Mesh, gam: float):
     flux = _flux_row(m)
     cons.append(flux @ w == 1.0)
     grav = _grav_row(m, A)
-    prob = solve(cp.Problem(cp.Minimize(A @ s + gam * (grav @ w)), cons))
+    zc = P[T, 1].mean(1)
+    wD = A * strength(rho, zc)          # c(z) is linear in z, so its element integral is A*c(centroid)
+    ru, rw = _pressure_row(m, pressure)
+    # load power = dissipation - gravity power - water power;  p_load*1 = D + gam*int(w) + int p n.v
+    prob = solve(cp.Problem(cp.Minimize(wD @ s + gam * (grav @ w) + ru @ u + rw @ w), cons))
     out = dict(value=float(prob.value), status=prob.status, ntri=nt)
-    out["audit"] = audit_upper(m, gam, u.value, w.value, Gx, Gz, A, flux, grav, far, sym, float(prob.value))
+    out["audit"] = audit_upper(m, gam, u.value, w.value, Gx, Gz, wD, flux, grav, far, sym,
+                               float(prob.value), ru, rw)
     return out
 
 
@@ -408,26 +479,27 @@ def _grav_row(m, A):
                           (np.zeros(3 * nt, int), m.T.ravel())), shape=(1, len(m.P)))   # = integral of w
 
 
-def audit_upper(m, gam, uv, wv, Gx, Gz, A, flux, grav, far, sym, objective):
+def audit_upper(m, gam, uv, wv, Gx, Gz, wD, flux, grav, far, sym, objective, ru=None, rw=None):
     exx, ezz, gxz = Gx @ uv, Gz @ wv, Gz @ uv + Gx @ wv
     shear = np.sqrt((exx - ezz) ** 2 + gxz ** 2)
-    Dint = float(A @ shear)
+    Dint = float(wD @ shear)
     F = float((flux @ wv)[0]); G = float((grav @ wv)[0])
+    Wp = float(ru @ uv + rw @ wv) if ru is not None else 0.0
     return dict(incompressibility=float(np.abs(exx + ezz).max() / max(shear.max(), 1e-30)),
                 far_bc=float(max(np.abs(uv[far]).max(), np.abs(wv[far]).max())),
                 sym_bc=float(np.abs(uv[sym]).max()), flux=F,
-                recomputed=(Dint + gam * G) / F, objective=objective,
-                gravity_power=float(-gam * G), dissipation=Dint)
+                recomputed=(Dint + gam * G + Wp) / F, objective=objective,
+                gravity_power=float(-gam * G), water_power=-Wp, dissipation=Dint)
 
 
 def block(C, gam):
     return 2.0 * C - gam * C
 
 
-def run(kind, C, D, gam, h, ext=3.0):
+def run(kind, C, D, gam, h, ext=3.0, rho=0.0, pressure=no_pressure):
     m = {"rect": lambda: rect_mesh(C, D, h, ext), "circle": lambda: circle_mesh(C, h, ext),
          "footing": lambda: footing_mesh(h)}[kind]()
-    return lower_bound(m, gam), upper_bound(m, gam), m
+    return lower_bound(m, gam, rho, pressure), upper_bound(m, gam, rho, pressure), m
 
 
 if __name__ == "__main__":

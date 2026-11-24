@@ -1,0 +1,15 @@
+H/D=1 rhoD/c=0.25 gD/c=0: ours [  2.918,   2.965]  Wilson [  2.93,   2.95]  audit 2e-11  PASS  4s
+H/D=1 rhoD/c=0.25 gD/c=2: ours [  0.602,   0.638]  Wilson [  0.61,   0.63]  audit 9e-11  PASS  4s
+H/D=1 rhoD/c=1.00 gD/c=0: ours [  4.318,   4.406]  Wilson [  4.33,   4.37]  audit 3e-11  PASS  4s
+H/D=1 rhoD/c=1.00 gD/c=2: ours [  2.082,   2.161]  Wilson [  2.10,   2.13]  audit 2e-11  PASS  4s
+H/D=2 rhoD/c=0.25 gD/c=0: ours [  4.829,   4.892]  Wilson [  4.83,   4.88]  audit 4e-10  PASS  20s
+H/D=2 rhoD/c=0.25 gD/c=2: ours [  0.381,   0.445]  Wilson [  0.39,   0.43]  audit 8e-10  PASS  27s
+H/D=2 rhoD/c=1.00 gD/c=0: ours [  8.793,   8.914]  Wilson [  8.80,   8.87]  audit 9e-10  PASS  21s
+H/D=2 rhoD/c=1.00 gD/c=2: ours [  4.455,   4.571]  Wilson [  4.46,   4.54]  audit 1e-09  PASS  21s
+H/D=3 rhoD/c=0.25 gD/c=0: ours [  6.594,   6.691]  Wilson [  6.60,   6.68]  audit 5e-10  PASS  27s
+H/D=3 rhoD/c=0.25 gD/c=2: ours [  0.078,   0.183]  Wilson [  0.09,   0.17]  audit 7e-10  PASS  30s
+H/D=3 rhoD/c=1.00 gD/c=0: ours [ 13.747,  13.916]  Wilson [ 13.75,  13.91]  audit 1e-09  PASS  24s
+H/D=3 rhoD/c=1.00 gD/c=2: ours [  7.344,   7.513]  Wilson [  7.34,   7.51]  audit 1e-09  PASS  26s
+H/D=2 rhoD/c=0.50 gD/c=1: ours [  3.983,   4.062]  Wilson [  3.99,   4.04]  audit 7e-10  PASS  23s
+H/D=3 rhoD/c=0.50 gD/c=3: ours [ -0.707,  -0.576]  Wilson [ -0.70,  -0.59]  audit 2e-08  PASS  28s
+RESULT: ALL PASS
