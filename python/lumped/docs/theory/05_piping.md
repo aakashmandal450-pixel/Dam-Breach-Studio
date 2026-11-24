@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4.4 · 2026-11-24 · status: geotechnical review received; roof-collapse criterion under investigation (§5.5a); implementation on hold*
+*Lumped 1-D morphodynamic breach model · draft 4.5 · 2026-11-24 · status: geotechnical review received; roof-collapse criterion under investigation (§5.5a); implementation on hold*
 *Draft 1 (2026-11-20) proposed eight decisions. Draft 2 takes in the review of 2026-11-24:
 continuous culvert-type hydraulics, erosion only on wetted walls, HET k_d preferred, roof
 pressure integrated along the pipe, a separate uplift (heave) check, a debris layer that takes part in
@@ -423,11 +423,11 @@ The full sweep (C/B = 0.5–8, γB/c_u = 0–2, D/B = 1 and 0.5) is in
    - beyond 8 B when γB/c_u = 0.5.
 
    The block predicts no dependence on cover.
-4. **Limitations of this first code.**
-   - The lower bound has no extension elements, so it is rigorous only as the domain grows.
-   - The upper bound has no velocity discontinuities, so the bracket is 10–25 % wide, and in
-     shallow cases the rigid block is the better upper bound.
-   - Not yet validated against published tables (Assadi and Sloan 1991; Abbo et al. 2013).
+4. **Limitations.** The first code (`fela_roof.py`) left the lower bound's far boundaries free, so its
+   lower bounds were not rigorous. Version 2 (`fela_v2.py`, below) corrects this and is validated.
+   The numbers in the table above are unchanged by the correction to the reported precision. The
+   upper bound has no velocity discontinuities, so the bracket is 10–25 % wide for the square
+   opening, and in shallow cases the rigid block is the better upper bound.
 5. **Path to the engine.** Precompute N_crit(C/B, D/B, γB/c_u) with this code over the parameter
    space, tighten it (velocity discontinuities, adaptive mesh), validate it against the published
    bounds, and interpolate the table in the engine. The roof criterion is then evaluated section by
@@ -435,6 +435,93 @@ The full sweep (C/B = 0.5–8, γB/c_u = 0–2, D/B = 1 and 0.5) is in
    case takes about 1–8 s, so the table is cheap to build. A drained (Mohr–Coulomb) version is
    possible with the same machinery, since its yield condition is also a second-order cone, but it
    needs the seepage pore pressures (arching consequence 4 above).
+
+**Verification of the bound code (version 2, 2026-11-24).** After review, the code was audited
+against the bound theorems themselves, not only by mesh convergence.
+
+*Review of the formulation.*
+- **Upper bound: correct as written.**
+  - Velocity is zero on the far boundary, so the field extends by zero to the infinite domain.
+  - Incompressibility holds exactly in every element.
+  - The dissipation is c_u·√((ε̇_xx − ε̇_zz)² + γ̇_xz²) per unit area, the Tresca plane-strain value.
+  - The surcharge and gravity powers have the right signs.
+- **Lower bound: the far field was not admissible.** Version 1 left the side and bottom boundaries
+  traction-free. A static field is a lower bound only if it can be extended to the whole half-space
+  in equilibrium and within yield, and a free boundary does not guarantee that.
+- **Fix: an exact extension, built analytically.** Beyond the side x = X:
+  σ_zz = γz − σ_ext, σ_xz = 0, σ_xx = g(z). Below the bottom z = −Z:
+  σ_zz = γz − σ_ext + f(x), σ_xz = 0, σ_xx = γz − σ_ext + k. Here σ_ext is the surcharge beyond the
+  mesh. Both fields satisfy equilibrium identically, and they stay within yield to infinite depth if:
+  - **side:** σ_xz = 0 and |σ_xx − (γz − σ_ext)| ≤ 2c_u;
+  - **bottom:** σ_xz = 0, |σ_zz + γZ + σ_ext − k| ≤ 2c_u and |k| ≤ 2c_u.
+
+  The bottom band lets the base carry the weight missing from the opening. These conditions,
+  imposed at the boundary nodes, make the lower bound rigorous without extension elements.
+- **Yield margin.** Yield is imposed at (1 − 10⁻⁵)c_u, so the solver's feasibility error cannot carry
+  the field past c_u.
+- **Redundant equations.** Wherever two straight element edges cross at a node, one
+  traction-continuity equation follows from the others, because the stress tensor is symmetric. Every
+  crossed-quad centre has such a node. The redundant rows made the interior-point solve unstable:
+  with the solver's backup, some cases took 13–53 min. They are now removed node by node with a
+  pivoted QR; the continuity rows at a node involve only the stresses at that node. Each case then
+  solves in 1–30 s.
+
+*Independent audit of every solution.* After each solve the returned fields are checked directly,
+without using the optimiser's objective or constraint matrices:
+- **Lower bound:** element equilibrium; the traction jump on every interior edge at every node;
+  every boundary condition; yield at every node; the far-field bands.
+- **Upper bound:** volumetric strain rate; boundary velocities; the bound recomputed from the
+  velocity field.
+
+All residuals are below 3·10⁻¹⁰, and there is no yield excess.
+
+*Benchmarks* (`verification/fela_benchmarks.py`, results in `fela_benchmarks.txt`, h = 0.1):
+
+| Problem | Our lower bound | Our upper bound | Reference |
+| --- | --- | --- | --- |
+| Smooth strip footing, weightless (h = 0.05) | 4.469 | 5.241 | exact 2 + π = 5.142 (Prandtl 1920) |
+| Circle, C/D = 1, γD/c_u = 0 | 2.424 | 2.456 | 2.43–2.45 (Wilson et al. 2011) |
+| Circle, C/D = 2, γD/c_u = 0 | 3.440 | 3.486 | 3.45–3.48 |
+| Circle, C/D = 3, γD/c_u = 0 | 4.109 | 4.176 | 4.12–4.16 |
+| Circle, C/D = 1, γD/c_u = 1 | 1.243 | 1.272 | 1.25–1.26 |
+| Circle, C/D = 2, γD/c_u = 1 | 1.165 | 1.213 | 1.17–1.20 |
+| Circle, C/D = 3, γD/c_u = 1 | 0.782 | 0.846 | 0.79–0.84 |
+| Circle, C/D = 1, γD/c_u = 2 | 0.008 | 0.041 | 0.01–0.03 |
+| Circle, C/D = 2, γD/c_u = 2 | −1.180 | −1.134 | −1.17 to −1.15 |
+| Circle, C/D = 3, γD/c_u = 2 | −2.622 | −2.561 | −2.62 to −2.57 |
+
+- **Pass criterion.** Two valid pairs of bounds must overlap: our lower bound must not exceed theirs
+  as an upper bound, and our upper bound must not fall below theirs as a lower bound. All ten cases
+  pass, and our bounds lie within 0.1–2 % outside Wilson et al.'s. Their meshes carry about 10⁵
+  elements with velocity discontinuities; ours carry 4–8·10³.
+- **H read as the cover.** Wilson et al. write H for the "tunnel depth". The agreement confirms they
+  mean the cover above the crown.
+- **The circular tunnel tests the same code as the square opening.** It uses the same element
+  formulation, boundary conditions and far field; only the mesh differs. So the square-opening
+  results above stand on validated code.
+- **Square opening, rerun with version 2.**
+  - Lower bounds: 0.442, 0.833, 0.681 and −0.261 at C/B = 0.5, 1, 2 and 4 (γB/c_u = 1).
+  - These are the same as version 1 to three decimals, so the free far boundary happened not to
+    matter in these domains.
+  - At C/B = 2 with h = 0.05: lower bound 0.697, upper bound 0.827.
+- **Still to do.** Compare with a published *square* table once Abbo et al. (2013) or Wilson et al.
+  (2013) is obtained.
+
+*Where the plane-strain section applies in the embankment.* The section is cut across the pipe, so it
+lies parallel to the dam axis, and there its ground surface is horizontal. The trapezoidal shape of
+the embankment enters in three other ways:
+1. **Cover changes along the pipe**, from full crest cover to the thin cover under the slopes. Each
+   section is checked with its own cover. This ignores support from neighbouring sections (3-D end
+   effects), which is conservative for a short collapse length.
+2. **Out-of-plane shear under the slopes.** Under a slope of angle β, gravity sets up an in-situ shear
+   stress along the pipe axis, about γ·z·sin β·cos β at depth z below the surface. It uses up part of
+   the undrained strength before the section is loaded, and the plane-strain analysis does not see
+   it. This is unconservative. A first correction is to reduce c_u in the section to
+   √(c_u² − τ_axial²), the Tresca strength left for in-plane shear. It is to be checked against a
+   3-D or generalised plane-strain analysis before use.
+3. **The outlet face.** Near the downstream exit the mechanism becomes three-dimensional (face
+   collapse, Jafari and Fahimifar 2022), and the section analysis does not apply there. That zone is
+   covered by the exit mechanisms of §5.6.
 
 Jafari and Fahimifar (2022) treat the *face* (heading) stability of rectangular shield tunnels, a 3-D
 problem. They are relevant to the method but not to the cross-section collapse of the roof.
@@ -754,6 +841,7 @@ more cover and a different collapse time, so the largest peak can come from any 
 
 ## References
 
+
 - Ali, A. K., Hunt, S. L., Tejral, R. D., et al. (2021). Embankment breach research: observed internal
   erosion processes. *Trans. ASABE*. doi:10.13031/trans.13701.
 - Atkinson, A., and Neilsen, M. (2024). Analysis of uncertainty in internal erosion simulations for
@@ -782,6 +870,7 @@ more cover and a different collapse time, so the largest peak can come from any 
 - Okeke, A. C.-U., and Wang, F. (2016). Hydromechanical constraints on piping failure of landslide
   dams: an experimental investigation. *Geoenvironmental Disasters*, 3, 4.
   doi:10.1186/s40677-016-0038-9.
+- Prandtl, L. (1920). Über die Härte plastischer Körper. *Nachrichten der Gesellschaft der Wissenschaften zu Göttingen*, 74–85.
 - Reclamation / FERC (2010). *Dam Safety Risk Analysis Best Practices — Internal Erosion*.
 - Terzaghi, K. (1943). *Theoretical Soil Mechanics*. Wiley. Arching (trapdoor) and heave.
 - USBR (2019). *Best Practices in Dam and Levee Safety Risk Analysis*, Ch. D-6 Internal Erosion
