@@ -793,7 +793,10 @@ layer of uniform thickness along the slot of width b_p, filling it from z_inv up
     b_p ∫_{z_inv}^{z_d} L(z) dz = V_d,    L(z) = x_down(z) − x_up(z),    z_d ≤ H            (5.12b)
 
 The real deposit depends on where the roof breaks, whether it piles near the break, and how much the
-flow carries off at once. A wedge is a later option.
+flow carries off at once. A wedge is a later option. With n_d = n and a slot of
+nearly constant length, the slot column loses exactly the pipe volume, so z_d ≈ H − a_p. This is a
+consequence of the geometry, not a general rule. If loose debris would rise above the crest, z_d is
+capped at H and the excess is set beside the slot as spoil (counted in the solids budget).
 
 **Required comparison: a localised mound (draft 4.6).** The criterion (5.15) makes the roof fail first
 at one section x*, a sinkhole, not along the whole pipe. Spreading that debris uniformly along the
@@ -812,10 +815,7 @@ depend on the length of roof that fails, and the draft has no rule for it. Candi
   loses the 3-D support of that neighbour;
 - the whole roof (the draft-4 assumption).
 
-The choice will be set out as theory for review. None is coded before then. With n_d = n and a slot of
-nearly constant length, the slot column loses exactly the pipe volume, so z_d ≈ H − a_p. This is a
-consequence of the geometry, not a general rule. If loose debris would rise above the crest, z_d is
-capped at H and the excess is set beside the slot as spoil (counted in the solids budget).
+The choice will be set out as theory for review. None is coded before then.
 
 **The debris is part of the hydraulics from the first step.** The breach after collapse is a notch of
 width b_p from the crest down to the debris surface z_d. The debris layer z_inv–z_d is the notch's
@@ -882,6 +882,7 @@ the hydrograph does not depend on the step. After the collapse, the discharge va
 the debris erodes.
 
 **Comparison modes.** These show how much the collapse treatment matters:
+- **Localised mound at x*** (required on every case, above).
 - **DL Breach's virtual tank** opens the notch to the invert at once but freezes the geometry until
   the tank is emptied.
 - **Instant removal** gives the most open passage at first. It is not necessarily an upper bound on
