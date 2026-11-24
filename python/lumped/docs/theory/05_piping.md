@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.0 · 2026-11-24 · status: §5.5b table decisions and §5.7a crater state/equation sequence written for review; strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.1 · 2026-11-24 · status: §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; ready to freeze after a final check; strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -678,8 +678,8 @@ each run full (hydrostatic) and part-full (y = 0.9 a_p, roof dry). Every audit w
      - weak soil (high γ_w b_p/c_u0).
 
      The error |N_pred − N_direct| is reported separately for collapse and blow-out and for each bound.
-     The proposed tolerance is half the bracket width at that point. This is a proposed criterion, not
-     a standard. Where it fails, γ_w b_p/c_u0 is kept as a fifth dimension for that part of the range.
+     The tolerance is half the bracket width at that point. This is a project-specific acceptance
+     criterion chosen for this model, not a published engineering standard. Where it fails, γ_w b_p/c_u0 is kept as a fifth dimension for that part of the range.
    - **Part-full pipe:** σ_t = 0, with the band (5.16) using the wetted depth y in place of a_p.
    - The uncertainty runs use the band.
 5. **One pressure for both regimes.** p_cr is the soffit pressure p_s(x) of (5.8), which is zero for a
@@ -1056,14 +1056,15 @@ pipe:
 | V_fall | intact bulk volume of all soil that has fallen (roof pieces and wall wedges) |
 | V_pipe | volume of pipe void inside the crater reach, b_p a_p ℓ_pipe |
 | V_exp | bulk volume of debris carried out of the crater |
-| V_c | volume of water standing in the crater above the debris surface |
+| W_c | total water in the crater: free water above the debris plus water in the debris pores |
 
 From these the geometry follows. With ℓ = x_2 − x_1, footprint A_c = ℓ W, and κ = (1 − n)/(1 − n_d) ≥ 1
 (the bulking of fallen soil):
 
     V_open = V_pipe − (κ − 1) V_fall + V_exp            open volume of the crater (air or water)  (5.18)
     z_d   = z̄_g − V_open / A_c                         debris surface                           (5.19)
-    z_c   = z_d + V_c / A_c                             crater water level, z_c ≤ z_rim           (5.20)
+    S(z)  = V_p(z) + A_c max(z − z_d, 0),   z_c = S⁻¹(W_c),   z_c ≤ z_rim             crater water level  (5.20)
+    V_p(z) = n_d V_db clip( (z − z_inv)/(z_d − z_inv), 0, 1 ),   V_db = κ V_fall − V_exp
 
 - z̄_g is the mean ground elevation over the footprint.
 - **Why (5.18) holds.** Collapse and wall failure only move soil downward inside the dam. The only
@@ -1075,10 +1076,26 @@ From these the geometry follows. With ℓ = x_2 − x_1, footprint A_c = ℓ W, 
   footprint and the crater gets shallower, which limits further wall failures.
 - **Solids budget.** V_s = (1 − n) V_fall = V_s,debris + V_s,exported, closed to round-off. This
   replaces (5.13) inside the crater.
-- **First-version simplifications.**
-  - The debris surface is level over the footprint.
-  - Water held in the debris pores is not counted in V_c; the debris is taken as saturated when it
-    lands.
+- **Pore-water storage (draft 5.1).** The storage curve S(z) counts the free water above the debris
+  and the water in the debris pores below z. So the water stored in the debris is part of the balance,
+  not ignored.
+  - V_db is the bulk volume of the debris. Its pore space below level z is taken as proportional to
+    the height above the invert. That is the simplest volume–height relation consistent with a level
+    deposit.
+  - The pores equilibrate instantly with the crater water: debris below z_c is saturated, and debris
+    above z_c drains at once.
+  - Soil that falls brings its own pore water, S_r n ΔV_fall. In the first version S_r = 1 for soil
+    below the phreatic level z_ph and S_r = 0 above it. This water is added to W_c and recorded as a
+    separate term in the water budget, so nothing is created or lost.
+  - **Sensitivity:** pore storage off, i.e. V_p ≡ 0 and no water released from fallen soil.
+- **First-version simplification: a level, uniformly distributed deposit.**
+  - The debris surface is level over the footprint. The model represents a uniformly distributed
+    deposit within the crater, not a locally resolved one.
+  - It cannot represent a local mound at the downstream pipe entrance, uneven deposition along the
+    crater, or different debris elevations at the side and end walls. All of these would change the
+    storage geometry and the downstream opening.
+  - This is consistent with §5.7: the crater footprint *is* the localised deposit at x*, compared there
+    with a layer spread uniformly along the whole pipe.
 
 ### 5.7a.3 Wall representation
 
@@ -1109,26 +1126,47 @@ length of wall.
   - tailwater h_t = max(z_c − z_inv, 0), the existing term in (5.3).
 
   This gives Q_in, and p_s(x) along the reach follows (5.8) with the same tailwater.
-- **Downstream reach** (x_2 → outlet). Its entrance is blocked when z_d ≥ z_cr at x_2. In that case
-  Q_out = 0 and p_s = 0 along the reach. Seepage through the debris is neglected (as in §5.7). If the
-  entrance is partly open, the reach runs as a pipe fed by the crater level z_c over the open height
-  z_cr − max(z_d, z_inv).
+- **Downstream reach** (x_2 → outlet): obstruction treated continuously, not as a switch.
+  - The open height of its entrance is
+
+        a_open = clip( z_cr − max(z_d, z_inv), 0, a_p )                                       (5.25)
+
+  - Q_out is the pipe flow of (5.2)–(5.4) for the downstream reach, with the crater level z_c as
+    headwater and an entrance of height a_open. This is the review's C_d A_eff √(2g H_eff) in the form
+    already used for the pipe: the entrance area is b_p a_open, and the losses are entrance, friction
+    and exit.
+  - Q_out → 0 continuously as a_open → 0, and both the storage (5.20) and the obstruction (5.25) use the
+    same z_d. So the blocked and open states join without a jump.
+  - **The binary element.** With a_open = 0, no flow passes, because seepage through the debris is not
+    represented. That is the first-version blockage assumption, recorded as such. Darcy flow through the
+    debris is a later refinement.
+  - With a level deposit, a_open follows the mean debris surface. A local mound at the entrance (or a
+    hollow) is not represented.
+  - p_s along the downstream reach follows from its own flow, and is zero when Q_out = 0.
 - **Spill over the rim.** z_rim is the lowest ground elevation on the rim. Spill follows the Part 1
   critical weir (1.5):
 
       Q_spill = 1.705 W (z_c − z_rim)^1.5   for z_c > z_rim                               (5.21)
 
-  The spill runs down the outer ground surface. Its erosion of the downstream face uses the optional
-  exit-headcut machinery of §5.6, off by default and tested on and off.
+  The spill runs down the outer ground surface.
+  - Its erosion of the downstream face may use the exit-headcut machinery of §5.6. That is a
+    **provisional approximation**: the flow concentration, the hydraulic geometry and the exposed
+    material of a crater spill differ from a pipe jet. It is not a separately validated crater-spill
+    erosion model.
+  - It is off by default, and every case can be run with it off, so its contribution can be isolated.
 - **Crater water balance:**
 
-      dV_c/dt = Q_in − Q_out − Q_spill                                                      (5.22)
+      dW_c/dt = Q_in − Q_out − Q_spill                                                      (5.22)
 
-  - At a geometry update V_c is conserved, and z_c is recomputed from (5.20).
-  - Debris or a wedge falling into the water therefore raises the water level instead of destroying
-    water.
-  - The water budget, reservoir + crater storage + downstream outflow + spill, closes every step to
-    round-off.
+  - At a geometry update W_c is conserved, plus the pore water released by the fallen soil, and z_c is
+    recomputed from (5.20). Debris or a wedge falling into the water therefore raises the water level
+    instead of destroying water.
+  - **Water budget**, closed every step to round-off:
+
+        reservoir + W_c + ∫Q_out dt + ∫Q_spill dt − (water released by fallen soil) = initial value
+
+  - **Consistency checks:** free water never exceeds the open volume above the debris,
+    A_c (z_c − z_d) ≤ V_open; and stored pore water never exceeds the pore space, V_p ≤ n_d V_db.
 
 ### 5.7a.5 Stability checks on one state
 
@@ -1142,9 +1180,11 @@ from the reservoir.
     H_w ≤ H_c = 3.776 c_u0 / ( γ − γ_w (h_w/H_w)² − 2ρ )                                    (5.17)
 
 - **Dry wall** (h_w = 0): this is the rigorous undrained cut height (derivation and our bounds in §5.7a.10).
-- **Crater full to the top of the wall** (h_w = H_w): it is exact by the shift argument. Water standing
-  to the top of the wall is a hydrostatic field throughout the soil, which leaves the same problem with
-  buoyant weight γ − γ_w.
+- **Crater full to the top of the wall** (h_w = H_w): **exact under the stated assumptions.** Those
+  assumptions are: saturated soil, a hydrostatic water field, and the same undrained (total-stress)
+  strength as in the dry bound. Water standing to the top of the wall is then a hydrostatic field
+  throughout the soil, which leaves the same problem with buoyant weight γ − γ_w. Our bound code
+  reproduces the factor 1/(1 − γ_w/γ) = 2.0000 exactly at γ_w/γ = 0.5.
 - **Partial filling.** The ξ² form is safe-side against our rigorous lower bounds
   (`verification/fela_cut_wet.py`, results in `fela_cut_wet.txt`, γ_w/γ = 0.5, ρ = 0):
 
@@ -1153,8 +1193,20 @@ from the reservoir.
   | lower-bound ratio to dry | 1.000 | 1.042 | 1.168 | 1.427 | 2.000 |
   | 1/(1 − (γ_w/γ) ξ²) | 1.000 | 1.032 | 1.143 | 1.391 | 2.000 |
 
-  The water support is about 1–3 % larger than the formula gives, so the formula slightly understates
-  it. That is checked here only at γ_w/γ = 0.5 and ρ = 0; other values are checked before use.
+  **Status: an approximation supported by the bound comparisons, not an exact or generally proven
+  result.** Range check (`verification/fela_cut_wet_range.py`, results in `fela_cut_wet_range.txt`,
+  18 cases): γ_w/γ = 0.4, 0.5, 0.6; ρ' = ρH_w/c_u0 = 0, 0.5; ξ = 0.25, 0.5, 0.75.
+  - **Ratio form** (the formula's water factor times our dry lower bound, divided by our wet lower
+    bound, which removes the mesh error): 0.969–0.995, i.e. below 1 in every case.
+  - **Absolute form** (the formula divided by our wet lower bound at h = 0.05): 0.972–1.001. The single
+    value above 1 is 1.0009, at γ_w/γ = 0.4, ρ' = 0 and ξ = 0.25. That is within the ≈ 0.8 % by which
+    the lower bound at this mesh sits below its converged value.
+
+  So the formula is on the safe side inside the checked range, γ_w/γ 0.4–0.6, ρ' 0–0.5 and ξ 0–1. It
+  is not claimed to be conservative outside that range.
+- **Domain guard.** The denominator γ − γ_w (h_w/H_w)² − 2ρ must stay positive, and the inputs must lie
+  inside the checked range. Otherwise the engine raises a domain error naming the inputs. It does not
+  return an artificial "stable at any height" result. Extending the range needs new bound checks.
 - **Strength and saturation.** c_u0 and ρ refer to depth below the wall's own ground surface.
   - **Water against the face** is an external load: it supports the wall.
   - **Saturation** belongs to the strength. c_u is the saturated undrained strength wherever the soil is
@@ -1192,7 +1244,8 @@ An event is any failure crossing found during time integration: M(x) = 0, a wall
    - extend the reach to the outermost failed roof section at each end;
    - retreat every failed wall by Δ;
    - remove any remnant that has been pushed out;
-   - update V_fall and V_pipe, then z_d from (5.19), then z_c from (5.20) with V_c conserved.
+   - update V_fall and V_pipe, then z_d from (5.19), then z_c from (5.20) with W_c conserved, plus
+     the pore water released by the fallen soil.
 5. Repeat from step 1 until a pass finds no failure.
 
 - **No order effects.** Every check in a pass reads the same state, so the result does not depend on
@@ -1209,12 +1262,17 @@ An event is any failure crossing found during time integration: M(x) = 0, a wall
 The time-integrated states are:
 - the reservoir;
 - the upstream pipe dimensions (erosion continues there, §5.4);
-- V_c from (5.22);
+- W_c from (5.22);
 - V_exp, when debris erosion acts.
 
-Debris in the crater is eroded only by flow that actually crosses it. Before hand-over that flow is
-weak: the jet from the upstream pipe into the crater is not represented in the first version. This is
-stated, and it may delay spreading.
+Debris in the crater is eroded only by flow that actually crosses it.
+- **Unmodelled process: jet erosion.** The jet from the upstream pipe into the crater is not represented
+  in the first version. Its effect has no assumed direction. It could:
+  - scour the debris and reopen the downstream entrance, lowering z_c;
+  - remove support from the debris or the crater floor;
+  - or leave the blockage in place longer, raising z_c and the wall support.
+
+  So ignoring it is neither conservative nor unconservative in general. It is recorded as a limitation.
 
 M(x), the wall margins and (5.23) are tracked continuously, and their crossings are event-located. One
 case to note: **a falling crater level removes wall support**, so rapid drawdown of the crater can
@@ -1243,7 +1301,7 @@ The rest of the hand-over state is as in §5.7.
 | minimum spread | the initial reach only; no cascade, no wall checks; crater water balance still computed |
 | rule S | §5.7a.2–5.7a.8 |
 | maximum spread | the whole roof collapses at the first collapse (the draft-4 assumption) |
-| sensitivities, with rule S | dry walls (h_w = 0 in (5.17)); tension cut-off (2 in place of 3.776); remoulding (c_u0/S_t near the crater) |
+| sensitivities, with rule S | dry walls (h_w = 0 in (5.17)); tension cut-off (2 in place of 3.776); remoulding (c_u0/S_t near the crater); pore storage off; crater-spill erosion on (provisional) |
 
 The cases are reported side by side and never averaged into one prediction (§5.8).
 
@@ -1344,7 +1402,7 @@ published:
 | section spacing | x*, collapse time and hydrograph at Δx = b_p/2 vs b_p/4 |
 | pressure | shift exact for any p_cr (done); 0 ≤ β < 1 and monotone over the range (done, 120 cases); band (5.16) used in the uncertainty runs |
 | blow-out | N_b bounds bracket the rigid prism at C/B ≤ 1; uniform-pressure shift exact; uplift check uses N_b |
-| spreading (§5.7a) | cascade terminates within the cap and is independent of check order; water budget with crater storage (5.22) and the void identity (5.18) close to round-off; wet-wall (5.17) exact at h_w = H_w (done, `fela_cut_wet.py`); collapsed length: minimum bracket ≤ rule S ≤ whole roof; (5.17) gives 3.776 c_u0/γ for ρ = 0 (bounds done, `fela_cut.py`); tension cut-off run uses 2 c_u0/(γ − 2ρ); wall-wedge volume ½ H_w² per unit width; spread converges in dt |
+| spreading (§5.7a) | cascade terminates within the cap and is independent of check order; water budget with free and pore storage and the released pore water (5.22), and the void identity (5.18), close to round-off; A_c (z_c − z_d) ≤ V_open and V_p ≤ n_d V_db at every step; Q_out continuous as a_open → 0 (5.25); domain error, not stability, when (5.17) leaves its checked range; wet-wall (5.17) exact at h_w = H_w (done, `fela_cut_wet.py`); collapsed length: minimum bracket ≤ rule S ≤ whole roof; (5.17) gives 3.776 c_u0/γ for ρ = 0 (bounds done, `fela_cut.py`); tension cut-off run uses 2 c_u0/(γ − 2ρ); wall-wedge volume ½ H_w² per unit width; spread converges in dt |
 | (5.11) | F_C computed along the whole pipe; < 0 everywhere under the reservoir for random geometries and flows (property test); c_u = 0, p_top = 0 gives Δh/t > γ′/γ_w |
 | (5.12) | solids conserved: V_d (1 − n_d) = (1 − n) b_p A_r to 1e-12; z_d ≈ H − a_p for n_d = n, constant L |
 | (5.13) | solids budget closes every step to 1e-12 |
@@ -1410,8 +1468,18 @@ published:
    location gives three `scenario` runs kept out of primary validation. The base is not assumed
    worst-case. *(As reviewed.)*
 9. **Collapse spreading and the crater** *(proposed, for review; §5.7a, draft 5.0)*.
-   - **Crater state:** x_1, x_2, W, V_fall, V_pipe, V_exp and V_c. The geometry follows from (5.18)–(5.20).
-     The crater water level is a state with its own balance (5.22); the crater does not drain freely.
+   - **Crater state:** x_1, x_2, W, V_fall, V_pipe, V_exp and W_c (free plus pore water). The geometry
+     follows from (5.18)–(5.20). The crater water level is a state with its own balance (5.22); the
+     crater does not drain freely.
+   - **Debris:** a level, uniformly distributed deposit within the crater. Pore storage equilibrates
+     instantly; the sensitivity run turns it off.
+   - **Downstream obstruction:** continuous in the open height (5.25). Blockage with no seepage is the
+     recorded first-version assumption.
+   - **Wet-wall formula:** exact when the crater is full to the top of the wall. For partial filling it
+     is an approximation, checked safe-side for γ_w/γ 0.4–0.6 and ρ' 0–0.5. Outside that range, a
+     domain error.
+   - **Unmodelled or provisional:** jet erosion (unmodelled, no assumed direction); crater-spill erosion
+     (provisional, off by default).
    - **Walls:** end and side walls are all checked with the wet undrained cut criterion (5.17), with the
      geometric justification of §5.7a.5. A failed wall retreats by the area-equivalent Δ = ½ H_w.
    - **Wall water:** the wet wall is the default. The dry wall is a sensitivity case. Water against the
