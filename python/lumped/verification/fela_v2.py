@@ -135,11 +135,13 @@ class _Builder:
         return P, T
 
 
-def rect_mesh(C, D, h, ext=3.0):
+def rect_mesh(C, D, h, ext=3.0, hfar=1.0):
+    """hfar: largest element size far from the opening (in b_p). For deep cover the table build uses
+    hfar = max(1, (C + D)/8) so the element count stays bounded; the bounds remain rigorous."""
     X = 0.5 + max(ext * (C + D), 3.0)
     Z = C + D + max(0.5 * ext * (C + D), 2.0)
-    xs = np.unique(np.round(np.concatenate([uniform(0.0, 0.5, h), graded(0.5, X, h, 1.0)]), 9))
-    zs = np.unique(np.round(np.concatenate([graded(-Z, -C - D, h, 1.0, fine_at="b"), uniform(-C - D, -C, h),
+    xs = np.unique(np.round(np.concatenate([uniform(0.0, 0.5, h), graded(0.5, X, h, hfar)]), 9))
+    zs = np.unique(np.round(np.concatenate([graded(-Z, -C - D, h, hfar, fine_at="b"), uniform(-C - D, -C, h),
                                             graded(-C, 0.0, h, max(h, min(0.5, C / 6)))]), 9))
     b = _Builder()
     for i in range(len(xs) - 1):

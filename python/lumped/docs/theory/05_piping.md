@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.1 · 2026-11-24 · status: §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; ready to freeze after a final check; strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.1 · 2026-11-24 · status: §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -764,14 +764,21 @@ reported separately. The fifth argument enters for a full pipe (above).
   - The spacing is a numerical choice, justified only by this convergence test.
   - Between sections, M(x) is interpolated linearly to locate x*.
 - **Table.** N_c and N_b are precomputed offline with `fela_v2.py` over:
-  - C/b_p from 0.25 to 20;
+  - C/b_p from 0.25 to 32;
   - a_p/b_p from 0.5 to 2;
   - γ b_p/c_u0 from 0 to 3;
   - ρ b_p/c_u0 from 0 to 1;
   - plus the support factors β_c, β_b of (5.16a) in the same four dimensions, at one reference
     γ_w b_p/c_u0. A fifth dimension is used only where the acceptance test fails.
 
-  - Inside the table: multilinear interpolation.
+  - Inside the table: multilinear interpolation in (C/b_p, log a_p/b_p, γ b_p/c_u0, ρ b_p/c_u0). The
+    cover axis is linear because the weight and blow-out terms grow about linearly with cover. A log
+    axis bent them and failed the acceptance test on a coarse test grid.
+  - Full-pipe queries are limited to γ_w b_p/c_u0 ≤ 2, the range covered by the acceptance test.
+  - Build, interface and test: `verification/build_stability_table.py` (resumable, parallel),
+    `lumped/stability_table.py` and `verification/table_acceptance.py`. The grid is C/b_p = 0.25–32
+    (13 nodes), a_p/b_p = 0.5, 1, 2, γ b_p/c_u0 = 0–3 (6 nodes), ρ b_p/c_u0 = 0–1 (4 nodes), at
+    γ_w,ref b_p/c_u0 = 0.5. That is 936 points with 8 audited bound solves each.
   - Outside it: an error that names the parameter and its value. No extrapolation without separate
     verification.
 - **What the criterion replaces.** It replaces mechanism A as the collapse criterion. Mechanism A stays
@@ -1061,10 +1068,10 @@ pipe:
 From these the geometry follows. With ℓ = x_2 − x_1, footprint A_c = ℓ W, and κ = (1 − n)/(1 − n_d) ≥ 1
 (the bulking of fallen soil):
 
-    V_open = V_pipe − (κ − 1) V_fall + V_exp            open volume of the crater (air or water)  (5.18)
+    V_open = V_pipe − (κ − 1) V_fall + V_exp + V_spoil   open volume of the crater (air or water)  (5.18)
     z_d   = z̄_g − V_open / A_c                         debris surface                           (5.19)
     S(z)  = V_p(z) + A_c max(z − z_d, 0),   z_c = S⁻¹(W_c),   z_c ≤ z_rim             crater water level  (5.20)
-    V_p(z) = n_d V_db clip( (z − z_inv)/(z_d − z_inv), 0, 1 ),   V_db = κ V_fall − V_exp
+    V_p(z) = n_d V_db clip( (z − z_inv)/(z_d − z_inv), 0, 1 ),   V_db = κ V_fall − V_exp − V_spoil
 
 - z̄_g is the mean ground elevation over the footprint.
 - **Why (5.18) holds.** Collapse and wall failure only move soil downward inside the dam. The only
@@ -1074,8 +1081,12 @@ From these the geometry follows. With ℓ = x_2 − x_1, footprint A_c = ℓ W, 
   crater depth z̄_g − z_d = a_p. That is the same as z_d ≈ H − a_p in §5.7.
 - **A wider crater is shallower.** If W grows by wall failures, the same void spreads over a larger
   footprint and the crater gets shallower, which limits further wall failures.
-- **Solids budget.** V_s = (1 − n) V_fall = V_s,debris + V_s,exported, closed to round-off. This
-  replaces (5.13) inside the crater.
+- **Overfilling.** Bulked debris can overfill a shallow crater: (κ − 1) V_fall > V_pipe + V_exp. The
+  excess bulk V_spoil is then set beside the crater, as in §5.7, and V_open = 0. So z_d never rises
+  above z̄_g. Found by the crater check with n_d = 0.5 in a 1 m deep crater.
+- **Solids budget.** V_s = (1 − n) V_fall = V_s,debris + V_s,exported + V_s,spoil, closed to round-off.
+  This replaces (5.13) inside the crater. Here V_db = κ V_fall − V_exp − V_spoil is the debris left in
+  the crater.
 - **Pore-water storage (draft 5.1).** The storage curve S(z) counts the free water above the debris
   and the water in the debris pores below z. So the water stored in the debris is part of the balance,
   not ignored.
@@ -1087,6 +1098,11 @@ From these the geometry follows. With ℓ = x_2 − x_1, footprint A_c = ℓ W, 
   - Soil that falls brings its own pore water, S_r n ΔV_fall. In the first version S_r = 1 for soil
     below the phreatic level z_ph and S_r = 0 above it. This water is added to W_c and recorded as a
     separate term in the water budget, so nothing is created or lost.
+  - **Counted once.** W_c is the only water state. V_p(z) is not a second store: it is part of the
+    storage curve S(z), i.e. the capacity that W_c fills from the bottom up. Released pore water enters
+    W_c once, and S(z) then says where that water sits.
+  - **Example.** With n_d = n and saturated soil falling into water, the soil brings exactly the water
+    its own pores hold. The free water is unchanged, and z_c rises by the displacement alone.
   - **Sensitivity:** pore storage off, i.e. V_p ≡ 0 and no water released from fallen soil.
 - **First-version simplification: a level, uniformly distributed deposit.**
   - The debris surface is level over the footprint. The model represents a uniformly distributed
@@ -1204,9 +1220,17 @@ from the reservoir.
 
   So the formula is on the safe side inside the checked range, γ_w/γ 0.4–0.6, ρ' 0–0.5 and ξ 0–1. It
   is not claimed to be conservative outside that range.
-- **Domain guard.** The denominator γ − γ_w (h_w/H_w)² − 2ρ must stay positive, and the inputs must lie
-  inside the checked range. Otherwise the engine raises a domain error naming the inputs. It does not
-  return an artificial "stable at any height" result. Extending the range needs new bound checks.
+- **Validity domain (exact ranges covered by the checks).**
+  - ξ = h_w/H_w from 0 to 1: ξ = 0, 0.25, 0.5, 0.75 and 1 at γ_w/γ = 0.5; ξ = 0.25, 0.5 and 0.75 at
+    γ_w/γ = 0.4 and 0.6. ξ = 1 is exact.
+  - γ_w/γ from 0.4 to 0.6 (unit weights of about 16–25 kN/m³).
+  - ρ' = ρ H_w / c_u0 from 0 to 0.5. Note that ρ' depends on the wall height.
+- **Domain guard.** The engine rejects any wall check outside these ranges, or with γ − γ_w (h_w/H_w)² − 2ρ
+  ≤ 0. It raises a domain error naming the parameter and its value. It neither extrapolates nor
+  returns an artificial "stable at any height" result. Extending the range needs new bound checks.
+- **Water on the wall.** The pressure on the crater walls comes from the actual water level z_c, via
+  h_w = max(0, min(z_c, z_g) − z_d), never from the stored volume W_c. Water held in the pores below the
+  debris surface does not push on the exposed wall.
 - **Strength and saturation.** c_u0 and ρ refer to depth below the wall's own ground surface.
   - **Water against the face** is an external load: it supports the wall.
   - **Saturation** belongs to the strength. c_u is the saturated undrained strength wherever the soil is
