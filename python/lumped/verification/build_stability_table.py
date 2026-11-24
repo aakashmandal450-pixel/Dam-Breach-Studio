@@ -35,6 +35,15 @@ def audit(lb, ub):
 
 
 def solve_point(p):
+    try:
+        return _solve_point(p)
+    except MemoryError:
+        import gc; gc.collect()
+        C, a, g, r = p
+        return dict(C_b=C, a_b=a, g_b=g, rho_b=r, status="MEMORY", seconds=0)
+
+
+def _solve_point(p):
     import fela_v2 as f
     C, a, g, r = p
     t0 = time.time()
@@ -67,8 +76,9 @@ def main():
     ap.add_argument("--out", default="stability_table.csv")
     ap.add_argument("--workers", type=int, default=0)
     args = ap.parse_args()
-    if args.workers <= 0:   # deep points need ~1-2 GB each; leave one core free
-        args.workers = max(1, min((os.cpu_count() or 2) - 1, 6))
+    from memsafe import choose_workers
+    args.workers, note = choose_workers(args.workers)
+    print("Workers: " + note, flush=True)
     G = GRIDS[args.grid]
     pts = list(itertools.product(G["C_b"], G["a_b"], G["g_b"], G["rho_b"]))
     # deep points first is worse for the ETA; interleave so the estimate settles early
@@ -99,20 +109,41 @@ def main():
                     print(f"      ... working: {state['k']}/{len(todo)} points done, "
                           f"elapsed {(time.time() - t0) / 60:.1f} min", flush=True)
         threading.Thread(target=heartbeat, daemon=True).start()
-        with Pool(args.workers) as pool:
+        retry = []
+
+        def report(k, n, row):
+            el = time.time() - t0
+            eta = el / k * (n - k)
+            print(f"[{k}/{n}] C/b={row['C_b']:g} a/b={row['a_b']:g} gb/c={row['g_b']:g} "
+                  f"rho b/c={row['rho_b']:g}: N_c [{row['N_c0_lo']:.3f}, {row['N_c0_hi']:.3f}] "
+                  f"N_b [{row['N_b0_lo']:.3f}, {row['N_b0_hi']:.3f}] beta_c {row['beta_c_lo']:.3f} "
+                  f"audit {row['audit']:.0e} {row['status']} {row['seconds']}s | elapsed {el/60:.1f} min, "
+                  f"ETA {eta/60:.1f} min", flush=True)
+
+        # maxtasksperchild=1: each point runs in a fresh process, so its memory is returned to the system
+        with Pool(args.workers, maxtasksperchild=1) as pool:
             for k, row in enumerate(pool.imap_unordered(solve_point, todo), 1):
-                w.writerow(row); fh.flush()
                 state["k"] = k
+                if row["status"] == "MEMORY":
+                    retry.append((row["C_b"], row["a_b"], row["g_b"], row["rho_b"]))
+                    print(f"[{k}/{len(todo)}] C/b={row['C_b']:g} a/b={row['a_b']:g} gb/c={row['g_b']:g} "
+                          f"rho b/c={row['rho_b']:g}: out of memory, will be retried alone at the end", flush=True)
+                    continue
+                w.writerow(row); fh.flush()
                 nfail += row["status"] != "OK"
-                el = time.time() - t0
-                eta = el / k * (len(todo) - k)
-                print(f"[{k}/{len(todo)}] C/b={row['C_b']:g} a/b={row['a_b']:g} gb/c={row['g_b']:g} "
-                      f"rho b/c={row['rho_b']:g}: N_c [{row['N_c0_lo']:.3f}, {row['N_c0_hi']:.3f}] "
-                      f"N_b [{row['N_b0_lo']:.3f}, {row['N_b0_hi']:.3f}] beta_c {row['beta_c_lo']:.3f} "
-                      f"audit {row['audit']:.0e} {row['status']} {row['seconds']}s | elapsed {el/60:.1f} min, "
-                      f"ETA {eta/60:.1f} min", flush=True)
+                report(k, len(todo), row)
+        for k, p in enumerate(retry, 1):          # one at a time, nothing else running
+            print(f"Retrying alone ({k}/{len(retry)}): C/b={p[0]:g} a/b={p[1]:g} gb/c={p[2]:g} rho b/c={p[3]:g}", flush=True)
+            row = solve_point(p)
+            if row["status"] == "MEMORY":
+                print("  still out of memory: close other programs and run the same command again", flush=True)
+                nfail += 1
+                continue
+            w.writerow(row); fh.flush()
+            nfail += row["status"] != "OK"
+            report(k, len(retry), row)
         state["busy"] = False
-    print(f"Done. {nfail} point(s) failed the audit.", flush=True)
+    print(f"Done. {nfail} point(s) failed the audit or did not finish; run the same command again to retry them." if nfail else "Done. All points solved and audited.", flush=True)
     return 1 if nfail else 0
 
 

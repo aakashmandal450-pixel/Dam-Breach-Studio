@@ -89,8 +89,9 @@ def main():
     ap.add_argument("--out", default="table_acceptance.csv")
     ap.add_argument("--workers", type=int, default=0)
     args = ap.parse_args()
-    if args.workers <= 0:
-        args.workers = max(1, min((os.cpu_count() or 2) - 1, 6))
+    from memsafe import choose_workers
+    args.workers, note = choose_workers(args.workers)
+    print("Workers: " + note, flush=True)
     fails = []
     tab = StabilityTable.from_csv(args.table)
     mechanics(tab, fails)
@@ -106,7 +107,7 @@ def main():
         pts = [tuple(mid(a) for a in AXES)]
         ON_GRID.append(tuple(float(tab.grid[a][0]) for a in AXES)); pts.append(ON_GRID[-1])
     rows, n_ok, n_bad, t0 = [], 0, 0, time.time()
-    with Pool(args.workers) as pool:
+    with Pool(args.workers, maxtasksperchild=1) as pool:
         for k, res in enumerate(pool.imap_unordered(direct, pts), 1):
             for d in res:
                 q = {a: d[a] for a in AXES}
