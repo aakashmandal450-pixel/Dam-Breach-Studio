@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4.2 · 2026-11-24 · status: geotechnical review received; roof-collapse criterion under investigation (§5.5a); implementation on hold*
+*Lumped 1-D morphodynamic breach model · draft 4.4 · 2026-11-24 · status: geotechnical review received; roof-collapse criterion under investigation (§5.5a); implementation on hold*
 *Draft 1 (2026-11-20) proposed eight decisions. Draft 2 takes in the review of 2026-11-24:
 continuous culvert-type hydraulics, erosion only on wetted walls, HET k_d preferred, roof
 pressure integrated along the pipe, a separate uplift (heave) check, a debris layer that takes part in
@@ -374,6 +374,67 @@ The undrained-bounds column uses the closed-form fit of Wilson et al. (2011) for
 for illustration only; its coefficients are to be checked against the paper. The table shows why the
 strength regime (consequence 1 above) must be settled first: it decides whether a deep pipe's roof is
 stable, needs a few kPa of support, or collapses outright.
+
+**Upper- and lower-bound limit analysis (computed here, 2026-11-24).** To check the rigid block
+against the bound theorems directly, finite element limit analysis was written for this problem
+(`verification/fela_roof.py`). The setup is a plane-strain section across the pipe; the ground
+surface in that section is horizontal (along the crest), so the tunnel framework applies there
+without a sloping-surface correction. The opening is rectangular, of width B and height D, under
+cover C, in Tresca clay with self-weight, with no internal pressure (σ_t = 0).
+
+- **Lower bound:** linear stress triangles with a statically admissible discontinuity on every edge,
+  and Tresca yield as a second-order cone at every node. It maximises the surface surcharge.
+- **Upper bound:** linear velocity triangles on a crossed mesh, which avoids incompressibility locking,
+  with far boundaries fixed. It minimises dissipation minus gravity power for unit surface flux.
+
+Both are solved by conic programming (Clarabel). The result is the stability number
+N = (σ_s − σ_t)/c_u at collapse.
+
+Mesh check, at C/B = 2, D/B = 1, γB/c_u = 1, as the mesh size h goes 0.2 → 0.15 → 0.1 → 0.07:
+- lower bound 0.664 → 0.678 → 0.681 → 0.691;
+- upper bound 0.908 → 0.874 → 0.846 → 0.835.
+
+Results at h = 0.1 for a square opening (D/B = 1). An opening with nothing inside it (σ_s = σ_t = 0)
+collapses when N < 0:
+
+| C/B | γB/c_u | FELA lower bound | FELA upper bound | rigid block (= Terzaghi φ = 0) |
+| --- | --- | --- | --- | --- |
+| 0.5 | 1 | 0.44 | 0.60 | 0.50 |
+| 1 | 1 | 0.83 | 0.96 | 1.00 |
+| 2 | 1 | 0.68 | 0.85 | 2.00 |
+| 4 | 1 | −0.26 | −0.07 | 4.00 |
+| 8 | 1 | −3.02 | −2.81 | 8.00 |
+| 1 | 0 | 1.90 | 2.08 | 2.00 |
+| 4 | 0 | 4.07 | 4.26 | 8.00 |
+| 8 | 0 | 5.38 | 5.58 | 16.00 |
+| 4 | 0.5 | 1.91 | 2.10 | 6.00 |
+| 8 | 2 | −11.53 | −11.31 | 0.00 |
+
+The full sweep (C/B = 0.5–8, γB/c_u = 0–2, D/B = 1 and 0.5) is in
+`verification/fela_roof_sweep.txt`. Findings:
+1. **Shallow cover (C/B ≤ 1):** the rigid block falls inside the bounds, so it is a good mechanism there.
+2. **Deeper cover:** the block grossly overstates the roof's strength. At C/B = 4 and γB/c_u = 1 the
+   block gives N = 4, a stable unsupported roof, while the bounds give −0.26 to −0.07: the roof
+   collapses unless supported.
+3. **The critical width depends on cover.** For an unsupported square opening the bounds put collapse
+   at about:
+   - C ≈ 0.5 B when γB/c_u = 2 (the block's own limit, b = 2c_u/γ);
+   - C ≈ 3.7 B when γB/c_u = 1;
+   - beyond 8 B when γB/c_u = 0.5.
+
+   The block predicts no dependence on cover.
+4. **Limitations of this first code.**
+   - The lower bound has no extension elements, so it is rigorous only as the domain grows.
+   - The upper bound has no velocity discontinuities, so the bracket is 10–25 % wide, and in
+     shallow cases the rigid block is the better upper bound.
+   - Not yet validated against published tables (Assadi and Sloan 1991; Abbo et al. 2013).
+5. **Path to the engine.** Precompute N_crit(C/B, D/B, γB/c_u) with this code over the parameter
+   space, tighten it (velocity discontinuities, adaptive mesh), validate it against the published
+   bounds, and interpolate the table in the engine. The roof criterion is then evaluated section by
+   section along the pipe, with σ_t the water pressure acting on all walls of the full pipe. Each
+   case takes about 1–8 s, so the table is cheap to build. A drained (Mohr–Coulomb) version is
+   possible with the same machinery, since its yield condition is also a second-order cone, but it
+   needs the seepage pore pressures (arching consequence 4 above).
 
 Jafari and Fahimifar (2022) treat the *face* (heading) stability of rectangular shield tunnels, a 3-D
 problem. They are relevant to the method but not to the cross-section collapse of the roof.
