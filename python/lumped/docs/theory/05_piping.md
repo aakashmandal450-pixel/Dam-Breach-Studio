@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4.8 · 2026-11-24 · status: strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D assumption of rule S still to verify; implementation on hold*
+*Lumped 1-D morphodynamic breach model · draft 4.9 · 2026-11-24 · status: strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -527,7 +527,8 @@ lies parallel to the dam axis, and there its ground surface is horizontal. The t
 the embankment enters in three other ways:
 1. **Cover changes along the pipe**, from full crest cover to the thin cover under the slopes. Each
    section is checked with its own cover. This ignores support from neighbouring sections (3-D end
-   effects), which is conservative for a short collapse length.
+   effects), which is expected, but not shown, to be conservative for a short collapse length while the
+   neighbours are intact (see §5.7a, route 2, for a crater edge).
 2. **Out-of-plane shear under the slopes.** Under a slope of angle β, gravity sets up an in-situ shear
    stress along the pipe axis, about γ·z·sin β·cos β at depth z below the surface. It uses up part of
    the undrained strength before the section is loaded, and the plane-strain analysis does not see
@@ -999,24 +1000,33 @@ crater.
 
 Both follow from the existing hydraulics with the new outlet. No new rule is needed.
 
-*Route 2 — loss of three-dimensional support from the fallen neighbour (not a separate trigger).* M(x)
-is a plane-strain value: it is the stability of an infinitely long unsupported opening, which already
-gives a section no help from its neighbours. That is the least stable configuration. For a square
-opening with cover equal to its height, weightless:
+*Route 2 — loss of three-dimensional support from the fallen neighbour (not represented; a stated
+limitation).* M(x) is a plane-strain value: it is the stability of an infinitely long unsupported
+opening, which gives a section no help from its neighbours. The plane-strain criterion is used as the
+local roof criterion. Any further loss of support at a crater edge is **not represented**, and this
+assumption has **not been independently verified**. The comparison below suggests it is reasonable. It
+does not show that plane strain is conservative at a crater edge, and no such claim is made. For a
+square opening with cover equal to its height, weightless:
 - **cross-section** (our bounds): N = 1.90–2.08;
 - **plane-strain heading** (a face supported along the tunnel): 4.17–4.33 (Shiau and Al-Asadi 2018, as
   tabulated in Shiau et al. 2024);
 - **3-D square heading**: 6.77–7.15 (Shiau et al. 2024).
 
 Shiau et al. report that the 3-D analysis gives critical stability numbers about 1.7–1.9 times the
-plane-strain heading values. A section with M(x) > 0 is therefore not expected to fail merely because
-its neighbour has gone.
+plane-strain heading values. In those configurations, the extra 3-D support adds strength rather than
+removing it.
 
-*Caveat.* A heading has a supported lining behind its face; a crater edge has the open pipe continuing
-beneath it. The extruded plane-strain mechanism remains available there, so the capacity next to a
-crater is at least close to the plane-strain value, not below it. This is a stated assumption, to be
-confirmed by a 3-D bound before publication; the same method works in 3-D. The maximum-spread bracket
-below covers it if it is wrong.
+*Why that is not a proof here.* A heading has intact soil ahead of its face. A crater edge has open
+void beyond it, with the open pipe continuing beneath. A mechanism that moves partly into the pipe and
+partly into the crater is not covered by either comparison.
+
+*Decision (2026-11-24): not verified now.* The reasons:
+- The maximum-spread bracket (whole roof) already shows the consequences of extensive collapse.
+- A 3-D bound might not settle the question. With von Mises criteria inscribed in and circumscribed
+  about Tresca, the 3-D bounds may differ by up to 15 % and could straddle the plane-strain value.
+
+The 3-D calculation becomes a pre-publication task, done only if the spread cases show that the
+assumption matters to the breach (§5.8, "Spread sensitivity before publication").
 
 *Route 3 — failure of the crater's end walls (added).* Each end of the collapsed reach is a wall of
 exposed height H_w, from the ground surface down to the debris surface at that end. An undrained wall
@@ -1043,10 +1053,14 @@ stands while
 - **Strength increasing with depth.** No published bound was found for this case. (5.17), which scales
   the mean strength over the wall height, lies 0.1–0.6 % below our rigorous lower bounds, so it is on
   the safe side.
-- **Tension cut-off (sensitivity).** The value 3.776 assumes the soil can carry the tension that
-  develops near the top of the wall. With zero tensile strength the critical height falls to
-  2 c_u/γ (Drucker and Prager; Salençon 2024). Real fill lies in between, and tension cracks are
-  common at crater edges. The tension cut-off run uses H_c = 2 c_u0/(γ − 2ρ).
+- **Two distinct wall cases, kept separate.**
+  - **With tensile resistance (the default):** H_c = 3.776 c_u0/(γ − 2ρ). The soil carries the tension
+    that develops near the top of the wall.
+  - **Tension cut-off (sensitivity):** H_c = 2 c_u0/(γ − 2ρ). With zero tensile strength the critical
+    height falls to 2 c_u/γ (Drucker and Prager; Salençon 2024).
+
+  Real fill lies in between, and tension cracks are common at crater edges. The two are reported as
+  separate cases, not averaged.
 - **Part 3, flagged.** Part 3 uses Culmann for vertical cohesive banks. For φ = 0 that is 6 % too
   high, which should be corrected there too.
 - **Consistency.** The crater walls obey the same physics as the breach walls after hand-over.
@@ -1075,14 +1089,17 @@ not represent it. It is tested by reducing c_u0 to c_u0/S_t within one cover dep
 3. **In time:** M(x), the wall heights and the debris are tracked. Pipe enlargement, debris erosion
    (which re-exposes the walls) and further failures continue, each event-located.
 
-There is no separate 3-D support-loss trigger (route 2), for the reason given above.
+Additional 3-D loss of support at the crater edge (route 2) is not represented. That is a stated,
+unverified limitation (above).
 
-**Brackets, run on every case:**
+**Three spread cases, run and reported separately on every case:**
 - **minimum spread:** step 1 only, frozen;
-- **maximum spread:** the whole roof (the draft-4 assumption);
-- **remoulding** sensitivity (route 4).
+- **intermediate:** rule S;
+- **maximum spread:** the whole roof (the draft-4 assumption).
 
-The reported hydrograph band covers all three.
+Further sensitivities are run with rule S: remoulding (route 4) and the tension cut-off on the crater
+walls (5.17). The hydrographs are reported case by case. How much they differ is itself a result
+(§5.8).
 
 **First-version simplifications, stated.**
 - The crater has the pipe width b_p while it is a sinkhole. Its side walls are handled by Part 3 after
@@ -1134,6 +1151,19 @@ more cover and a different collapse time, so the largest peak can come from any 
 | Teton, ID (1976) | field, 93 m | classic piping failure, DL Breach card on file | card on file |
 | IMPACT field test 5 (2003) | field, 4.3 m, moraine | piping in a coarse cohesive soil; links to Part 7 | workbook on file |
 | Wahl (1998) cases in Wu (2016) Table 6.8 | field | many values "assumed" in DL Breach | supporting only |
+
+**Spread sensitivity before publication (decision of 2026-11-24).** Required before any piping result is
+published:
+1. The three spread cases (minimum, rule S, maximum) are kept separate on every case. Their
+   hydrographs (peak, time to peak, volume released by a given time) are reported side by side, with
+   both crater-wall cases.
+2. The text states that the 3-D support assumption at a crater edge has not been independently
+   verified. It does not claim that plane-strain stability is conservative there.
+3. **Trigger for the 3-D bound.** If the hydrograph changes materially between rule S and the maximum
+   spread, the 3-D lower and upper bounds of the crater-edge configuration (§5.7a, route 2) are
+   computed before publication. "Materially" means beyond the spread of the uncertainty runs on the
+   same case. If the cases show little difference, the limitation is stated and the 3-D calculation
+   is not needed for the conclusions.
 
 **Verification this part must pass (Phase 3):**
 
@@ -1213,9 +1243,12 @@ more cover and a different collapse time, so the largest peak can come from any 
    - A cascade at the same instant follows, driven by two routes: the loss of water support, through
      the recomputed hydraulics, and crater end-wall failure by the rigorous undrained cut height (5.17), with a tension cut-off sensitivity.
    - Failures continue in time and are event-located.
-   - There is no separate 3-D support-loss trigger: plane strain is already the least stable case. This
-     is a stated assumption, to be confirmed by a 3-D bound.
-   - Brackets: minimum (frozen initial reach) and maximum (whole roof), plus a remoulding sensitivity.
+   - Additional 3-D loss of support at a crater edge is not represented. This is stated as an
+     unverified limitation; plane strain is not claimed to be conservative there. *(Decision of
+     2026-11-24: the 3-D bound is deferred, and becomes a pre-publication task only if the spread
+     cases show the assumption matters.)*
+   - Three spread cases reported separately: minimum (frozen initial reach), rule S, and maximum (whole
+     roof). Sensitivities: remoulding, and the tension cut-off on the crater walls.
    - Hand-over to the open breach when the collapsed reach reaches the upstream face, by the cascade or
      by push-out of the remaining upstream roof.
 
