@@ -1,0 +1,6 @@
+rho=0, h=0.1                       ntri=  1560  gamma*H/c_u0: lower 3.7180  upper 4.1622   audit eq/trac 2e-10 yield+ 0e+00 vol 5e-11
+rho=0, h=0.05                      ntri=  3264  gamma*H/c_u0: lower 3.7442  upper 4.1172   audit eq/trac 4e-10 yield+ 0e+00 vol 3e-11
+rho=0, h=0.025                     ntri=  6864  gamma*H/c_u0: lower 3.7554  upper 4.1779   audit eq/trac 2e-11 yield+ 0e+00 vol 1e-11
+rho=0, h=0.05, domain x2           ntri=  6400  gamma*H/c_u0: lower 3.7441  upper 4.1166   audit eq/trac 4e-11 yield+ 0e+00 vol 4e-11
+rho*H/c_u0=0.25, h=0.05            ntri=  3264  gamma*H/c_u0: lower 4.2794  upper 4.6990   audit eq/trac 1e-10 yield+ 0e+00 vol 2e-11
+rho*H/c_u0=0.5, h=0.05             ntri=  3264  gamma*H/c_u0: lower 4.8040  upper 5.2646   audit eq/trac 3e-11 yield+ 0e+00 vol 5e-11

@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 4.7 · 2026-11-24 · status: strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; implementation on hold until both are reviewed*
+*Lumped 1-D morphodynamic breach model · draft 4.8 · 2026-11-24 · status: strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D assumption of rule S still to verify; implementation on hold*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1022,22 +1022,42 @@ below covers it if it is wrong.
 exposed height H_w, from the ground surface down to the debris surface at that end. An undrained wall
 stands while
 
-    H_w ≤ H_c = 4 c_u0 / (γ − 2ρ)        (no limit if γ ≤ 2ρ)                              (5.17)
+    H_w ≤ H_c = 3.776 c_u0 / (γ − 2ρ)        (no limit if γ ≤ 2ρ)                          (5.17)
 
-- **Where (5.17) comes from.** It is the Culmann wedge of Part 3 (3.12) with φ = 0, using the mean
-  strength over the wall height. So the crater walls obey the same bank law the open breach uses after
-  hand-over.
+- **Where (5.17) comes from (revised in draft 4.8).** Draft 4.7 used the Culmann wedge of Part 3 (3.12)
+  with φ = 0, i.e. 4 c_u0/(γ − 2ρ). Culmann's value is a kinematic (upper-bound) estimate and is about
+  6 % too high. For constant strength, the rigorous bounds on an undrained vertical cut are
+  3.77522 ≤ γH_c/c_u ≤ 3.77649 (Pastor, Loute and Pastor 2009, as cited by Salençon 2024).
+- **Our own bounds** (`verification/fela_cut.py`, results in `fela_cut.txt`). The rigorous lower bound
+  converges to that value as the mesh refines, and the independent audits are below 4·10⁻¹⁰:
+
+  | case | lower bound | reference or formula |
+  | --- | --- | --- |
+  | ρ = 0, h = 0.1 / 0.05 / 0.025 | 3.718 / 3.744 / 3.755 | 3.7752–3.7765 |
+  | ρ = 0, domain doubled | 3.744 | (domain size does not matter) |
+  | ρH/c_u0 = 0.25 | 4.279 | (5.17): 4.276 |
+  | ρH/c_u0 = 0.50 | 4.804 | (5.17): 4.776 |
+
+  Our continuous-velocity upper bound (4.1–4.2) is valid but weaker than Culmann's 4, because it cannot
+  represent the slip lines at the toe. So the published 3.7765 is the upper bound used.
+- **Strength increasing with depth.** No published bound was found for this case. (5.17), which scales
+  the mean strength over the wall height, lies 0.1–0.6 % below our rigorous lower bounds, so it is on
+  the safe side.
+- **Tension cut-off (sensitivity).** The value 3.776 assumes the soil can carry the tension that
+  develops near the top of the wall. With zero tensile strength the critical height falls to
+  2 c_u/γ (Drucker and Prager; Salençon 2024). Real fill lies in between, and tension cracks are
+  common at crater edges. The tension cut-off run uses H_c = 2 c_u0/(γ − 2ρ).
+- **Part 3, flagged.** Part 3 uses Culmann for vertical cohesive banks. For φ = 0 that is 6 % too
+  high, which should be corrected there too.
+- **Consistency.** The crater walls obey the same physics as the breach walls after hand-over.
 - **What happens when it is exceeded.** The wall fails as the Part 3 wedge: the failure plane is at
   45° for φ = 0, and the top of the wall moves back by H_w. The roof over the pipe within that retreat
   is gone, and the wedge (½ H_w² per unit width) is added to the debris at that end.
 - **The retreat limits itself.** Each wedge raises the debris surface at the toe, which lowers H_w. The
   wall stops caving once H_w ≤ H_c, or once it reaches thinner cover under a slope.
-- **Example.** c_u0 = 20 kPa, γ = 20 kN/m³ and ρ = 0 give H_c = 4 m. A crater exposing more than 4 m
-  of wall keeps caving until its own debris or the slope brings the exposed height down to 4 m. With
-  ρ = 2 kPa/m, H_c = 5 m.
-- **Rigorous value.** Culmann's 4 c_u/γ is a kinematic (upper-bound) value; rigorous plane-strain bounds
-  for a vertical undrained cut lie a few per cent below it. Our bound code will compute them before
-  use.
+- **Example.** c_u0 = 20 kPa, γ = 20 kN/m³ and ρ = 0 give H_c = 3.78 m (2.0 m with zero tensile
+  strength). A crater exposing more wall than that keeps caving until its own debris or the slope
+  brings the exposed height down to it. With ρ = 2 kPa/m, H_c = 4.72 m.
 
 *Route 4 — loss of strength near the failure (sensitivity only).* Real clays lose strength when
 sheared and remoulded (sensitivity S_t), which can drive progressive failure. Perfect plasticity does
@@ -1129,7 +1149,7 @@ more cover and a different collapse time, so the largest peak can come from any 
 | debris modes | uniform, mound at x* and instant removal run on every piping case; solids budget closes in each |
 | pressure | shift exact for any p_cr (done); 0 ≤ β < 1 and monotone over the range (done, 120 cases); band (5.16) used in the uncertainty runs |
 | blow-out | N_b bounds bracket the rigid prism at C/B ≤ 1; uniform-pressure shift exact; uplift check uses N_b |
-| spreading (§5.7a) | cascade terminates; collapsed length: minimum bracket ≤ rule S ≤ whole roof; (5.17) gives 4c_u0/γ for ρ = 0; wall-wedge volume ½ H_w² per unit width; spread converges in dt |
+| spreading (§5.7a) | cascade terminates; collapsed length: minimum bracket ≤ rule S ≤ whole roof; (5.17) gives 3.776 c_u0/γ for ρ = 0 (bounds done, `fela_cut.py`); tension cut-off run uses 2 c_u0/(γ − 2ρ); wall-wedge volume ½ H_w² per unit width; spread converges in dt |
 | (5.11) | F_C computed along the whole pipe; < 0 everywhere under the reservoir for random geometries and flows (property test); c_u = 0, p_top = 0 gives Δh/t > γ′/γ_w |
 | (5.12) | solids conserved: V_d (1 − n_d) = (1 − n) b_p A_r to 1e-12; z_d ≈ H − a_p for n_d = n, constant L |
 | (5.13) | solids budget closes every step to 1e-12 |
@@ -1191,7 +1211,7 @@ more cover and a different collapse time, so the largest peak can come from any 
 9. **Collapse spreading** *(proposed, for review; §5.7a)*: rule S.
    - The initial reach is where M(x) ≤ 0.
    - A cascade at the same instant follows, driven by two routes: the loss of water support, through
-     the recomputed hydraulics, and crater end-wall failure by the Part 3 Culmann law (5.17).
+     the recomputed hydraulics, and crater end-wall failure by the rigorous undrained cut height (5.17), with a tension cut-off sensitivity.
    - Failures continue in time and are event-located.
    - There is no separate 3-D support-loss trigger: plane strain is already the least stable case. This
      is a stated assumption, to be confirmed by a 3-D bound.
@@ -1233,6 +1253,8 @@ more cover and a different collapse time, so the largest peak can come from any 
   dams: an experimental investigation. *Geoenvironmental Disasters*, 3, 4.
   doi:10.1186/s40677-016-0038-9.
 - Prandtl, L. (1920). Über die Härte plastischer Körper. *Nachrichten der Gesellschaft der Wissenschaften zu Göttingen*, 74–85.
+- Salençon, J. (2024). About the critical height of a vertical cut. *Comptes Rendus. Mécanique*, 352,
+  269–275. doi:10.5802/crmeca.276 (cites the bounds of Pastor, Loute and Pastor 2009).
 - Shiau, J., Keawsawasvong, S., Lai, V. Q., Promwichai, T., Kamchoom, V., and Banyong, R. (2024).
   Rectangular tunnel heading stability in three dimensions and its predictive machine learning models.
   *J. Rock Mech. Geotech. Eng.*, 16, 4683–4696. doi:10.1016/j.jrmge.2023.12.035 (their Tables 3–4
