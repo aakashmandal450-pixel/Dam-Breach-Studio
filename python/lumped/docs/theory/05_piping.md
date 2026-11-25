@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.7 · 2026-11-25 · status: stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.8 · 2026-11-25 · status: sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1450,9 +1450,33 @@ Numerical choices, stated:
   interpolated zero crossing leaves M ≈ 0 at the new end, and round-off repeats zero-length retreats.
 - *Smallest crater.* A crater starts over the failed reach between its zero crossings, but over at
   least the section spacing b_p/2. The failure is resolved no finer than that.
-- *Crater water.* (5.22) uses RK4 with the inflow from the upstream reach recomputed from the crater
-  level at each stage (tailwater coupling). The same averaged inflow leaves the reservoir, so the water
-  budget closes exactly.
+- *Crater water (corrected, draft 5.8).* (5.22) is integrated by backward Euler,
+  W_1 = W_0 + dt (q_up(W_1) − Q_out(W_1) − Q_spill(W_1)), solved by bisection. The residual is monotone
+  in W_1. The same inflow leaves the reservoir, so the water budget closes exactly. The first version
+  (RK4 with the inflow recomputed at each stage) limit-cycled around z_c = z_s. The exchange flow
+  depends on the square root of the level difference, which an explicit scheme cannot hold at
+  equilibrium. The spurious exchange flow then eroded the upstream pipe and produced a false hand-over
+  (P1 at k_d = 150: crater extended upstream 2.1 m, hand-over at 38.5 s). With the implicit scheme the
+  same run seals. The first P1 baseline is withdrawn for that reason.
+- *Reverse flow (draft 5.8).* The upstream-reach discharge is signed. When the crater level exceeds
+  the reservoir (for example from pore water released by fallen soil), the same pipe relations
+  (5.2)–(5.4) apply with the ends exchanged. The soffit pressure (5.8) is then measured from the
+  crater end with the crater level as energy head. A full pipe without flow is hydrostatic. This is
+  a hydraulic correction. It does not reopen a blocked crater.
+- *Sealed state (draft 5.8, §5.7 blocking criterion).* The run stops with `sealed` when, continuously
+  for T_seal = 600 s:
+  - the downstream entrance is blocked (a_open = 0, no outflow, no spill);
+  - no check fails;
+  - the pipe, ends and crater geometry change by less than 1 µm;
+  - the crater water, the reservoir and the debris volumes change by less than 1 cm³;
+  - |Q| in the upstream reach is below 10⁻⁶ m³/s.
+
+  Any change restarts the clock, so a temporary pause is never classified as sealed. The event records
+  the time, the crater geometry, z_d, z_c, the remaining discharge and when the stationary state began.
+- *Known asymmetry, not yet resolved.* (5.25) obstructs only the downstream entrance. With a level
+  deposit above the crown, the upstream reach's mouth at x_1 is buried too, yet it still feeds the
+  crater. Both mouths should be treated alike, or the difference justified, when the debris theory is
+  written.
 - Code tests: `tests/test_piping_run.py` (sequence, separate outcomes, determinism, event location
   and convergence, budgets with constant and variable reservoir). Diagnostic run:
   `verification/p1_diagnostic.py`.

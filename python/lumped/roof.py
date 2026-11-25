@@ -66,8 +66,9 @@ class RoofCheck:
 
 
 def soffit_pressure(xi: float, z_s: float, z_cr: float, fl: PipeFlow, Ku: float = K_U) -> float:
-    """(5.8): p_s = gamma_w max(z_s - (1 + K_u + f xi/(4R)) U^2/2g - z_cr, 0) when full, else 0."""
-    if fl.w == 0 or fl.Q <= 0.0:
+    """(5.8): p_s = gamma_w max(z_s - (1 + K_u + f xi/(4R)) U^2/2g - z_cr, 0) when full, else 0.
+    A full pipe without flow (head balanced by the tailwater) is hydrostatic: U = 0 in the same formula."""
+    if fl.w == 0:
         return 0.0
     head = z_s - (1.0 + Ku + fl.f * xi / (4.0 * fl.R)) * fl.U ** 2 / (2.0 * G)
     return GAMMA_W * max(head - z_cr, 0.0)
@@ -96,7 +97,7 @@ def sections(x0: float, x1: float, dx: float):
 
 def check(dam: Dam, pipe: Pipe, x_in: float, x_o: float, z_s: float, fl: PipeFlow, soil: Soil,
           table: StabilityTable, bound: str = "mid", dx: float | None = None,
-          z_head: float | None = None, ab: bool = True) -> RoofCheck:
+          z_head: float | None = None, ab: bool = True, x_entry: float | None = None) -> RoofCheck:
     """Evaluate (5.15) along the pipe from the inlet x_in to the outlet x_o. bound: 'lo' | 'mid' | 'hi'.
     z_s is the reservoir level (surface load, phreatic level). z_head is the energy level at the reach
     inlet for the soffit pressure (5.8): the reservoir for a pipe fed by it (default), the crater level
@@ -108,6 +109,7 @@ def check(dam: Dam, pipe: Pipe, x_in: float, x_o: float, z_s: float, fl: PipeFlo
     lip_up = lip_dn = 0.0
     checked = [x for x in sections(x_in, x_o, dx)]
     full = fl.w == 1 and fl.Q > 0.0
+    x_entry = x_in if x_entry is None else x_entry          # where the flow enters (x_o for reverse flow)
     for x in checked:
         C = dam.z_dam(x) - z_cr
         if C < C_MIN * b:                                    # end lip, outside the table
@@ -117,7 +119,7 @@ def check(dam: Dam, pipe: Pipe, x_in: float, x_o: float, z_s: float, fl: PipeFlo
                 lip_dn = max(lip_dn, x_o - x)
             continue
         xs.append(x); Cs.append(C)
-        nets.append(surface_load(dam, x, z_s) - soffit_pressure(x - x_in, z_head, z_cr, fl))
+        nets.append(surface_load(dam, x, z_s) - soffit_pressure(abs(x - x_entry), z_head, z_cr, fl))
     if xs:
         Ca = np.asarray(Cs)
         g_b = np.array([gamma_bar(C, z_cr, z_s, soil) for C in Cs]) * b / soil.c_u0

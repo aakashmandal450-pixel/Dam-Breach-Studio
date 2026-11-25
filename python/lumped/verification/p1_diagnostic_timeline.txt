@@ -1,11 +1,9 @@
-ARS P1 diagnostic: dt 1.0 s, k_d 150 cm3/(N s), t_end 10800 s, wall time 7.6 s
-stopped: ('handover', 'cascade reached the inlet')
+ARS P1 diagnostic: dt 1.0 s, k_d 150 cm3/(N s), t_end 10800 s, wall time 31.3 s
+stopped: ('sealed', 'blocked and stationary from t = 37.7 s')
 max relative water-budget error 0.0e+00; max solids error 0.0e+00; most cascade passes 5
 observed (PAP-1017, Chen et al. 2019): roof (soil bridge) collapse 0.22-0.23 h = 790-830 s; peak 2.98 m3/s at 0.43 h
 
 inlet_retreat        t     21.4 -     33.7 s  x 204  dist  0.937 m | b 0.288 D 0.302 z_inv 0.069 x_in 1.60 x_o 8.97 water_err 0.0e+00
 crater_start         t     33.7 -     33.7 s  x   1  dist  0.000 m | b 0.288 D 0.302 z_inv 0.069 x_in 1.60 x_o 8.97 water_err 0.0e+00 | crater [5.64, 5.78] W 0.288 z_d 0.995 z_c 0.798 W_c 0.011 solids_err 0.0e+00
 crater_extend_down   t     33.7 -     33.7 s  x   4  dist  0.474 m | b 0.288 D 0.302 z_inv 0.069 x_in 1.60 x_o 8.97 water_err 0.0e+00 | crater [5.64, 6.26] W 0.288 z_d 0.924 z_c 0.798 W_c 0.047 solids_err 0.0e+00
-inlet_retreat        t     35.7 -     36.7 s  x   2  dist  0.387 m | b 0.313 D 0.328 z_inv 0.056 x_in 1.60 x_o 8.97 water_err 4.4e-16 | crater [5.64, 6.26] W 0.288 z_d 0.924 z_c 0.178 W_c 0.007 solids_err 0.0e+00
-crater_extend_up     t     36.7 -     36.7 s  x   1  dist  2.102 m | b 0.313 D 0.328 z_inv 0.056 x_in 1.98 x_o 8.97 water_err 0.0e+00 | crater [3.53, 6.26] W 0.288 z_d 0.973 z_c 0.662 W_c 0.176 solids_err 0.0e+00
-handover             t     38.5 -     38.5 s  x   1  dist  0.000 m | b 0.325 D 0.341 z_inv 0.050 x_in 1.98 x_o 8.97 water_err 0.0e+00 | crater [3.53, 6.26] W 0.288 z_d 0.973 z_c 1.100 W_c 0.368 solids_err 0.0e+00 | cascade reached the inlet
+sealed               t    637.7 -    637.7 s  x   1  dist  0.000 m | b 0.288 D 0.302 z_inv 0.069 x_in 1.60 x_o 8.97 water_err 0.0e+00 | crater [5.64, 6.26] W 0.288 z_d 0.924 z_c 1.100 W_c 0.086 solids_err 0.0e+00 | stationary since t = 37.7 s

@@ -91,6 +91,19 @@ class State:
     released_out: float = 0.0  # pore water of fallen soil (enters W_c; tracked for the budget)
 
 
+def upstream_flow(p: pp.Pipe, z_s: float, z_c: float, n_p: float):
+    """Signed discharge of the upstream reach between the reservoir (z_s) and the crater (z_c), and the
+    PipeFlow that sets the wall shear and soffit pressure. Forward (z_s >= z_c): reservoir -> crater with
+    tailwater z_c. Reverse (z_c > z_s): the same pipe relations with the ends exchanged, crater -> reservoir
+    (draft 5.8; a hydraulic correction that keeps z_c from rising above the reservoir)."""
+    L = max(p.L, 0.0)
+    if z_c <= z_s:
+        fl = pp.pipe_flow(z_s - p.z_inv, p.b, p.D, L, n_p, h_t=max(z_c - p.z_inv, 0.0))
+        return fl.Q, fl, False
+    fl = pp.pipe_flow(z_c - p.z_inv, p.b, p.D, L, n_p, h_t=max(z_s - p.z_inv, 0.0))
+    return -fl.Q, fl, True
+
+
 class PipingRun:
     def __init__(self, case: PipingCase, table: StabilityTable, dt: float = 1.0, record_every: float = 10.0,
                  t_tol: float = 1e-3, max_passes: int = 200):
@@ -116,25 +129,30 @@ class PipingRun:
         # its further motion is continuous (the margin at the new boundary is ~0 and keeps falling as the pipe
         # grows), so it is applied at the end of each step; the onset of every kind is located in the step.
         self.onset = set()
+        # Sealed state: downstream entrance blocked, no failure, geometry and water stationary for T_seal
+        self.T_seal = 600.0
+        self.seal_tol = dict(length=1e-6, volume=1e-6, flow=1e-6)
+        self._seal_ref = None
 
     # ------------------------------------------------------------------ hydraulics on a state
     def hyd(self, s: State) -> dict:
         c = self.c
         p = s.pipe
         HW = s.z_s - p.z_inv
-        h = dict(z_c=math.nan, Q_out_cr=0.0, Q_spill=0.0, fl_dn=None)
+        h = dict(z_c=math.nan, Q_out_cr=0.0, Q_spill=0.0, fl_dn=None, reverse=False)
         if s.crater is None:
             fl = pp.pipe_flow(HW, p.b, p.D, p.L, c.n_p)
             h.update(fl_up=fl, Q_res=fl.Q, Q_final=fl.Q)
         else:
             cr = s.crater
             z_c = cr.level()
-            fl = pp.pipe_flow(HW, p.b, p.D, max(p.L, 0.0), c.n_p, h_t=max(z_c - p.z_inv, 0.0))
+            q_up, fl, rev = upstream_flow(p, s.z_s, z_c, c.n_p)
+            h["reverse"] = rev
             ao = cr.a_open()
             z_o = max(cr.z_d, cr.z_inv)
             fl_dn = pp.pipe_flow(z_c - z_o, cr.b_p, ao, cr.L_down, c.n_p) if ao > 0 and cr.L_down > 0 else None
             Qo, Qs = cr.Q_out(z_c), cr.Q_spill(z_c)
-            h.update(fl_up=fl, Q_res=fl.Q, z_c=z_c, Q_out_cr=Qo, Q_spill=Qs, fl_dn=fl_dn, Q_final=Qo + Qs)
+            h.update(fl_up=fl, Q_res=q_up, z_c=z_c, Q_out_cr=Qo, Q_spill=Qs, fl_dn=fl_dn, Q_final=Qo + Qs)
         crest = crest_overflow(c.dam.L_cr, s.z_s - c.dam.H)
         h["Q_crest"] = crest
         h["Q_res"] += crest
@@ -155,29 +173,51 @@ class PipingRun:
         if n.crater is None:
             q_res = h["Q_res"]
         else:
-            # crater water (5.22) by RK4, with the inflow from the upstream reach recomputed from the crater
-            # level (tailwater coupling); the same averaged inflow leaves the reservoir, so the budget is exact
+            # crater water (5.22) by backward Euler: W1 = W0 + dt (q_up(W1) - q_out(W1) - q_spill(W1)).
+            # Implicit, because the exchange with the reservoir follows a square root of the level difference:
+            # an explicit scheme limit-cycles around z_c = z_s (found in the first P1 runs, draft 5.8).
+            # The residual is a monotone function of W1, solved by bisection; the same inflow leaves the
+            # reservoir, so the water budget closes exactly.
             cr = n.crater
-            HW = s.z_s - p0.z_inv
+            W0 = cr.W_c
 
-            def rate(W):
+            def fluxes(W):
                 old = cr.W_c; cr.W_c = max(W, 0.0)
                 zc = cr.level()
-                qi = pp.pipe_flow(HW, p0.b, p0.D, max(p0.L, 0.0), c.n_p, h_t=max(zc - p0.z_inv, 0.0)).Q
-                q = cr.Q_out(zc) + cr.Q_spill(zc)
+                qi, fl_i, rev = upstream_flow(p0, s.z_s, zc, c.n_p)
+                qo = cr.Q_out(zc) + cr.Q_spill(zc)
                 cr.W_c = old
-                return qi - q, qi, q
-            W0 = cr.W_c
-            k1, i1, o1 = rate(W0); k2, i2, o2 = rate(W0 + 0.5 * dt * k1)
-            k3, i3, o3 = rate(W0 + 0.5 * dt * k2); k4, i4, o4 = rate(W0 + dt * k3)
-            vin = dt * (i1 + 2 * i2 + 2 * i3 + i4) / 6
-            vout = dt * (o1 + 2 * o2 + 2 * o3 + o4) / 6
-            W1 = W0 + vin - vout
-            if W1 < 0.0:                                   # cannot drain more than it holds
-                vout += W1; W1 = 0.0
+                return qi, qo, fl_i
+
+            def resid(W):
+                qi, qo, _ = fluxes(W)
+                return W - W0 - dt * (qi - qo)
+            lo, hi = 0.0, max(W0, 1e-6)
+            while resid(hi) < 0.0:
+                hi *= 2.0
+            if resid(lo) >= 0.0:
+                hi = lo
+            for _ in range(200):
+                if hi - lo <= 1e-13 * max(hi, 1e-9):
+                    break
+                mid = 0.5 * (lo + hi)
+                if resid(mid) < 0.0:
+                    lo = mid
+                else:
+                    hi = mid
+            W1 = hi
+            qi, qo, fl_end = fluxes(W1)
+            vin = dt * qi
+            vout = W0 + vin - W1                              # closes the crater balance exactly
             cr.W_c = W1
             n.cum_out += vout + h["Q_crest"] * dt
             q_res = vin / dt + h["Q_crest"]
+            # erosion of the upstream reach with the implicit (end-of-step) exchange flow
+            eps1 = pp.erosion_rate(pp.wall_shear(fl_end), c.kd, c.tau_c)
+            if n.pipe.L > 0:
+                n.pipe, n.cum_eroded = s.pipe, s.cum_eroded
+                new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt)
+                n.pipe, n.cum_eroded = new_pipe, s.cum_eroded + dV
         if n.crater is None:
             n.cum_out += h["Q_final"] * dt
         # reservoir
@@ -209,7 +249,11 @@ class PipingRun:
             p = s.pipe
             mins = []
             if cr.x1 - s.x_in > 0:
-                rcu = roof.check(dam, p, s.x_in, cr.x1, s.z_s, h["fl_up"], c.soil, self.T, c.bound, ab=False)
+                if h["reverse"]:                         # crater -> reservoir: energy from the crater end
+                    rcu = roof.check(dam, p, s.x_in, cr.x1, s.z_s, h["fl_up"], c.soil, self.T, c.bound, ab=False,
+                                     z_head=h["z_c"], x_entry=cr.x1)
+                else:
+                    rcu = roof.check(dam, p, s.x_in, cr.x1, s.z_s, h["fl_up"], c.soil, self.T, c.bound, ab=False)
                 out["rc_up"], out["F_up"] = rcu, ends.classify(rcu, self.M_tol)
                 mins.append(rcu.min_M_c)
             if s.x_o - cr.x2 > 0:
@@ -417,6 +461,35 @@ class PipingRun:
                      solids_err=self.solids_error(s))
         self.events.append(e)
 
+    # ------------------------------------------------------------------ sealed state
+    def _seal_snapshot(self, s: State, h: dict):
+        cr, p = s.crater, s.pipe
+        return dict(t=s.t, geom=(p.b, p.D, p.z_inv, s.x_in, s.x_o, cr.x1, cr.x2, cr.W),
+                    vol=(cr.V_fall, cr.V_pipe, cr.V_exp, cr.V_spoil, cr.W_c, s.V), z_s=s.z_s)
+
+    def _seal_check(self, s: State, chk: dict) -> None:
+        """Stop with 'sealed' when, continuously for T_seal: the downstream entrance is blocked (a_open = 0,
+        no outflow, no spill), no check fails, the pipe, ends and crater geometry do not change, and the
+        water state (crater water, reservoir) is stationary with |Q| through the upstream reach below
+        tolerance. Any change restarts the clock, so a temporary pause is never classified as sealed."""
+        h, cr, tol = chk["h"], s.crater, self.seal_tol
+        candidate = (cr is not None and not chk["fail"] and cr.a_open() <= 0.0 and h["Q_out_cr"] == 0.0
+                     and h["Q_spill"] == 0.0 and h["Q_crest"] == 0.0 and abs(h["Q_res"]) < tol["flow"])
+        if not candidate:
+            self._seal_ref = None
+            return
+        snap = self._seal_snapshot(s, h)
+        ref = self._seal_ref
+        if ref is None or any(abs(a - b) > tol["length"] for a, b in zip(snap["geom"], ref["geom"])) \
+                or any(abs(a - b) > tol["volume"] for a, b in zip(snap["vol"], ref["vol"])) \
+                or abs(snap["z_s"] - ref["z_s"]) > tol["length"]:
+            self._seal_ref = snap
+            return
+        if s.t - ref["t"] >= self.T_seal:
+            self._event(s, "sealed", why=f"stationary since t = {ref['t']:.1f} s", Q_up=h["Q_res"],
+                        Q_out=h["Q_out_cr"], a_open=cr.a_open(), seal_since=ref["t"])
+            self.stopped = ("sealed", f"blocked and stationary from t = {ref['t']:.1f} s")
+
     # ------------------------------------------------------------------ budgets
     def water_error(self, s: State) -> float:
         Wc = s.crater.W_c if s.crater else 0.0
@@ -487,6 +560,8 @@ class PipingRun:
                 self._budget(n)
                 s = n
                 self._record(s, chk)
+                if not self.stopped:
+                    self._seal_check(s, chk)
         except RunStop as e:
             self._event(s, "stop_" + e.kind, why=str(e))
             self.stopped = (e.kind, str(e))

@@ -115,3 +115,37 @@ class TestBudgets(DriverMixin, unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSealedAndReverse(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if "T" not in _CACHE:
+            _CACHE["T"] = StabilityTable.from_csv(str(TABLE))
+        cls.T = _CACHE["T"]
+        cls.long = PipingRun(p1_case(), cls.T, dt=1.0, record_every=1.0).run(3600.0)
+
+    def test_sealed_reported_with_state(self):
+        r = self.long
+        self.assertEqual(r.stopped[0], "sealed")
+        e = r.events[-1]
+        self.assertEqual(e["type"], "sealed")
+        for k in ("cr_x1", "cr_x2", "z_d", "z_c", "Q_up", "a_open"):
+            self.assertIn(k, e)
+        self.assertEqual(e["a_open"], 0.0)
+        self.assertGreaterEqual(e["t"] - e["seal_since"], r.T_seal)
+
+    def test_pause_shorter_than_T_seal_is_not_sealed(self):
+        t_seal = self.long.events[-1]["seal_since"]
+        r = PipingRun(p1_case(), self.T, dt=1.0).run(t_seal + 0.5 * 600.0)
+        self.assertIsNone(r.stopped)
+
+    def test_no_crater_level_above_reservoir(self):
+        """With signed exchange flow the crater cannot stand above the reservoir (the old 5 mm overshoot)."""
+        zs = [row["z_c"] for row in self.long.series if "z_c" in row]
+        self.assertTrue(zs)
+        self.assertLessEqual(max(zs), 1.1 + 1e-6)
+
+    def test_budgets_through_seal(self):
+        self.assertLess(self.long.max_water_err, 1e-12)
+        self.assertLess(self.long.max_solids_err, 1e-12)
