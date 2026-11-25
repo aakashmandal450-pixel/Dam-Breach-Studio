@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.5 · 2026-11-25 · status: stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.6 · 2026-11-25 · status: end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -770,15 +770,34 @@ reported separately. The fifth argument enters for a full pipe (above).
   Their extent is reported every step: about z_u,d (a_p/2 + 0.25 b_p) at each end. A table range
   error elsewhere (C/b_p > 32, a_p/b_p outside 0.5–2, γ b_p/c_u0 > 3, ρ b_p/c_u0 > 1) stops the
   run as a numerical error.
-- **Open question for stage 3 (review).** The smallest margin often sits at the first checked section
-  next to a lip, where the cover is thinnest. In the ARS P1 geometry at b_p ≈ 0.1–0.3 m it sits at
-  the upstream end, where the entrance loss leaves σ_s − p_s slightly positive. A failure reach joined
-  to a pipe end opens the pipe to the face. Physically that is a funnel at the inlet, or exit loss at
-  the outlet, which the ARS tests show before the soil bridge collapses. It is not an interior
-  sinkhole. Proposed rule: a failing reach joined to an end lip moves that end (inlet downstream,
-  outlet upstream), as mechanism C does in §5.6. Its roof becomes debris at that end. Only a reach
-  not joined to an end starts the crater and cascade of §5.7a. `roof.failing_reaches` already
-  separates the two cases.
+- **End failures (decided 2026-11-25).** The failing reaches of one roof check have three separate
+  outcomes, recorded separately in the output:
+  - *Upstream-end failure* (a failing reach joined to the upstream lip): the inlet moves downstream.
+  - *Downstream-end failure* (joined to the downstream lip): the outlet moves upstream.
+  - *Interior failure* (joined to neither): starts the crater and the cascade of §5.7a.
+
+  An end failure is a boundary retreat. It never creates a crater state unless an interior failure
+  also occurs. This matches the ARS sequence: the inlet funnel and the downstream headcut are boundary
+  processes before the soil bridge over the pipe collapses. Safeguards:
+  1. Only the affected boundary moves.
+  2. The retreat comes from the failed reach itself. The new end is where M_c crosses zero, linearly,
+     between the last failing and the first stable section. If that last failing section has no
+     stable state, the new end is that section, with no interpolation into the unstable region. The
+     end never moves past the failed geometry, and the two ends never cross.
+  3. Roof-end retreat and mechanism C (§5.6) both move the outlet but stay separate rules with
+     separate budget terms.
+  4. *Volumes.* The roof over the retreated reach, lip included, has bulk volume b_p ∫ (z_dam − z_cr)₊
+     dx between the old and the new end. First-version assumption: it is carried out by the flow at
+     once (upstream through the pipe, downstream by the outlet jet) and recorded as exported end
+     debris, V_end,up or V_end,down. A later retreat starts from the new end, so nothing is counted
+     twice. Removed plus remaining roof equals the initial roof to round-off. The opened end slot
+     holds reservoir water (upstream) or drains (downstream). Like the pipe void, its water is not
+     stored in the quasi-steady model.
+  5. End and interior failures found in the same pass are applied together, inside the cascade of
+     §5.7a.6, before the remaining roof is checked again.
+  - A failing reach joined to both ends is the whole roof. The run then hands over to the open breach
+    (§5.7a.8).
+  - Code: `ends.py` (classification and retreat), tested in `tests/test_ends.py`.
 - **Soffit pressure:** p_s(x) from (5.8).
 - **Margins:** collapse M(x) = c_u0 N_c − (σ_s − p_s), and blow-out M_b(x) = (σ_s − p_s) − c_u0 N_b,
   both computed along the pipe every step. A blow-out is handled as mechanism C (§5.6). The rest of
