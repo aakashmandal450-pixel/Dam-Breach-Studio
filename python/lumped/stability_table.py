@@ -5,7 +5,8 @@ Stores, on a 4-D grid of (C/b_p, a_p/b_p, gamma b_p/c_u0, rho b_p/c_u0):
   N_b0_lo, N_b0_hi   blow-out stability number, single pressure: lower / upper end of the bracket
   beta_c_lo/hi, beta_b_lo/hi   support factors of the hydrostatic increase below the crown (full pipe),
                      from solves at one reference gamma_w b_p / c_u0 (stored as gw_ref)
-Full pipe (5.16a):  N_full = N_0 + beta * gamma_w a_p / c_u0, applied to each bound separately.
+Full pipe (5.16b), exact for Tresca: N_full(g, gw) = N_0(g - gw) - gw C/b_p, with gw = gamma_w b_p/c_u0 <= g.
+(The support factors beta of the earlier reduced form (5.16a) are still stored but no longer used.)
 Central estimate = midpoint of the two bounds (a central estimate, not a statistical expectation).
 
 Overburden shift (5.15b), exact for undrained Tresca: the field sigma = sigma' + gamma z I is deviator-free, so
@@ -31,9 +32,10 @@ from dataclasses import dataclass
 import numpy as np
 
 AXES = ("C_b", "a_b", "g_b", "rho_b")
-GW_MAX = 2.0      # gamma_w b_p / c_u0 range covered by the acceptance test of (5.16a)
 SPARSE_C_MIN = 12.0
 SPARSE_G = (0.5, 1.0, 2.0)
+A_FINE = (0.7071, 1.4142)  # extra a/b nodes (geometric midpoints), solved only for C/b <= A_FINE_C_MAX;
+A_FINE_C_MAX = 4.0         # deeper slices get them by linear interpolation in log a (same function as before)
 N_FIELDS = ("N_c0_lo", "N_c0_hi", "N_b0_lo", "N_b0_hi")
 FIELDS = ("N_c0_lo", "N_c0_hi", "N_b0_lo", "N_b0_hi", "beta_c_lo", "beta_c_hi", "beta_b_lo", "beta_b_hi")
 
@@ -118,6 +120,29 @@ class StabilityTable:
                         sl, sh = status[i, j, lo, l], status[i, j, hi, l]
                         status[i, j, k, l] = "OK" if sl == sh == "OK" else (sl if sl != "OK" else sh)
                         derived[i, j, k, l] = True
+        # extra a/b nodes on deep slices: linear in log a between the solved neighbours (identical to the
+        # piecewise-linear interpolant on the coarse a nodes, so the deep table is unchanged)
+        anodes = list(grid["a_b"]); la = np.log(anodes)
+        for i, C in enumerate(grid["C_b"]):
+            if C <= A_FINE_C_MAX + 1e-9:
+                continue
+            for j, a in enumerate(anodes):
+                if not any(abs(a - f_) < 1e-3 for f_ in A_FINE):
+                    continue
+                for k in range(shape[2]):
+                    for l in range(shape[3]):
+                        if status[i, j, k, l] != "":
+                            continue
+                        lo = max((jj for jj in range(j) if status[i, jj, k, l] != "" and not any(abs(anodes[jj] - f_) < 1e-3 for f_ in A_FINE)), default=None)
+                        hi = min((jj for jj in range(j + 1, len(anodes)) if status[i, jj, k, l] != "" and not any(abs(anodes[jj] - f_) < 1e-3 for f_ in A_FINE)), default=None)
+                        if lo is None or hi is None:
+                            continue
+                        w = (la[j] - la[lo]) / (la[hi] - la[lo])
+                        for f in FIELDS:
+                            data[f][i, j, k, l] = (1 - w) * data[f][i, lo, k, l] + w * data[f][i, hi, k, l]
+                        sl, sh = status[i, lo, k, l], status[i, hi, k, l]
+                        status[i, j, k, l] = "OK" if sl == sh == "OK" else (sl if sl != "OK" else sh)
+                        derived[i, j, k, l] = True
         meta["derived"] = derived
         missing = int((status == "").sum())
         if missing:
@@ -168,15 +193,19 @@ class StabilityTable:
     def query(self, C_b, a_b, g_b, rho_b, gw_b=0.0, full=False, mechanism="collapse"):
         """Return dict(lo, hi, mid) of the stability number (sigma_s - p_cr)/c_u0.
         full=True adds the hydrostatic support of a full pipe, beta * gw_b * a_b (5.16a)."""
+        key = {"collapse": "c", "blowout": "b"}[mechanism]
+        if full:
+            # Exact full-pipe identity (5.16b): the water column adds gamma_w (z - z_crown) to the wall
+            # pressure; after the overburden shift only the net gradient (gamma - gamma_w) acts on the
+            # opening, so N_full(g, gw) = N_0(g - gw) - gw C/b_p. No support factor, no fifth dimension.
+            if gw_b < 0.0 or gw_b > g_b + 1e-12:
+                raise TableRangeError(f"gw_b = {gw_b:g} outside [0, g_b = {g_b:g}] (the identity needs "
+                                      f"gamma >= gamma_w)")
+            r = self.query(C_b, a_b, g_b - gw_b, rho_b, mechanism=mechanism)
+            return dict(lo=r["lo"] - gw_b * C_b, hi=r["hi"] - gw_b * C_b, mid=r["mid"] - gw_b * C_b)
         q = dict(C_b=C_b, a_b=a_b, g_b=g_b, rho_b=rho_b)
         self._check_stable(q)
-        key = {"collapse": "c", "blowout": "b"}[mechanism]
         shift = g_b * (C_b + a_b)                    # exact overburden term (5.15b)
         lo = self._interp(f"N_{key}0_lo", q) - shift
         hi = self._interp(f"N_{key}0_hi", q) - shift
-        if full:
-            if not (0.0 <= gw_b <= GW_MAX):
-                raise TableRangeError(f"gw_b = {gw_b:g} outside the acceptance-tested range [0, {GW_MAX:g}]")
-            lo += self._interp(f"beta_{key}_lo", q) * gw_b * a_b
-            hi += self._interp(f"beta_{key}_hi", q) * gw_b * a_b
         return dict(lo=lo, hi=hi, mid=0.5 * (lo + hi))

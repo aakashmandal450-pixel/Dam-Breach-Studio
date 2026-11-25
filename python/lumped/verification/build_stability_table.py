@@ -113,8 +113,11 @@ def main():
     print("Workers: " + note, flush=True)
     G = GRIDS[args.grid]
     from lumped.stability_table import SPARSE_C_MIN, SPARSE_G
+    from lumped.stability_table import A_FINE, A_FINE_C_MAX
     pts = [p for p in itertools.product(G["C_b"], G["a_b"], G["g_b"], G["rho_b"])
            if not (p[0] >= SPARSE_C_MIN and p[2] in SPARSE_G)]   # derived from N' in g (5.15b), not solved
+    if args.grid == "full":                                      # finer a/b at shallow cover (acceptance 2026-11-25)
+        pts += [p for p in itertools.product([c for c in G["C_b"] if c <= A_FINE_C_MAX], A_FINE, G["g_b"], G["rho_b"])]
     # deep points first is worse for the ETA; interleave so the estimate settles early
     pts.sort(key=lambda p: (p[0] * p[1]) % 7)
     done = set()

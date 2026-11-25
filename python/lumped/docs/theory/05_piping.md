@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.2 · 2026-11-24 · status: overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.3 · 2026-11-25 · status: exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -680,7 +680,26 @@ each run full (hydrostatic) and part-full (y = 0.9 a_p, roof dry). Every audit w
      The error |N_pred − N_direct| is reported separately for collapse and blow-out and for each bound.
      The tolerance is half the bracket width at that point. This is a project-specific acceptance
      criterion chosen for this model, not a published engineering standard. Where it fails, γ_w b_p/c_u0 is kept as a fifth dimension for that part of the range.
+   - **Superseded (draft 5.3, 2026-11-25) by the exact identity (5.16b).** The acceptance test of
+     2026-11-25 found the reduced form (5.16a) outside the tolerance at γ_w b_p/c_u0 = 2. The cases
+     were (C/b_p, a_p/b_p, γ b_p/c_u0, ρ b_p/c_u0) = (8, 2, 2, 0) and (32, 2, 3, 0), by up to 4.7
+     tolerances. The overburden shift of (5.15b) removes the need for β altogether. For a full pipe
+     the wall pressure is p_cr + γ_w (z − z_cr). After subtracting γ z I, the opening sees
+     (p_cr − γ z_cr) + (γ_w − γ)(z − z_cr), so only the net gradient γ − γ_w acts. This is the same
+     loading as a single crown pressure in a soil of unit weight γ − γ_w. With N referred to the crown
+     pressure:
+
+         N_full(C, a_p, γ, γ_w, ρ) = N_0(C, a_p, γ − γ_w, ρ) − γ_w C / c_u0                      (5.16b)
+
+     It is exact for undrained Tresca, for both bounds and both mechanisms, and it needs γ ≥ γ_w,
+     which holds for any soil. The discrete bound problems obey it too. On the 1856 bound pairs of the
+     built table, (5.16b) reproduces the stored full-pipe values to a median of 5·10⁻⁹. The largest
+     difference is 0.11, at N ≈ 150 (2.7 % of the half-bracket), which is solver precision. The table
+     therefore needs no fifth dimension and no support factor. A full-pipe query outside 0 ≤ γ_w ≤ γ
+     raises an error. The 5.16a rows of the acceptance test are replaced by direct full-pipe solves at
+     γ_w/γ = 0.45, 0.6 and 1.0.
    - **Part-full pipe:** σ_t = 0, with the band (5.16) using the wetted depth y in place of a_p.
+     (5.16b) does not apply: the pressure field ends at the free surface.
    - The uncertainty runs use the band.
 5. **One pressure for both regimes.** p_cr is the soffit pressure p_s(x) of (5.8), which is zero for a
    part-full pipe. The roof criterion and the hydraulics use the same pressure, so they stay
@@ -823,6 +842,13 @@ reported separately. The fifth argument enters for a full pipe (above).
     γ_w,ref b_p/c_u0 = 0.5. That is 936 grid nodes. The build solves 792 of them with 8 audited bound
     solves each. The other 144 (C/b_p ≥ 12, γ b_p/c_u0 = 0.5, 1, 2) are derived by the sparse rule
     above, except where a solved row already exists.
+  - *Finer a_p/b_p at shallow cover (draft 5.3).* The acceptance test of 2026-11-25 found
+    interpolation errors of 1.0–1.4 tolerances at a_p/b_p = 1.4. The points were C/b_p = 0.7 and 2.5;
+    deeper test points passed. The nodes a_p/b_p = 0.7071 and 1.4142 (geometric midpoints) are added
+    and solved for C/b_p ≤ 4. On deeper slices they are filled by linear interpolation in log a,
+    which leaves the deep table unchanged (checked: largest change 9·10⁻¹⁴). Six fresh off-grid test
+    points between the a nodes at shallow cover are added to the acceptance test. The failed points
+    at a_p/b_p = 1.4 are kept, but they now lie near a node and no longer test the interpolation alone.
   - *Mesh fallback.* A point whose audit fails on the standard mesh (h = 0.1 b_p) is re-solved
     whole on h = 0.095 b_p, then 0.105 b_p. The bound theorems hold on any admissible mesh, so the
     fallback keeps both bounds rigorous and moves them only by the ordinary mesh effect. It is

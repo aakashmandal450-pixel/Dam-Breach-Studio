@@ -28,7 +28,10 @@ OFF_GRID = [(0.35, 0.7, 0.25, 0.1), (0.7, 1.4, 1.25, 0.4), (1.75, 0.7, 2.5, 0.75
 ON_GRID = [(0.25, 0.5, 0.0, 0.0), (32.0, 2.0, 3.0, 0.0), (32.0, 0.5, 0.5, 1.0), (0.25, 2.0, 3.0, 1.0),
            (8.0, 2.0, 2.0, 0.0), (4.0, 1.0, 1.0, 0.25),
            (16.0, 1.0, 1.0, 0.25)]          # (32,0.5,0.5,1) and (16,1,1,0.25) are derived (unsolved) nodes
-GWS = (0.2, 1.0, 2.0)
+# fresh off-grid points at shallow cover between the a/b nodes (added with the finer a/b axis, 2026-11-25)
+OFF_GRID += [(0.6, 0.6, 1.0, 0.2), (1.25, 0.85, 2.0, 0.6), (3.5, 1.2, 1.5, 0.3), (2.25, 1.7, 0.5, 0.8),
+             (0.4, 1.2, 2.75, 0.0), (3.0, 0.6, 2.25, 1.0)]
+GW_FRAC = (0.45, 0.6, 1.0)   # gamma_w / gamma: moist to saturated fill, and the limit of identity (5.16b)
 H = 0.1
 
 
@@ -37,7 +40,7 @@ def direct(p):
     C, a, g, r = p
     m = f.rect_mesh(C, a, H, hfar=max(1.0, (C + a) / 8))
     out = []
-    for gw in (None,) + GWS:
+    for gw in (None,) + tuple(fr * g for fr in GW_FRAC if g > 0):
         pr = f.no_pressure if gw is None else f.hydrostatic(gw, -C)
         for mech, passive in (("collapse", False), ("blowout", True)):
             lb = f.lower_bound(m, g, r, pr, passive=passive)
@@ -73,7 +76,7 @@ def mechanics(tab, fails):
                 res = a in str(e); msg = str(e)
             print(f"  {'PASS' if res else 'FAIL'}  {a} {side} range raises an error naming it   ({msg})", flush=True)
             if not res: fails.append(f"range {a} {side}")
-    for gw in (-0.1, 2.5):
+    for gw in (-0.1, base["g_b"] + 0.5):
         try:
             tab.query(**base, gw_b=gw, full=True); res = False; msg = "no error"
         except TableRangeError as e:
@@ -115,6 +118,7 @@ def main():
     rows, n_ok, n_bad, n_unst, t0 = [], 0, 0, 0, time.time()
     with Pool(args.workers, maxtasksperchild=1) as pool:
         for k, res in enumerate(pool.imap_unordered(direct, pts), 1):
+            n0 = len(rows)
             for d in res:
                 q = {a: d[a] for a in AXES}
                 try:
@@ -135,7 +139,7 @@ def main():
                 e_lo, e_hi = abs(pr["lo"] - d["lo"]), abs(pr["hi"] - d["hi"])
                 ok = e_lo <= tol and e_hi <= tol
                 ongrid = (d["C_b"], d["a_b"], d["g_b"], d["rho_b"]) in ON_GRID
-                cause = "" if ok else ("support factor (reduced 4-D form): keep the fifth dimension here"
+                cause = "" if ok else ("full-pipe identity (5.16b): check it on this mesh"
                                        if (ongrid and d["full"]) else "interpolation: refine the grid here")
                 n_ok += ok; n_bad += (not ok)
                 rows.append(dict(d, pred_lo=pr["lo"], pred_hi=pr["hi"], err_lo=e_lo, err_hi=e_hi, tol=tol,
@@ -144,7 +148,7 @@ def main():
                     fails.append(f"{q} {d['mechanism']} full={d['full']} gw={d['gw_b']}")
             p = res[0]
             print(f"[{k}/{len(pts)}] C/b={p['C_b']:g} a/b={p['a_b']:g} gb/c={p['g_b']:g} rho b/c={p['rho_b']:g}: "
-                  f"{sum(r_['ok'] for r_ in rows[-8:])}/8 comparisons pass | elapsed {(time.time()-t0)/60:.1f} min",
+                  f"{sum(r_['ok'] for r_ in rows[n0:])}/{len(rows) - n0} comparisons pass | elapsed {(time.time()-t0)/60:.1f} min",
                   flush=True)
     if rows:
         with open(args.out, "w", newline="") as fh:
