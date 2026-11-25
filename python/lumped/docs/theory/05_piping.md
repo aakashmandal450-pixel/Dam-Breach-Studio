@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.3 · 2026-11-25 · status: exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.4 · 2026-11-25 · status: stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -184,6 +184,19 @@ the current geometry.
 
 Width and height therefore evolve independently: a partly full pipe deepens and widens but does not
 raise its roof. The dimensions only grow, so no minimum-size guard is needed.
+
+*Correction (draft 5.4, 2026-11-25, found while coding stage 1).* As written, (5.7) widens the whole
+height D of a part-full pipe by 2ε, although its sides are wetted only to depth y. The rectangle would
+then gain more volume than was eroded, and the §5.8 test "eroded volume = wetted area × ε dt" could not
+hold. The section stays rectangular, so the side retreat is spread over the full height:
+
+    db_p/dt = 2ε y/D        (= 2ε when full, w = 1)                                           (5.7a)
+
+The step update is exact in volume: b_new D_new − b D = (b·floor + w b·roof + 2y·ε dt). The floor
+term counts only the depth it actually moves, and it stops at the base. The eroded solids then equal
+the void added to the round-off, which the debris and solids budgets of §5.7 rely on. The alternative,
+a non-rectangular part-full section, is not taken. It would break the hand-over to the rectangular
+open breach.
 
 *Validation target, not an assumption to defend.* (5.7) applies the same law to floor, walls and roof.
 They may differ physically: eroded grains can settle back on the floor, and a wetted roof can also lose
