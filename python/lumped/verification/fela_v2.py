@@ -47,6 +47,10 @@ import scipy.sparse as sp
 
 TOL = 1e-7
 DELTA = 1e-5          # lower-bound yield margin (fraction of c_u)
+PRECISE = False       # set True to try the high-accuracy setting first (used to re-solve a bound whose audit failed)
+PRECISE_SETTINGS = dict(max_iter=500, tol_gap_abs=1e-8, tol_gap_rel=1e-8, tol_feas=1e-9,
+                        static_regularization_constant=1e-7, iterative_refinement_max_iter=50,
+                        iterative_refinement_stop_ratio=2)
 
 
 class SolveFailed(RuntimeError):
@@ -69,18 +73,34 @@ def solve(prob):
                dict(static_regularization_constant=1e-6, iterative_refinement_max_iter=50,
                     iterative_refinement_stop_ratio=2),
                dict(static_regularization_constant=1e-5, tol_gap_abs=1e-4, tol_gap_rel=1e-4, tol_feas=1e-7))
-    certs = []
+    certs, inaccurate = [], None
+    if PRECISE:
+        settings = (PRECISE_SETTINGS,) + settings
     for kw in settings:
         try:
             prob.solve(solver=cp.CLARABEL, **{**base, **kw})
-            if prob.status in ("optimal", "optimal_inaccurate"):
+            if prob.status == "optimal" or (PRECISE and kw is PRECISE_SETTINGS and prob.status == "optimal_inaccurate"):
                 return prob
+            if prob.status == "optimal_inaccurate":     # try the other settings for a clean solution first
+                inaccurate = inaccurate or kw
+                continue
             if prob.status in ("infeasible", "unbounded"):
                 certs.append(prob.status)
                 if certs.count(prob.status) >= 2:      # the same certificate at two settings: accept it
                     return prob
         except cp.error.SolverError:
             pass
+    if inaccurate is not None:
+        # Only inaccurate solutions so far: one high-accuracy attempt (tighter gaps and feasibility, more
+        # iterative refinement). Found necessary at large self-weight and full-pipe pressure, where the
+        # stresses reach ~10-100 c_u0 and the default settings left traction residuals of 1.2-1.5e-5.
+        for kw in (PRECISE_SETTINGS, inaccurate):               # then the best default; the audit decides admissibility
+            try:
+                prob.solve(solver=cp.CLARABEL, **{**base, **kw})
+                if prob.status in ("optimal", "optimal_inaccurate"):
+                    return prob
+            except cp.error.SolverError:
+                pass
     raise SolveFailed("Clarabel failed at all regularisation levels")
 
 

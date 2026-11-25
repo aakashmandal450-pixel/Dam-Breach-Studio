@@ -64,6 +64,17 @@ def _solve_point(p):
                              ("cf", full, False), ("bf", full, True)]:
         lb = f.lower_bound(m, g, r, pr, passive=passive)
         ub = f.upper_bound(m, g, r, pr, passive=passive)
+        if lb["value"] is not None and ub["value"] is not None and audit(lb, ub) > AUD_TOL:
+            # residual above tolerance at the default settings (large stresses): re-solve this pair at high accuracy
+            f.PRECISE = True
+            try:
+                lb2 = f.lower_bound(m, g, r, pr, passive=passive)
+                ub2 = f.upper_bound(m, g, r, pr, passive=passive)
+            finally:
+                f.PRECISE = False
+            if lb2["value"] is not None and ub2["value"] is not None and audit(lb2, ub2) < audit(lb, ub):
+                lb, ub = lb2, ub2
+                flags.add("PRECISE")
         if ub["value"] is None:
             flags.add("SELF_UNSTABLE")       # a mechanism collapses under self-weight at any surface load
         if lb["value"] is None:
@@ -73,6 +84,8 @@ def _solve_point(p):
         lo_, hi_ = (ub["value"], lb["value"]) if passive else (lb["value"], ub["value"])
         res[key] = (nan if lo_ is None else lo_, nan if hi_ is None else hi_)
     inc = GW_REF * a
+    note = "re-solved at high accuracy" if "PRECISE" in flags else ""
+    flags.discard("PRECISE")
     status = ("SELF_UNSTABLE" if "SELF_UNSTABLE" in flags else "NO_STATIC_BOUND" if flags
               else ("OK" if aud <= AUD_TOL else "FAIL"))
     row = dict(C_b=C, a_b=a, g_b=g, rho_b=r,
@@ -80,7 +93,7 @@ def _solve_point(p):
                beta_c_lo=(res["cf"][0] - res["c0"][0]) / inc, beta_c_hi=(res["cf"][1] - res["c0"][1]) / inc,
                beta_b_lo=(res["bf"][0] - res["b0"][0]) / inc, beta_b_hi=(res["bf"][1] - res["b0"][1]) / inc,
                N_cf_lo=res["cf"][0], N_cf_hi=res["cf"][1], N_bf_lo=res["bf"][0], N_bf_hi=res["bf"][1],
-               ntri=len(m.T), audit=aud, status=status, seconds=round(time.time() - t0, 1), note="")
+               ntri=len(m.T), audit=aud, status=status, seconds=round(time.time() - t0, 1), note=note)
     return row
 
 
