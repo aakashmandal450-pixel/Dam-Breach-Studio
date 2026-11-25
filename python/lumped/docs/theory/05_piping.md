@@ -832,10 +832,26 @@ reported separately. The fifth argument enters for a full pipe (above).
       kinematic bound is still finite (−0.83).
 
     Both are physical results, accepted once two solver settings agree, and kept in the table with their
-    status. A query whose interpolation cell touches such a point raises `UnstableOpening`. **Proposed
-    engine policy (for review):** treat it as collapse at that section, flagged in the output. A pipe
-    reaching such a state would in practice have collapsed earlier, so the flag also marks where the
-    table is being used at its edge.
+    status. A query whose interpolation cell touches such a point raises `UnstableOpening`.
+    **Engine policy (decided 2026-11-25):**
+    - *Physical result.* `UnstableOpening` triggers roof collapse at that section in the same
+      stability pass, and the output records the flag `noStableRoof` with the section, the time and
+      the table status (SELF_UNSTABLE or NO_STATIC_BOUND).
+    - *Interpolated query.* No stability value is interpolated across such a point. If any corner of
+      the interpolation cell is a no-stable-state node, the section is treated as collapsed. This is
+      conservative: it can flag collapse slightly before the region is reached, never after.
+    - *Numerical failure is never collapse.* A failed or unconverged bound solve is not a physical
+      result. The table build retries the point with the mesh fallback, and a point that still fails
+      stays FAIL. A table holding a FAIL or missing node refuses to load (`ValueError`), so the engine
+      stops with a numerical error. It never reports a collapse from it. The engine itself does not
+      solve bounds at run time, so this is the only path for a numerical failure. `noStableRoof` and
+      a numerical error can therefore never be confused.
+    - *Cascade.* The collapse enters the synchronous cascade of §5.7a.6. The roof and crater
+      geometry are recomputed by that sequence in the same event, and the stability pass is repeated
+      until no further section fails.
+    - *First runs are diagnostic.* The first piping runs (ARS P1 first) check that the table queries,
+      the collapse trigger, the cascade, the water balance and the hand-over behave as specified, using
+      the §5.8 checks. Model parameters are not calibrated until those checks pass.
   - Build, interface and test: `verification/build_stability_table.py` (resumable, parallel),
     `lumped/stability_table.py` and `verification/table_acceptance.py`. The grid is C/b_p = 0.25–32
     (13 nodes), a_p/b_p = 0.5, 1, 2, γ b_p/c_u0 = 0–3 (6 nodes), ρ b_p/c_u0 = 0–1 (4 nodes), at

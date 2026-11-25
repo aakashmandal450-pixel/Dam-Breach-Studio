@@ -50,7 +50,13 @@ class UnstableOpening(ValueError):
     """The query lies in a region where the bound solves show no stable state at any surface load.
     SELF_UNSTABLE: a kinematic mechanism collapses the opening under its own weight (rigorous: it
     collapses). NO_STATIC_BOUND: no admissible stress field exists (no certificate of stability; the
-    lower bound is open). The engine treats both as collapse and flags the region (policy for review)."""
+    lower bound is open). Engine policy (theory 5.5b, decided 2026-11-25): collapse at that section in the
+    same stability pass, output flag noStableRoof. Numerical failures never raise this: a table with FAIL
+    or missing nodes refuses to load (ValueError)."""
+
+    def __init__(self, msg, statuses=()):
+        super().__init__(msg)
+        self.statuses = tuple(statuses)       # e.g. ("SELF_UNSTABLE",), for the noStableRoof output record
 
 
 def _t(axis: str, v):
@@ -186,7 +192,7 @@ class StabilityTable:
         bad = {st[idx] for idx, wt in self._corners(q) if st[idx] != "OK"}
         if bad:
             raise UnstableOpening(f"{', '.join(sorted(bad))} at a neighbouring grid point of "
-                                  + ", ".join(f"{a} = {q[a]:g}" for a in AXES))
+                                  + ", ".join(f"{a} = {q[a]:g}" for a in AXES), sorted(bad))
 
     def _interp(self, field: str, q: dict) -> float:
         arr = self.data[field]
