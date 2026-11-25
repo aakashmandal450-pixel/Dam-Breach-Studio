@@ -48,9 +48,17 @@ import scipy.sparse as sp
 TOL = 1e-7
 DELTA = 1e-5          # lower-bound yield margin (fraction of c_u)
 PRECISE = False       # set True to try the high-accuracy setting first (used to re-solve a bound whose audit failed)
-PRECISE_SETTINGS = dict(max_iter=500, tol_gap_abs=1e-8, tol_gap_rel=1e-8, tol_feas=1e-9,
-                        static_regularization_constant=1e-7, iterative_refinement_max_iter=50,
-                        iterative_refinement_stop_ratio=2)
+PRECISE_VARIANTS = (   # high-accuracy settings tried in turn on a bound pair whose audit failed
+    dict(max_iter=500, tol_gap_abs=1e-8, tol_gap_rel=1e-8, tol_feas=1e-9,
+         static_regularization_constant=1e-7, iterative_refinement_max_iter=50, iterative_refinement_stop_ratio=2),
+    dict(max_iter=500, tol_gap_abs=1e-8, tol_gap_rel=1e-8, tol_feas=1e-10,
+         static_regularization_constant=1e-8, iterative_refinement_max_iter=100, iterative_refinement_stop_ratio=1.5),
+    dict(max_iter=500, tol_gap_abs=1e-8, tol_gap_rel=1e-8, tol_feas=1e-9, equilibrate_enable=False,
+         static_regularization_constant=1e-7, iterative_refinement_max_iter=50, iterative_refinement_stop_ratio=2),
+    dict(max_iter=500, tol_gap_abs=1e-9, tol_gap_rel=1e-9, tol_feas=1e-10,
+         static_regularization_constant=1e-6, iterative_refinement_max_iter=100, iterative_refinement_stop_ratio=1.5),
+)
+PRECISE_SETTINGS = PRECISE_VARIANTS[0]
 
 
 class SolveFailed(RuntimeError):
@@ -74,12 +82,15 @@ def solve(prob):
                     iterative_refinement_stop_ratio=2),
                dict(static_regularization_constant=1e-5, tol_gap_abs=1e-4, tol_gap_rel=1e-4, tol_feas=1e-7))
     certs, inaccurate = [], None
-    if PRECISE:
-        settings = (PRECISE_SETTINGS,) + settings
+    if PRECISE:                                      # PRECISE may be True (first variant) or a variant index
+        kw0 = PRECISE_VARIANTS[0 if PRECISE is True else int(PRECISE)]
+        prob.solve(solver=cp.CLARABEL, **{**base, **kw0})
+        if prob.status in ("optimal", "optimal_inaccurate"):
+            return prob
     for kw in settings:
         try:
             prob.solve(solver=cp.CLARABEL, **{**base, **kw})
-            if prob.status == "optimal" or (PRECISE and kw is PRECISE_SETTINGS and prob.status == "optimal_inaccurate"):
+            if prob.status == "optimal":
                 return prob
             if prob.status == "optimal_inaccurate":     # try the other settings for a clean solution first
                 inaccurate = inaccurate or kw

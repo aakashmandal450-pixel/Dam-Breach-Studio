@@ -59,22 +59,32 @@ def _solve_point(p):
     t0 = time.time()
     m = f.rect_mesh(C, a, H, hfar=max(1.0, (C + a) / 8))
     full = f.hydrostatic(GW_REF, -C)
-    res, aud, flags = {}, 0.0, set()
+    res, aud, flags, notes = {}, 0.0, set(), []
     for key, pr, passive in [("c0", f.no_pressure, False), ("b0", f.no_pressure, True),
                              ("cf", full, False), ("bf", full, True)]:
         lb = f.lower_bound(m, g, r, pr, passive=passive)
         ub = f.upper_bound(m, g, r, pr, passive=passive)
         if lb["value"] is not None and ub["value"] is not None and audit(lb, ub) > AUD_TOL:
             # residual above tolerance at the default settings (large stresses): re-solve this pair at high accuracy
-            f.PRECISE = True
-            try:
-                lb2 = f.lower_bound(m, g, r, pr, passive=passive)
-                ub2 = f.upper_bound(m, g, r, pr, passive=passive)
-            finally:
-                f.PRECISE = False
-            if lb2["value"] is not None and ub2["value"] is not None and audit(lb2, ub2) < audit(lb, ub):
-                lb, ub = lb2, ub2
-                flags.add("PRECISE")
+            tried = [f"{audit(lb, ub):.2e}"]
+            for vi in range(len(f.PRECISE_VARIANTS)):
+                f.PRECISE = vi if vi else True
+                try:
+                    lb2 = f.lower_bound(m, g, r, pr, passive=passive)
+                    ub2 = f.upper_bound(m, g, r, pr, passive=passive)
+                except Exception:
+                    tried.append("err"); continue
+                finally:
+                    f.PRECISE = False
+                if lb2["value"] is None or ub2["value"] is None:
+                    tried.append("none"); continue
+                tried.append(f"{audit(lb2, ub2):.2e}")
+                if audit(lb2, ub2) < audit(lb, ub):
+                    lb, ub = lb2, ub2
+                    flags.add("PRECISE")
+                if audit(lb, ub) <= AUD_TOL:
+                    break
+            notes.append(f"{key} audits default/variants " + "/".join(tried))
         if ub["value"] is None:
             flags.add("SELF_UNSTABLE")       # a mechanism collapses under self-weight at any surface load
         if lb["value"] is None:
@@ -84,7 +94,7 @@ def _solve_point(p):
         lo_, hi_ = (ub["value"], lb["value"]) if passive else (lb["value"], ub["value"])
         res[key] = (nan if lo_ is None else lo_, nan if hi_ is None else hi_)
     inc = GW_REF * a
-    note = "re-solved at high accuracy" if "PRECISE" in flags else ""
+    note = "; ".join(notes)
     flags.discard("PRECISE")
     status = ("SELF_UNSTABLE" if "SELF_UNSTABLE" in flags else "NO_STATIC_BOUND" if flags
               else ("OK" if aud <= AUD_TOL else "FAIL"))
@@ -165,6 +175,8 @@ def main():
                   f"N_b [{row['N_b0_lo']:.3f}, {row['N_b0_hi']:.3f}] beta_c {row['beta_c_lo']:.3f} "
                   f"audit {row['audit']:.0e} {row['status']} {row['seconds']}s | elapsed {el/60:.1f} min, "
                   f"ETA {eta/60:.1f} min", flush=True)
+            if row.get("note"):
+                print(f"      re-solve: {row['note']}", flush=True)
 
         # maxtasksperchild=1: each point runs in a fresh process, so its memory is returned to the system
         with Pool(args.workers, maxtasksperchild=1) as pool:
