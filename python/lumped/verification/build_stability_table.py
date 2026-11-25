@@ -118,6 +118,9 @@ def main():
            if not (p[0] >= SPARSE_C_MIN and p[2] in SPARSE_G)]   # derived from N' in g (5.15b), not solved
     if args.grid == "full":                                      # finer a/b at shallow cover (acceptance 2026-11-25)
         pts += [p for p in itertools.product([c for c in G["C_b"] if c <= A_FINE_C_MAX], A_FINE, G["g_b"], G["rho_b"])]
+        from lumped.stability_table import G_FINE, G_FINE_C_MAX
+        pts += [p for p in itertools.product([c for c in G["C_b"] if c <= G_FINE_C_MAX],
+                                             sorted(set(G["a_b"]) | set(A_FINE)), G_FINE, G["rho_b"])]
     # deep points first is worse for the ETA; interleave so the estimate settles early
     pts.sort(key=lambda p: (p[0] * p[1]) % 7)
     done = set()

@@ -849,6 +849,14 @@ reported separately. The fifth argument enters for a full pipe (above).
     which leaves the deep table unchanged (checked: largest change 9·10⁻¹⁴). Six fresh off-grid test
     points between the a nodes at shallow cover are added to the acceptance test. The failed points
     at a_p/b_p = 1.4 are kept, but they now lie near a node and no longer test the interpolation alone.
+  - *Extra self-weight node at shallow cover (draft 5.3, second acceptance run).* After the a/b
+    refinement, 177 of 178 comparisons passed. The one miss was (0.4, 1.2, 2.75, 0), collapse, lower
+    bound, at 1.04 tolerances. Between γ b_p/c_u0 = 2 and 3 at thin cover and tall openings, N falls
+    steeply and non-linearly, from −0.16 to −1.17 at (0.5, 1.41). This is the approach to the
+    self-unstable region. The node γ b_p/c_u0 = 2.5 is added and solved for C/b_p ≤ 4 (140 points).
+    On deeper slices it is filled linearly in g, which leaves the deep table unchanged (checked:
+    largest change 9·10⁻¹⁴). The failed point stays in the test; at 2.75 it lies midway between the
+    nodes 2.5 and 3. Three fresh points around the new node are added.
   - *Mesh fallback.* A point whose audit fails on the standard mesh (h = 0.1 b_p) is re-solved
     whole on h = 0.095 b_p, then 0.105 b_p. The bound theorems hold on any admissible mesh, so the
     fallback keeps both bounds rigorous and moves them only by the ordinary mesh effect. It is

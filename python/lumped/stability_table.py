@@ -34,6 +34,8 @@ import numpy as np
 AXES = ("C_b", "a_b", "g_b", "rho_b")
 SPARSE_C_MIN = 12.0
 SPARSE_G = (0.5, 1.0, 2.0)
+G_FINE = (2.5,)           # extra g node, solved only for C/b <= G_FINE_C_MAX (acceptance 2026-11-25, second run);
+G_FINE_C_MAX = 4.0         # deeper slices get it by linear interpolation in g (deep table unchanged)
 A_FINE = (0.7071, 1.4142)  # extra a/b nodes (geometric midpoints), solved only for C/b <= A_FINE_C_MAX;
 A_FINE_C_MAX = 4.0         # deeper slices get them by linear interpolation in log a (same function as before)
 N_FIELDS = ("N_c0_lo", "N_c0_hi", "N_b0_lo", "N_b0_hi")
@@ -101,10 +103,10 @@ class StabilityTable:
         derived = np.zeros(shape, bool)
         gnodes = list(grid["g_b"])
         for i, C in enumerate(grid["C_b"]):
-            if C < SPARSE_C_MIN - 1e-9:
-                continue
             for k, g in enumerate(gnodes):
-                if not any(abs(g - s_) < 1e-9 for s_ in SPARSE_G):
+                sparse = C >= SPARSE_C_MIN - 1e-9 and any(abs(g - s_) < 1e-9 for s_ in SPARSE_G)
+                fine = C > G_FINE_C_MAX + 1e-9 and any(abs(g - s_) < 1e-9 for s_ in G_FINE)
+                if not (sparse or fine):
                     continue
                 for j in range(shape[1]):
                     for l in range(shape[3]):

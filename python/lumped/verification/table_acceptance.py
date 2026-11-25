@@ -31,6 +31,8 @@ ON_GRID = [(0.25, 0.5, 0.0, 0.0), (32.0, 2.0, 3.0, 0.0), (32.0, 0.5, 0.5, 1.0), 
 # fresh off-grid points at shallow cover between the a/b nodes (added with the finer a/b axis, 2026-11-25)
 OFF_GRID += [(0.6, 0.6, 1.0, 0.2), (1.25, 0.85, 2.0, 0.6), (3.5, 1.2, 1.5, 0.3), (2.25, 1.7, 0.5, 0.8),
              (0.4, 1.2, 2.75, 0.0), (3.0, 0.6, 2.25, 1.0)]
+# fresh points between g = 2.5 and 3 and between 2 and 2.5 at shallow cover (added with the g = 2.5 node)
+OFF_GRID += [(0.6, 0.85, 2.6, 0.5), (1.25, 1.7, 2.25, 0.25), (3.5, 0.6, 2.85, 0.1)]
 GW_FRAC = (0.45, 0.6, 1.0)   # gamma_w / gamma: moist to saturated fill, and the limit of identity (5.16b)
 H = 0.1
 
