@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.4 · 2026-11-25 · status: stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.5 · 2026-11-25 · status: stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -759,8 +759,26 @@ cover upward. This is the passive limit of the same opening, and it is kept apar
 N_c is the collapse (fall-in) value and N_b < 0 the blow-out value. They are two separate mechanisms,
 reported separately. The fifth argument enters for a full pipe (above).
 
-- **Surface load:** σ_s(x) = γ_w max(z_s − z_dam(x), 0), the water standing on the section under the
-  reservoir; zero elsewhere.
+- **Surface load:** σ_s(x) = γ_w max(z_s − z_dam(x), 0) on the upstream face (x ≤ x_c0), the water
+  standing on the section under the reservoir. It is zero on the crest and the downstream face, the
+  same piecewise condition as p_top in §5.6. (Stage 2 coding found that a level-based test,
+  z_s > z_dam, wrongly loads the downstream face below the reservoir level.) Overflow on the crest is a
+  flowing film, not counted.
+- **End lips (decision for review, draft 5.5).** At both ends of the pipe the cover thins to zero
+  where the pipe meets the faces. Sections with C < 0.25 b_p, the smallest cover in the table, are not
+  checked. The plane-strain section model does not describe them and the table does not cover them.
+  Their extent is reported every step: about z_u,d (a_p/2 + 0.25 b_p) at each end. A table range
+  error elsewhere (C/b_p > 32, a_p/b_p outside 0.5–2, γ b_p/c_u0 > 3, ρ b_p/c_u0 > 1) stops the
+  run as a numerical error.
+- **Open question for stage 3 (review).** The smallest margin often sits at the first checked section
+  next to a lip, where the cover is thinnest. In the ARS P1 geometry at b_p ≈ 0.1–0.3 m it sits at
+  the upstream end, where the entrance loss leaves σ_s − p_s slightly positive. A failure reach joined
+  to a pipe end opens the pipe to the face. Physically that is a funnel at the inlet, or exit loss at
+  the outlet, which the ARS tests show before the soil bridge collapses. It is not an interior
+  sinkhole. Proposed rule: a failing reach joined to an end lip moves that end (inlet downstream,
+  outlet upstream), as mechanism C does in §5.6. Its roof becomes debris at that end. Only a reach
+  not joined to an end starts the crater and cascade of §5.7a. `roof.failing_reaches` already
+  separates the two cases.
 - **Soffit pressure:** p_s(x) from (5.8).
 - **Margins:** collapse M(x) = c_u0 N_c − (σ_s − p_s), and blow-out M_b(x) = (σ_s − p_s) − c_u0 N_b,
   both computed along the pipe every step. A blow-out is handled as mechanism C (§5.6). The rest of
@@ -809,8 +827,11 @@ reported separately. The fifth argument enters for a full pipe (above).
     force γ. The added field is isotropic, so it has no deviator. It therefore changes neither the
     Tresca yield condition nor the strength c_u(z) = c_u0 + ρ d, nor the far-field condition of the
     lower bound (§5.5a), which is written in σ_xx − γ z. Only the boundary loads change. The surface
-    load is unchanged at z = 0. The opening pressure p becomes p' = p − γ z on the opening wall. With
-    the opening centre at depth z_c = C + a_p:
+    load is unchanged at z = 0. The opening pressure p becomes p' = p − γ z on the opening wall. Any
+    reference depth z_ref gives an exact identity, N = N' − γ z_ref/c_u0, with N' the weightless
+    problem whose opening pressure is p − γ z_ref − γ (z − z_ref). The table uses the invert,
+    z_ref = C + a_p, where a_p is the full pipe height. (Corrected 2026-11-25: draft 5.2 called this
+    depth the centre. The centre is at C + a_p/2. The identity and the table are unaffected.)
 
         N(C, a_p, γ, ρ) = N'(C, a_p, γ, ρ) − γ (C + a_p) / c_u0                              (5.15b)
 
