@@ -823,6 +823,13 @@ reported separately. The fifth argument enters for a full pipe (above).
     γ_w,ref b_p/c_u0 = 0.5. That is 936 grid nodes. The build solves 792 of them with 8 audited bound
     solves each. The other 144 (C/b_p ≥ 12, γ b_p/c_u0 = 0.5, 1, 2) are derived by the sparse rule
     above, except where a solved row already exists.
+  - *Mesh fallback.* A point whose audit fails on the standard mesh (h = 0.1 b_p) is re-solved
+    whole on h = 0.095 b_p, then 0.105 b_p. The bound theorems hold on any admissible mesh, so the
+    fallback keeps both bounds rigorous and moves them only by the ordinary mesh effect. It is
+    recorded in the build log. One point needed it, (C/b_p, a_p/b_p, γ b_p/c_u0, ρ b_p/c_u0) =
+    (3, 1, 3, 0.5). There the full-pipe lower bound on the standard mesh is ill-conditioned: its
+    traction residual is 1.2–1.5e-5, against the 1e-5 tolerance, and tighter solver settings do not
+    change it. On h = 0.095 the residual is 4e-7, and the bounds move by less than 0.004.
   - Outside it: an error that names the parameter and its value. No extrapolation without separate
     verification.
 - **What the criterion replaces.** It replaces mechanism A as the collapse criterion. Mechanism A stays

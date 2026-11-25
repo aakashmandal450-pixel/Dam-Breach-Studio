@@ -54,37 +54,34 @@ def solve_point(p):
 
 
 def _solve_point(p):
+    """Solve on the standard mesh (h = H). If the audit fails there, re-solve the whole point on a slightly
+    finer, then a slightly coarser mesh. Every mesh gives rigorous bounds (lower and upper bound theorems
+    hold for any admissible discretisation), so the fallback changes the bracket only by the usual mesh
+    effect; it is recorded in the note. Found necessary at (3, 1, 3, 0.5): at h = 0.1 the full-pipe lower
+    bound is ill-conditioned (traction residual 1.2-1.5e-5, unchanged by tighter solver settings),
+    while h = 0.095 and 0.105 give residuals of 1e-8 and 4e-10."""
+    tried = []
+    for h in (H, 0.95 * H, 1.05 * H):
+        row = _solve_mesh(p, h)
+        tried.append(f"h={h:g}: audit {row['audit']:.1e}")
+        if row["status"] != "FAIL":
+            break
+    if h != H:
+        row["note"] = "standard mesh failed the audit; " + "; ".join(tried)
+    return row
+
+
+def _solve_mesh(p, h):
     import fela_v2 as f
     C, a, g, r = p
     t0 = time.time()
-    m = f.rect_mesh(C, a, H, hfar=max(1.0, (C + a) / 8))
+    m = f.rect_mesh(C, a, h, hfar=max(1.0, (C + a) / 8))
     full = f.hydrostatic(GW_REF, -C)
-    res, aud, flags, notes = {}, 0.0, set(), []
+    res, aud, flags = {}, 0.0, set()
     for key, pr, passive in [("c0", f.no_pressure, False), ("b0", f.no_pressure, True),
                              ("cf", full, False), ("bf", full, True)]:
         lb = f.lower_bound(m, g, r, pr, passive=passive)
         ub = f.upper_bound(m, g, r, pr, passive=passive)
-        if lb["value"] is not None and ub["value"] is not None and audit(lb, ub) > AUD_TOL:
-            # residual above tolerance at the default settings (large stresses): re-solve this pair at high accuracy
-            tried = [f"{audit(lb, ub):.2e}"]
-            for vi in range(len(f.PRECISE_VARIANTS)):
-                f.PRECISE = vi if vi else True
-                try:
-                    lb2 = f.lower_bound(m, g, r, pr, passive=passive)
-                    ub2 = f.upper_bound(m, g, r, pr, passive=passive)
-                except Exception:
-                    tried.append("err"); continue
-                finally:
-                    f.PRECISE = False
-                if lb2["value"] is None or ub2["value"] is None:
-                    tried.append("none"); continue
-                tried.append(f"{audit(lb2, ub2):.2e}")
-                if audit(lb2, ub2) < audit(lb, ub):
-                    lb, ub = lb2, ub2
-                    flags.add("PRECISE")
-                if audit(lb, ub) <= AUD_TOL:
-                    break
-            notes.append(f"{key} audits default/variants " + "/".join(tried))
         if ub["value"] is None:
             flags.add("SELF_UNSTABLE")       # a mechanism collapses under self-weight at any surface load
         if lb["value"] is None:
@@ -94,8 +91,6 @@ def _solve_point(p):
         lo_, hi_ = (ub["value"], lb["value"]) if passive else (lb["value"], ub["value"])
         res[key] = (nan if lo_ is None else lo_, nan if hi_ is None else hi_)
     inc = GW_REF * a
-    note = "; ".join(notes)
-    flags.discard("PRECISE")
     status = ("SELF_UNSTABLE" if "SELF_UNSTABLE" in flags else "NO_STATIC_BOUND" if flags
               else ("OK" if aud <= AUD_TOL else "FAIL"))
     row = dict(C_b=C, a_b=a, g_b=g, rho_b=r,
@@ -103,7 +98,7 @@ def _solve_point(p):
                beta_c_lo=(res["cf"][0] - res["c0"][0]) / inc, beta_c_hi=(res["cf"][1] - res["c0"][1]) / inc,
                beta_b_lo=(res["bf"][0] - res["b0"][0]) / inc, beta_b_hi=(res["bf"][1] - res["b0"][1]) / inc,
                N_cf_lo=res["cf"][0], N_cf_hi=res["cf"][1], N_bf_lo=res["bf"][0], N_bf_hi=res["bf"][1],
-               ntri=len(m.T), audit=aud, status=status, seconds=round(time.time() - t0, 1), note=note)
+               ntri=len(m.T), audit=aud, status=status, seconds=round(time.time() - t0, 1), note="")
     return row
 
 
@@ -176,7 +171,7 @@ def main():
                   f"audit {row['audit']:.0e} {row['status']} {row['seconds']}s | elapsed {el/60:.1f} min, "
                   f"ETA {eta/60:.1f} min", flush=True)
             if row.get("note"):
-                print(f"      re-solve: {row['note']}", flush=True)
+                print(f"      note: {row['note']}", flush=True)
 
         # maxtasksperchild=1: each point runs in a fresh process, so its memory is returned to the system
         with Pool(args.workers, maxtasksperchild=1) as pool:
