@@ -217,3 +217,63 @@ class StabilityTable:
         lo = self._interp(f"N_{key}0_lo", q) - shift
         hi = self._interp(f"N_{key}0_hi", q) - shift
         return dict(lo=lo, hi=hi, mid=0.5 * (lo + hi))
+
+    # ------------------------------------------------------------------ vectorised queries
+    def query_many(self, C_b, a_b, g_b, rho_b, gw_b=0.0, full=False, mechanism="collapse"):
+        """Vectorised query over arrays of sections (same results as query, element by element).
+        Returns dict(lo, hi, mid) as arrays, 'unstable' (bool array: a weighted corner is a no-stable-state
+        node, where query would raise UnstableOpening) and 'statuses' (list of sets, per element).
+        Values at unstable elements are nan. Any element outside the table raises TableRangeError."""
+        C_b, a_b, g_b, rho_b = (np.atleast_1d(np.asarray(v, float)) for v in (C_b, a_b, g_b, rho_b))
+        n = max(len(C_b), len(a_b), len(g_b), len(rho_b))
+        C_b, a_b, g_b, rho_b = (np.broadcast_to(v, (n,)) for v in (C_b, a_b, g_b, rho_b))
+        gw = np.broadcast_to(np.atleast_1d(np.asarray(gw_b, float)), (n,))
+        key = {"collapse": "c", "blowout": "b"}[mechanism]
+        if full:
+            bad = (gw < 0.0) | (gw > g_b + 1e-12)
+            if bad.any():
+                k = int(np.argmax(bad))
+                raise TableRangeError(f"gw_b = {gw[k]:g} outside [0, g_b = {g_b[k]:g}] (the identity needs "
+                                      f"gamma >= gamma_w)")
+            r = self.query_many(C_b, a_b, g_b - gw, rho_b, mechanism=mechanism)
+            for f in ("lo", "hi", "mid"):
+                r[f] = r[f] - gw * C_b
+            return r
+        vals = dict(C_b=C_b, a_b=a_b, g_b=g_b, rho_b=rho_b)
+        I, Wt = [], []
+        for a in AXES:
+            nodes, v = self.grid[a], vals[a]
+            out = (v < nodes[0] - 1e-12) | (v > nodes[-1] + 1e-12)
+            if out.any():
+                k = int(np.argmax(out))
+                raise TableRangeError(f"{a} = {v[k]:g} outside the table range [{nodes[0]:g}, {nodes[-1]:g}]")
+            if len(nodes) == 1:
+                I.append(np.zeros(n, int)); Wt.append(np.zeros(n)); continue
+            t = _t(a, nodes); tv = _t(a, np.clip(v, nodes[0], nodes[-1]))
+            i = np.clip(np.searchsorted(t, tv) - 1, 0, len(t) - 2)
+            I.append(i); Wt.append(np.clip((tv - t[i]) / (t[i + 1] - t[i]), 0.0, 1.0))
+        st = self.meta.get("status")
+        lo = np.zeros(n); hi = np.zeros(n)
+        unstable = np.zeros(n, bool)
+        statuses = [set() for _ in range(n)]
+        A_lo, A_hi = self.data[f"N_{key}0_lo"], self.data[f"N_{key}0_hi"]
+        for corner in range(16):
+            idx, wt = [], np.ones(n)
+            for k in range(4):
+                bit = (corner >> k) & 1
+                idx.append(I[k] + bit if len(self.grid[AXES[k]]) > 1 else I[k])
+                wt = wt * (Wt[k] if bit else 1.0 - Wt[k])
+            idx = tuple(idx)
+            lo += wt * A_lo[idx]; hi += wt * A_hi[idx]
+            if st is not None:
+                sc = st[idx]
+                nb = (wt != 0) & (sc != "OK")
+                if nb.any():
+                    unstable |= nb
+                    for j in np.nonzero(nb)[0]:
+                        statuses[j].add(sc[j])
+        shift = g_b * (C_b + a_b)
+        lo, hi = lo - shift, hi - shift
+        lo[unstable] = np.nan; hi[unstable] = np.nan
+        return dict(lo=lo, hi=hi, mid=0.5 * (lo + hi), unstable=unstable, statuses=statuses)
+

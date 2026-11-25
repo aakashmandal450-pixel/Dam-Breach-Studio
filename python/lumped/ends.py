@@ -44,11 +44,11 @@ def _zero(x0, m0, x1, m1):
     return x0 + (x1 - x0) * (-m0) / (m1 - m0)
 
 
-def classify(rc: RoofCheck) -> Failures:
+def classify(rc: RoofCheck, tol: float = 0.0) -> Failures:
     """Split the failing reaches of one roof check into upstream-end, downstream-end and interior."""
     x_up = x_dn = None
     interior = []
-    reaches = failing_reaches(rc)
+    reaches = failing_reaches(rc, tol)
     n = len(rc.x)
     whole = n > 0 and len(reaches) == 1 and reaches[0][2] and reaches[0][3]
     if whole:

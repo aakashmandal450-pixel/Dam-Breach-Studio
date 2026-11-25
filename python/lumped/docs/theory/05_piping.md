@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.6 · 2026-11-25 · status: end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.7 · 2026-11-25 · status: stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1434,6 +1434,28 @@ An event is any failure crossing found during time integration: M(x) = 0, a wall
 - **One crater in the first version.** A section with M(x) ≤ 0 that is not contiguous with the crater
   would start a second crater. It is recorded, and the run stops with a "multiple craters" flag rather
   than merging the craters silently.
+
+**Driver (stage 3c, `piping_run.py`, 2026-11-25).** The time loop implements the sequence above as:
+hydraulics → pipe erosion and water balance over the step → all checks on the new state → if a check
+fails inside the step, the failure instant is located by bisection (to 1 ms), the step is redone to that
+instant, and the cascade runs there → water and solids budgets are checked on every completed step.
+Numerical choices, stated:
+- *Onset located, motion continuous.* After an end or a crater edge starts to move, the margin at the
+  new boundary is about zero and keeps falling as the pipe grows. Its motion is then continuous, not a
+  sequence of events. The onset of each motion (inlet, outlet, uplift, crater edge up or down) is
+  located inside the step; later motion of the same boundary is applied at the step end, with error
+  O(dt). Discrete events (crater start, wall failure, push-out, hand-over) are always located inside
+  the step. Checked: the crater-start time converges with p ≈ 1 in dt.
+- *Failure threshold.* A margin counts as failed below −10⁻⁶ c_u0. Without it, a retreat to the
+  interpolated zero crossing leaves M ≈ 0 at the new end, and round-off repeats zero-length retreats.
+- *Smallest crater.* A crater starts over the failed reach between its zero crossings, but over at
+  least the section spacing b_p/2. The failure is resolved no finer than that.
+- *Crater water.* (5.22) uses RK4 with the inflow from the upstream reach recomputed from the crater
+  level at each stage (tailwater coupling). The same averaged inflow leaves the reservoir, so the water
+  budget closes exactly.
+- Code tests: `tests/test_piping_run.py` (sequence, separate outcomes, determinism, event location
+  and convergence, budgets with constant and variable reservoir). Diagnostic run:
+  `verification/p1_diagnostic.py`.
 
 ### 5.7a.7 Between events
 

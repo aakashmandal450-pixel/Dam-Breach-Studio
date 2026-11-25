@@ -28,10 +28,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from .geometry import Dam, integrate_positive
 from .hydraulics import G, RHO_W
 from .piping import K_U, Pipe, PipeFlow
-from .stability_table import StabilityTable, UnstableOpening
+from .stability_table import StabilityTable
 
 GAMMA_W = RHO_W * G
 C_MIN = 0.25          # smallest C/b_p in the table: thinner cover = end lip (not checked)
@@ -93,8 +95,13 @@ def sections(x0: float, x1: float, dx: float):
 
 
 def check(dam: Dam, pipe: Pipe, x_in: float, x_o: float, z_s: float, fl: PipeFlow, soil: Soil,
-          table: StabilityTable, bound: str = "mid", dx: float | None = None) -> RoofCheck:
-    """Evaluate (5.15) along the pipe from the inlet x_in to the outlet x_o. bound: 'lo' | 'mid' | 'hi'."""
+          table: StabilityTable, bound: str = "mid", dx: float | None = None,
+          z_head: float | None = None, ab: bool = True) -> RoofCheck:
+    """Evaluate (5.15) along the pipe from the inlet x_in to the outlet x_o. bound: 'lo' | 'mid' | 'hi'.
+    z_s is the reservoir level (surface load, phreatic level). z_head is the energy level at the reach
+    inlet for the soffit pressure (5.8): the reservoir for a pipe fed by it (default), the crater level
+    for the downstream reach (5.7a.4). ab=False skips the mechanism A/B comparison."""
+    z_head = z_s if z_head is None else z_head
     b, D, z_cr = pipe.b, pipe.D, pipe.z_cr
     dx = dx or 0.5 * b
     xs, Cs, nets, Mc, Mb, nst = [], [], [], [], [], []
@@ -109,22 +116,24 @@ def check(dam: Dam, pipe: Pipe, x_in: float, x_o: float, z_s: float, fl: PipeFlo
             else:
                 lip_dn = max(lip_dn, x_o - x)
             continue
-        sigma_s = surface_load(dam, x, z_s)
-        p_s = soffit_pressure(x - x_in, z_s, z_cr, fl)
-        net = sigma_s - p_s
-        g_b = gamma_bar(C, z_cr, z_s, soil) * b / soil.c_u0
-        args = (C / b, D / b, g_b, soil.rho * b / soil.c_u0)
+        xs.append(x); Cs.append(C)
+        nets.append(surface_load(dam, x, z_s) - soffit_pressure(x - x_in, z_head, z_cr, fl))
+    if xs:
+        Ca = np.asarray(Cs)
+        g_b = np.array([gamma_bar(C, z_cr, z_s, soil) for C in Cs]) * b / soil.c_u0
+        args = (Ca / b, D / b, g_b, soil.rho * b / soil.c_u0)
         gw_b = GAMMA_W * b / soil.c_u0 if full else 0.0
-        xs.append(x); Cs.append(C); nets.append(net)
-        try:
-            nc = table.query(*args, gw_b=gw_b, full=full, mechanism="collapse")[bound]
-            nb = table.query(*args, gw_b=gw_b, full=full, mechanism="blowout")[bound]
-        except UnstableOpening as e:
-            nst.append((x, e.statuses))
-            Mc.append(-math.inf); Mb.append(math.nan)
-            continue
-        Mc.append(soil.c_u0 * nc - net)
-        Mb.append(net - soil.c_u0 * nb)
+        rc_ = table.query_many(*args, gw_b=gw_b, full=full, mechanism="collapse")
+        rb_ = table.query_many(*args, gw_b=gw_b, full=full, mechanism="blowout")
+        net = np.asarray(nets)
+        mc = soil.c_u0 * rc_[bound] - net
+        mb = net - soil.c_u0 * rb_[bound]
+        uns = rc_["unstable"] | rb_["unstable"]
+        mc[uns] = -np.inf
+        mb[uns] = np.nan
+        Mc, Mb = mc.tolist(), mb.tolist()
+        for k in np.nonzero(uns)[0]:
+            nst.append((xs[k], tuple(sorted(rc_["statuses"][k] | rb_["statuses"][k]))))
     rc = RoofCheck(xs, Cs, nets, Mc, Mb, math.inf, math.nan, math.inf, math.nan, (lip_up, lip_dn), nst)
     if Mc:
         i = min(range(len(Mc)), key=lambda k: Mc[k])
@@ -133,7 +142,8 @@ def check(dam: Dam, pipe: Pipe, x_in: float, x_o: float, z_s: float, fl: PipeFlo
         if finite:
             j = min(finite, key=lambda k: Mb[k])
             rc.min_M_b, rc.x_star_b = Mb[j], xs[j]
-    _mechanisms_ab(rc, dam, pipe, x_in, x_o, z_s, fl, soil)
+    if ab:
+        _mechanisms_ab(rc, dam, pipe, x_in, x_o, z_s, fl, soil)
     return rc
 
 
@@ -168,7 +178,7 @@ def _mechanisms_ab(rc: RoofCheck, dam: Dam, pipe: Pipe, x_in: float, x_o: float,
     rc.M_B = 2.0 * soil.c_u0 * A_r - 0.5 * GAMMA_W * max(z_s - z_cr, 0.0) ** 2 * b
 
 
-def failing_reaches(rc: RoofCheck):
+def failing_reaches(rc: RoofCheck, tol: float = 0.0):
     """Contiguous reaches of checked sections with M_c <= 0, as (x_first, x_last, touches_upstream_end,
     touches_downstream_end). 'Touches' means the reach starts at the first (or ends at the last) checked
     section, i.e. it is joined to an end lip. Used by the event logic (stage 3) to tell an interior
@@ -176,7 +186,7 @@ def failing_reaches(rc: RoofCheck):
     out, start = [], None
     n = len(rc.x)
     for k in range(n + 1):
-        bad = k < n and rc.M_c[k] <= 0.0
+        bad = k < n and rc.M_c[k] <= -tol
         if bad and start is None:
             start = k
         if not bad and start is not None:
