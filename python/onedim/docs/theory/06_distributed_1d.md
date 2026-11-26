@@ -1,13 +1,32 @@
 # Theory, Part 6 — The distributed 1-D breach engine
 
-*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `onedim`) · draft 1 · 2026-11-26 ·
+*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 2 · 2026-11-26 ·
 status: for review. No code until sign-off.*
+
+*Draft 2 takes in the review of 2026-11-26 (see §6.0). The main change is a correction found while
+re-deriving the interface momentum balance with explicit signs: draft 1 loaded the wall step at an
+expansion with the receiving cell's pressure, which gives an energy **gain** at an abrupt expansion.
+The step is now loaded with the upwind stage (§6.5.3).*
 
 *Decisions taken before this draft (plan §6, 2026-11-26): two tracks; Preissmann slot; explicit finite
 volume with HLLC and hydrostatic reconstruction; debris by per-cell sediment transport; package
 `python/onedim/`; phase A now; a gated 2-D exit/face patch later. The qualifications attached to
 decisions 2–4 are written into §6.4, §6.5, §6.7 and §6.10. New decisions requested by this draft are
 collected in §6.13.*
+
+## 6.0 Changes from draft 1 (review of 2026-11-26)
+
+| review item | assessment | change |
+|---|---|---|
+| 1.1 (6.15) and (6.16) inconsistent | The two equations agree: (6.16) is the source part of the update, not the difference of corrected fluxes, and the reviewer's own algebra (corrected fluxes equal at rest) is the lake-at-rest result. But the derivation was not written with signs, and doing so exposed a real error at expansions (next row). | §6.5.3 rewritten from the integral momentum balance, every term and sign explicit |
+| (found in re-derivation) | Draft 1 loaded the step face of an expansion with the receiving cell's own stage. In steady flow this gives Q(U₂ − U₁) = g[I1_∩(η₁) − I1_∩(η₂)], an energy **gain** of about (U₁ − U₂)²/2g at an abrupt expansion. Draft 1's claim of a Borda–Carnot loss was wrong. | step faces are loaded with the upwind stage, capped by the face cell's own stage (6.16b); checked numerically: Borda loss within 2.4 % (§6.5.3) |
+| 1.2 I2 and the bed-slope part undefined | Agreed. | Cunge's I2 defined; identity g(I2 + A S₀) = g ∂I1/∂s at fixed stage derived (6.5a); three cases shown (§6.5.3) |
+| 1.3 physical storage overlap | Agreed: a closed budget is not a correct storage. | the region over the upstream face is partitioned: the cells own the stream tube, the reservoir curve excludes it, and water claimed by a widening tube is transferred (§6.6.1); the 0.5 % threshold is withdrawn |
+| 1.4 solids budget incomplete | Agreed. | full budget with initial stores, both boundaries, reservoir deposit, disposal by comparison modes, spoil, signs and normalisation (§6.9.3) |
+| 1.5 rectangular critical depth; overfall flux assumed | Agreed on both. The overfall point is now derived, not assumed. | general-section critical condition; brink-flux derivation; free-overfall test B12b (§6.8.4) |
+| §2 concerns (reverse transport, dry cells, partition, splitting, slot checks, scalar bounds, 2H:1V) | Agreed. | §6.7, §6.8, §6.10 |
+| §3 gates not reproducible; Phase G missing; 10⁻¹² ambiguous | Agreed. | Appendix 6A specifies each benchmark; norms defined (§6.9); Phase G pointer (§6.10) |
+| §5 small corrections (1–7) | Agreed. | (6.29) symbols, (6.13) at discontinuities, (6.25) sign, (6.31) cap, collapse ordering, §6.12.6 wording; references still † |
 
 Rule, as for Parts 1–5: each equation has a source or a short derivation marked *ours*; each
 coefficient is sourced, derived, a numerical parameter fixed by a convergence or insensitivity test,
@@ -163,11 +182,21 @@ For the wetted area A(s, t) and discharge Q(s, t) in a channel of varying sectio
 Verwey 1980, Ch. 2):
 
     ∂A/∂t + ∂Q/∂s = q_l                                                                             (6.4)
-    ∂Q/∂t + ∂/∂s ( Q²/A + g I1 ) = g I2 − g A S_f                                                   (6.5)
+- In Cunge's form (Cunge et al. 1980) the momentum equation is written
 
-- I1 from (6.1); I2 = ∫_{z}^{η} (η − η′) ∂σ/∂s|_{η′} dη′ + (bed-slope part) is the longitudinal
-  pressure force of the walls and bed on the water. With piecewise-constant cells I2 is concentrated
-  at the interfaces, and its discretisation is the well-balanced interface source of §6.5.3.
+      ∂Q/∂t + ∂/∂s ( Q²/A + g I1 ) = g I2 + g A ( S₀ − S_f ),     S₀ = −∂z/∂s                  (6.5)
+
+  with I1 from (6.1) and I2 the longitudinal force of the walls at fixed height y above the bed:
+
+      I2 = ∫_0^h ( h − y ) ∂σ(s, z + y)/∂s |_y dy                                                  (6.5b)
+
+  g A S₀ is the bed part and g I2 the width part. **Identity used for the discretisation** (ours, by
+  Leibniz's rule and one integration by parts):
+
+      g ( I2 + A S₀ ) = g ∂I1(s, η)/∂s |_η          (derivative at fixed stage η)                    (6.5a)
+
+  so the whole geometric source is the change of I1 along s at constant stage. With
+  piecewise-constant cells this change happens only at interfaces, as forces on step faces (§6.5.3).
 - Friction (Manning, as Part 1 (1.12) and Part 5 (5.3)):
 
       S_f = n² Q|Q| / (A² R^{4/3}),    R = A/P                                                       (6.6)
@@ -306,7 +335,11 @@ adjacent sections (both lie on the same axis):
 
     σ_{i+1/2}(η) = min( σ_i(η), σ_{i+1}(η) )   for η above  z_{i+1/2} = max( z_i, z_{i+1} )          (6.13)
 
-(width taken where both sections are open). This is the cross-section generalisation of Audusse et
+(width taken where both sections are open). Width functions are right-continuous: at a level where σ
+jumps (the conduit crown, where it drops from b_p to the slot width T_s; the dam surface) the value
+above the jump applies from that level up, so the intersection of a conduit and an open cell is
+b_p below the crown and min(T_s, σ_open) above it. I1 and A of every section are integrated exactly,
+piece by piece. This is the cross-section generalisation of Audusse et
 al.'s (2004) interface bed max(z_L, z_R): for a rectangular channel of equal widths it reduces to it
 exactly. Two consequences matter:
 - **Positivity.** The interface section is contained in each neighbour's section, so the reconstructed
@@ -329,36 +362,83 @@ a debris barrier (§6.7.4) work without special cases.
 
 **Flux.** F_{i+1/2} = F_HLLC(U*_L, U*_R) on the interface section (§6.5.4).
 
-**Well-balanced pressure correction.** The momentum flux seen by each cell is corrected by the pressure
-of the cell's own water on the part of the interface plane that is not open (the step between the two
-sections):
+**Integral momentum balance of cell i (signs explicit).** Take +s downstream. The water in cell i
+exchanges momentum through the open part of each interface (the intersection section) and is pushed
+by the solid step faces: the part of cell i's own section that is not open at that interface. Over
+one step,
 
-    F^{Q,−}_{i+1/2} = F^Q_{i+1/2} + g [ I1_i(η_i) − I1_{i+1/2}(η_i) ]           (seen by cell i)
-    F^{Q,+}_{i+1/2} = F^Q_{i+1/2} + g [ I1_{i+1}(η_{i+1}) − I1_{i+1/2}(η_{i+1}) ] (seen by cell i+1)     (6.15)
+    Δ(Q_i Δs_i)/Δt = Φ_{i−1/2} − Φ_{i+1/2} + W_{i,L} − W_{i,R} − g A_i S_f,i Δs_i                     (6.15)
 
-with I1 evaluated on the section indicated and the mass flux uncorrected. Substituting (6.15) into
-(6.12) gives, for cell i, the net wall-and-bed force
+- Φ_{i±1/2}: the numerical momentum flux through the open section, F^Q_HLLC (§6.5.4); the same number
+  for both neighbours.
+- W_{i,L}: force (positive downstream) of the step face at the **left** interface on cell i's water.
+  It faces downstream, so it pushes in +s. W_{i,R}: magnitude of the force of the step face at the
+  **right** interface; it faces upstream and pushes in −s, hence the minus sign.
+- Both are hydrostatic: W = g J_i(η_f) with
 
-    g [ I1_{i+1/2}(η_i) − I1_{i−1/2}(η_i) ]                                                          (6.16)
+      J_i(η) = I1_i(η) − I1_{i±1/2}(η)                                                              (6.16)
 
-which is the discrete form of g I2 in (6.5): the bed and wall steps at the two ends of the cell, each
-loaded by the cell's own hydrostatic pressure.
+  the first moment, about stage η, of the area of cell i's section that lies outside the interface
+  section (6.13). It includes the strip below the interface bottom (a bed step) and any width in
+  excess of the neighbour's (a wall step), so bed and width steps are one term.
+- η_f, the stage that loads the face, is set by the flow direction at that interface:
 
-**Properties.**
-- **Lake at rest.** If η is uniform and Q = 0, the reconstructed states on each interface are equal, the
-  HLLC flux is the pure pressure g I1_{i+1/2}(η), and (6.15)–(6.16) cancel it exactly. The scheme
-  preserves still water over any bed *and any width* variation, to round-off. Phase B test B1.
-- **Abrupt expansions.** At a sudden enlargement the step pressure in (6.15) is the pressure of the
-  downstream (larger) cell's water. That is the Borda–Carnot assumption, so the expansion head loss
-  (U₁ − U₂)²/2g follows from the momentum balance without a loss coefficient. **This is how the pipe
-  exit is computed** (§6.6.4), and it is the answer to the outlet-convention question O-1. Phase C
-  test C2 checks it against the Borda–Carnot loss.
-- **Contractions** are nearly loss-free in the 1-D equations. That is physically right for a smooth
-  contraction and wrong for a sharp entrance; the one sharp entrance on the path, the reservoir into
-  the pipe, carries Part 1's sub-grid entrance loss K_u at the boundary (§6.6.1).
+      η_f = η_i                       if the interface mass flux leaves cell i (or is zero)
+      η_f = min( η_i, η_nb )          if it enters cell i from the neighbour nb                      (6.16b)
 
-Ours, built from Audusse et al. (2004) and the irregular-section treatments of Vázquez-Cendón
-(1999)† and Hernández-Dueñas and Karni (2011)†; verified, not trusted, in phase B.
+  When water leaves cell i through a narrower opening (a contraction seen from cell i) the face is
+  loaded by cell i's own, slower water. When water enters cell i through a narrower opening (an
+  expansion seen from cell i) the face is in the separation zone beside the entering jet and carries
+  the jet's stage, capped by the cell's own water level so that a dry or free-jet face carries no
+  pressure. This is the Borda assumption in hydrostatic form.
+
+In flux form (the update (6.12) with F^∓ ≡ Φ ± face terms):
+F^{Q,−}_{i+1/2} = Φ_{i+1/2} + g J_{i,R}(η_f) seen by cell i, and F^{Q,+}_{i−1/2} = Φ_{i−1/2} + g J_{i,L}(η_f).
+
+**Three checks.**
+
+1. *Lake at rest.* η uniform, Q = 0: the reconstructed states (6.14) on each interface are equal, so
+   Φ = g I1_{i±1/2}(η) exactly and η_f = η. Then
+   Φ_{i−1/2} − Φ_{i+1/2} + W_{i,L} − W_{i,R}
+   = g I1_{i−1/2} − g I1_{i+1/2} + g(I1_i − I1_{i−1/2}) − g(I1_i − I1_{i+1/2}) = 0,
+   for any bed and any width variation. (This is the reviewer's observation: the corrected fluxes
+   seen by cell i are equal at rest. The geometric source in the update is the face pair,
+   W_{i,L} − W_{i,R} = g[I1_{i+1/2}(η) − I1_{i−1/2}(η)], which is what draft 1 called (6.16).)
+2. *Bed step, constant width B (rectangle).* J_i = B(η_i − z_i)²/2 − B(η_i − z_{i+1/2})²/2, which is
+   Audusse et al.'s (2004) correction g(h_i² − h*²)/2 per unit width. The scheme reduces to theirs.
+3. *Width step, constant bed; and both together.* J_i is the moment of the excess width
+   (σ_i − σ_nb)⁺ below η, plus the bed strip when the bed also steps; the two are disjoint parts of
+   the same area, so they add. For smooth geometry cut into small cells, the face pair of a cell is
+   g[I1_{i+1/2}(η_i) − I1_{i−1/2}(η_i)] → g ∂I1/∂s|_η Δs = g(I2 + A S₀)Δs by (6.5a): the scheme is
+   consistent with (6.5). The choice (6.16b) changes the face force only by O((ΔU)²) at a step and
+   does not affect consistency or the lake at rest.
+
+**Steady flow through an abrupt section change** (rectangles, same bed, Q = 2 m³/s, h₁ = 1 m; the
+steady cell balance across the step solved exactly; `verification` script to be committed with phase
+B):
+
+| junction | draft-1 face rule (receiving cell's stage) | rule (6.16b) | reference |
+|---|---|---|---|
+| expansion 2 → 4 m | energy **gain** 0.0127 m | loss 0.0131 m | Borda (U₁ − U₂)²/2g = 0.0134 m |
+| expansion 2 → 10 m | gain 0.0307 m | loss 0.0328 m | Borda 0.0329 m |
+| contraction 4 → 2 m | loss 0.0143 m | loss 0.0143 m (same rule) | sharp-edged K ≈ 0.5(1 − A₂/A₁) U₂²/2g ≈ 0.014 m |
+| contraction 10 → 2 m | loss 0.0368 m | loss 0.0368 m | sharp-edged ≈ 0.025 m |
+
+So with (6.16b): abrupt expansions lose the Borda head; abrupt contractions lose a head of the
+sharp-edged order, larger than the sharp-edge value for strong contractions; gradual changes resolved
+over many cells lose only O((ΔU)²) per cell, which vanishes with refinement. The contraction result
+matters at a collapsed cell draining into the next conduit, where the frozen lumped engine uses a
+rounded entrance K_u ≈ 0.05; that difference is recorded as decision 6-16, to be measured in test C2b
+before anything is done about it.
+
+**Positivity.** The interface section is contained in each neighbour's section (6.13), so the
+reconstructed area never exceeds the cell's own area. With Einfeldt wave speeds this gives the
+Audusse et al. positivity argument for the mass update, which does not involve the face forces. It
+is an argument, not a proof for this extension, and is tested (B9, B13).
+
+Ours, built from Audusse et al. (2004), Cunge et al. (1980) and the irregular-section treatments of
+Vázquez-Cendón (1999)† and Hernández-Dueñas and Karni (2011)†; verified, not trusted, in phases B
+and C.
 
 ### 6.5.4 The HLLC flux
 
@@ -440,9 +520,9 @@ it.
 The reservoir obeys Part 1 (1.2)–(1.3) unchanged, with the breach outflow Q_b now the boundary flux at
 s = 0:
 
-    dV/dt = Q_in − F^A_{1/2} − Q_ov − Q_sp,      z_s = Z(V)                                           (6.23)
+    dV_r/dt = Q_in − F^A_{1/2} − Q_ov − Q_sp − Q_tr,      z_s = Z_r(V_r)                              (6.23)
 
-integrated with the same Δt. The boundary state at the first interface is found from two equations:
+integrated with the same Δt (Q_tr: the tube transfer below; Z_r = Z in piping mode). The boundary state at the first interface is found from two equations:
 
 - **Energy from the still reservoir**, with Part 1's entrance loss where the boundary is a sharp
   entrance (the pipe inlet; K_u ≈ 0.05, Part 1 §1.4) and none where it is a deep-water stream tube
@@ -458,12 +538,30 @@ with Fr_b = 1 is used instead: this is exactly Part 1's critical-flow weir (1.4)
 pipe inlet it is Part 5's inlet control (5.2). Outflow back into the reservoir (Q < 0) is allowed and
 adds to V. Both roots are found by bracketed solves, as in Parts 1 and 5.
 
-**Approach section, overtopping (decision 6-1).** The toe boundary uses a **stream tube of the notch
-width** over the submerged upstream face: cells there have the notch section, with the face surface as
-bed where the notch has not cut it. Water over the upstream face outside the notch is reservoir.
-The water in those upstream-face cells is also inside the level-pool volume; this overlap is a
-geometric approximation, not a budget error, and it is reported as a fraction of V (expected well
-below 1 %). If a case exceeds 0.5 %, the boundary is moved to the upstream crest edge (option).
+**Approach section, overtopping: one owner for every parcel of water (decision 6-1).** The toe
+boundary uses a **stream tube of the notch width** over the submerged upstream face: cells there have
+the notch section, with the face surface as bed where the notch has not cut it. The space is
+partitioned so that no water is counted twice:
+
+- The 1-D cells own the stream tube Ω_t(t): the space above the dam surface (or the notch bed) inside
+  the notch top width, from the upstream toe to the upstream crest edge.
+- The reservoir owns everything else. Its stage–volume relation is the case curve minus the tube:
+
+      V_r(z) = V(z) − V_t(z),     V_t(z) = Σ_{upstream-face cells} A_i(z) Δs_i                       (6.23a)
+
+  where A_i(z) is the cell's area below z. V_r is recomputed whenever the tube's geometry changes. The
+  reservoir's state variable is its own water volume V_r, and z_s = Z_r(V_r).
+- **Exchange when the tube changes.** Erosion of the bed inside the tube enlarges the cells only (the
+  stored water is kept, §6.5.6). Widening of the tube takes a strip from the reservoir's space: the
+  water in that strip below z_s is moved from V_r to the cell, as one recorded transfer, so both
+  budgets close and the total physical storage is counted once.
+- **Piping mode has no overlap**: the boundary is the pipe inlet, and the upstream face is not part of
+  the path.
+
+Total storage is then V_r + Σ A_i Δs_i with no double count, which is the physical statement the
+budget (6.33) checks. The alternative, a boundary at the upstream crest edge with no cells on the
+upstream face, is kept as an option; it avoids the partition but does not resolve the notch cut into
+the upstream face. The draft-1 0.5 % threshold is withdrawn.
 
 ### 6.6.2 Downstream: free outfall or tailwater rating
 
@@ -490,7 +588,7 @@ nothing, exactly as in the lumped engine. This covers crest overflow during the 
 | critical control (weir crest, start of the face) | emerges where the bed is highest; transcritical rarefaction resolved by the Riemann solver (phase B test B5) |
 | hydraulic jump on the face or at the toe | shock, mass and momentum conserved, energy dissipated (test B6) |
 | pipe inlet | §6.6.1, energy with K_u, then the conduit section |
-| pipe outlet, free jet onto the face | interface between the last conduit cell and the first face cell; flux through the conduit opening (6.13); expansion loss from (6.15) (Borda–Carnot). With a free outfall at the toe and no tailwater, the jet's velocity head is lost downstream, which is the lumped K_d ≈ 1 recovered as a result (test C2) |
+| pipe outlet, free jet onto the face | interface between the last conduit cell and the first face cell; flux through the conduit opening (6.13); expansion loss from the step-face balance (6.15)–(6.16b) (Borda). With a free outfall at the toe and no tailwater, the jet's velocity head is lost downstream, which is the lumped K_d ≈ 1 recovered as a result (test C2) |
 | pressurisation front | moving front between part-full and slot states, resolved by the scheme (test C4) |
 | conduit beside a collapsed cell | the collapsed cell is open; the conduit discharges into it through its opening; the collapsed cell's stage is free (atmospheric) |
 | water above the dam surface in any cell | allowed in the stream tube (6.2); flagged and reported, since it means water would spill across the dam (a 2-D effect) |
@@ -505,6 +603,8 @@ nothing, exactly as in the lumped engine. This covers crest overflow during the 
     τ_i = ρ g n² U_i |U_i| / R_i^{1/3}                                                               (6.25)
 
 the signed form of Part 1 (1.12), identical to Part 5 (5.5) (τ = ρ f U²/8 with f = 8gn²/R^{1/3}).
+The erosion laws use the magnitude |τ_i|; the sign only says which way the flow, and the transported
+sediment, goes.
 Shear acts uniformly on the wetted perimeter: bed, walls and, in a full conduit, the roof (Part 4
 decision 4, wall shear = bed shear; 0.7 × bed for sensitivity). It is the shear of the cell's own
 solved flow, so the entrance and exit losses do not erode (Part 5 §5.4), and the downstream face is no
@@ -528,11 +628,12 @@ full). Detached fines are wash load, as in Parts 2 and 5: they do not redeposit.
 
 **Non-cohesive (transport-limited, non-equilibrium).** The differential form of Part 2 (2.6), unsteady:
 
-    Ė_i − Ḋ_i = |Q_i| ( C*_i − C_i ) / L_s,i,     L_s,i = λ b_i,     λ = 6 field, 3 lab (2.8)          (6.28)
+    Ė_i − Ḋ_i = |Q_i| ( C_cap,i − C_i ) / L_s,i,     L_s,i = λ b_i,     λ = 6 field, 3 lab (2.8)          (6.28)
 
-with C*_i the Part 2 total-load capacity (2.3)–(2.4b), DL Breach combination by default, steep-slope
-correction (2.5a–b) with the local bed angle θ_i = atan[(z_{i−1} − z_{i+1})/(Δs_{i−1/2} + Δs_{i+1/2})],
-and f_t applied once to C*. Positive values erode, negative deposit.
+with C_cap,i the Part 2 total-load capacity (2.3)–(2.4b) evaluated with |U_i| and |τ_i|, DL Breach
+combination by default, and f_t applied once. The steep-slope correction (2.5a–b) uses the bed angle
+**in the direction of flow**, θ_i = atan[sgn(U_i)(z_{i−1} − z_{i+1})/(Δs_{i−1/2} + Δs_{i+1/2})], so
+reverse flow sees the slope it actually runs down or up. Positive values erode, negative deposit.
 
 **Relation to the lumped form.** For steady uniform flow over a reach, (6.26) with (6.28) integrates
 to Part 2 (2.7) exactly. That is phase D test D2: the distributed model reproduces the lumped
@@ -541,10 +642,11 @@ non-equilibrium solution in its own limit, so the two engines differ only where 
 **Integration of the source.** The relaxation (6.28) is stiff when Δs ≪ L_s is not met or U is large.
 It is integrated exactly over the step (as (2.7) integrates it over a reach):
 
-    C_i^{n+1} = C*_i + ( C_i^* − C*_i ) exp( −|U_i| Δt / L_s,i )                                      (6.29)
+    C_i^{n+1} = C_cap,i + ( C_adv,i − C_cap,i ) exp( −|U_i| Δt / L_s,i )                             (6.29)
 
-with C_i^* the concentration after advection. The solids exchanged, (C_i^* − C_i^{n+1}) A_i Δs_i, are
-taken from or added to the bed (§6.7.3).
+with C_adv,i the concentration after advection. The solids exchanged, (C_i^{n+1} − C_adv,i) A_i Δs_i,
+are taken from the bed (positive) or added to it (negative) (§6.7.3). For erosion the exchange is
+limited to what the mobile store and the intact soil above the base can supply.
 
 ### 6.7.3 Exner: from exchanged solids to bed change
 
@@ -572,6 +674,16 @@ It erodes before the intact soil below it, with the debris erodibility: k_d,debr
 (cohesive; default the intact values, Part 5 §5.7) or the Part 2 capacity (non-cohesive). Porosity n_d
 defaults to n. Its surface z_d,i is the cell's bottom elevation for the hydraulics (§6.2.3), so a debris
 layer obstructs the flow from the instant it forms.
+
+**Cap.** The debris surface cannot rise above the dam surface: z_d,i ≤ z_g,i. Solids beyond that go
+to a per-cell **spoil** store, counted in the budget (6.34) and hydraulically inactive, as the spoil
+beside the slot in Part 5 (5.12b).
+
+**Dry cells and suspended sediment.** The conserved quantity is (A C)_i; C_i = (A C)_i / A_i is formed
+only when A_i > A_dry (the area at h_dry). When a cell dries (A_i ≤ A_dry), its suspended solids
+(A C)_i Δs_i are deposited into M_i and (A C)_i is set to 0, conserving solids; a cell that wets
+starts with C = 0 and receives sediment only by advection. The advective flux (6.20) uses the upwind
+C only from a wet side.
 
 **Blocking is no longer a rule.** If the reservoir stage is below a debris surface, the hydrostatic
 reconstruction (6.14) gives a dry interface and no water passes. The lumped "sealed" outcome (Part 5
@@ -606,7 +718,9 @@ to the dam surface, as in Part 3 (3.1)–(3.2):
 
     Δz_i = ΔV_i / A_e,tot,i,     A_e,tot,i = b_i Δs_i + n_loc (z_g,i − z_b,i) Δs_i / sin β_w,i          (6.32)
 
-and the section updates by Part 3 (3.3)–(3.5) unchanged (bed lowers by Δz, top width grows by
+The same normal thickness Δz acts on the bed and on the walls (Part 3 §3.2), so the partition follows
+the geometry: the bed takes b_i Δs_i Δz and the walls the rest. The section then updates by Part 3
+(3.3)–(3.5) unchanged (bed lowers by Δz, top width grows by
 n_loc Δz / sin β_w, bottom width by n_loc Δz (1/sin β_w − 1/tan β_w)). Deposition raises the mobile
 store, not the walls. The bed stops at the base or non-erodible foundation (Part 3 §3.5-1) and widening
 continues; the erodible-foundation option (c_b = 1.6) and the abutment limit (§3.5-2, -3) apply per
@@ -647,14 +761,18 @@ here. The plane-strain section ignores support from neighbouring cells, which is
 short collapse length (Part 5 §5.5a); every other §5.5b convention (overburden shift (5.15b),
 full-pipe identity (5.16b)) is applied exactly as there.
 
-**Collapse of cell i.** When the margin crosses zero:
+**Collapse of cell i.** The roof check reads the state after the flow and erosion updates of the
+step (§6.5.6). When the margin crosses zero, in this order:
 1. The roof solids V_s,i = (1 − n) b_p,i (z_g,i − z_cr,i) Δs_i go into the cell's mobile store M_i.
 2. The cell becomes a collapsed cell (§6.2.3(c)): open, width b_p,i, vertical walls from the intact bed
    z_inv,i to z_g,i, debris surface z_d,i from (6.31). With n_d = n, z_d,i = z_g,i − a_p,i, the
    per-cell form of Part 5's z_d ≈ H − a_p.
-3. The water in the cell is kept (A_i Δs_i), so the stage is recomputed on the new section
-   (§6.5.6). The water now stands in an open cell, at atmospheric pressure.
-4. Neighbouring cells are not changed by rule. They lose nothing they were credited with (no end
+3. The water in the cell is kept (A_i Δs_i), and the stage is recomputed on the new section, with the
+   debris surface as its bottom (§6.5.6). The water now stands in an open cell, at atmospheric
+   pressure. Pore water of the fallen roof (partly saturated) is not added to the cell's water; the
+   omission is stated, and its size, n S_r V_roof, is reported.
+4. The suspended concentration of the cell is unchanged (the debris enters the store, not the flow).
+5. Neighbouring cells are not changed by rule. They lose nothing they were credited with (no end
    support), and they respond to the new hydraulics on the next step.
 
 **Collapse length and grid dependence.** The lumped §5.7a spreading cascade and its collapsed-length
@@ -699,18 +817,36 @@ the outcome. Decision 6-8.
 The 1-D hydrostatic equations cannot represent a plunging overfall. Part 4's physics is therefore kept
 as a **sub-grid closure on an interface**, for soils with a detachment law (Part 4 §4.3):
 
-1. **Drop interface.** An interface i+1/2 whose bed drop z_i − z_{i+1} exceeds the critical depth of the
-   flow over it, d_c = (q²/g)^{1/3} with q = Q/b, while the downstream stage is below the upstream bed
-   (the plunging condition (4.2)), is a drop interface. Its flux is the free overfall the hydrostatic
-   reconstruction already gives (a dry or low downstream side); no extra hydraulic rule is added.
-2. **Advance.** The brink retreats at Part 4 (4.3)–(4.9) with H_h = z_i − z_{i+1}, d_bw = max(d_c,
-   h_{i+1}) and the soil's k_d, τ_c, c_u, γ_t. The retreat accumulates as a brink position inside
-   cell i; when it crosses the cell, cell i's bed drops to the base of the drop and the solids
-   (1 − p) b_i (z_i − z_{i+1}) Δs_i enter the flow. E_v ≤ 0 caps the advance at the cascading-face
+1. **Critical depth on the actual section.** The brink cell is cell i (upstream of the drop). Its
+   critical depth y_c,i solves the general condition Q_i² T_i / (g A_i³) = 1 on cell i's own section
+   (Part 1 (1.4)); A, T and Q all come from cell i. The rectangular d_c = (q²/g)^{1/3} is used only
+   where that section is rectangular.
+2. **Drop interface (plunging condition (4.2)).** Interface i+1/2 is a drop interface when
+   z_i − z_{i+1} > y_c,i and the downstream stage is below the brink, η_{i+1} < z_i.
+3. **The overfall discharge, derived rather than assumed** *(ours)*. With the downstream side dry at
+   the interface, the interface flux is the sonic state of the left rarefaction from cell i's
+   reconstructed state. Along that rarefaction R⁺ = U + Φ(A) is constant (6.8), so the mass flux
+   Q(A) = A [R⁺ − Φ(A)] has dQ/dA = U − c: it is largest exactly at the sonic point U = c. The
+   interface flux is that maximum, and cell i's own discharge lies on the same curve. In steady flow
+   the two must be equal, which happens only if cell i is itself at its sonic point: **the brink cell
+   is critical, Q² T/(g A³) = 1**, for any section shape. Its discharge for a given upstream energy is
+   then the critical-flow discharge of Part 1 (1.4)–(1.5), less the energy lost by numerical
+   dissipation in the approach cells, which vanishes with refinement. Test B12b checks this.
+4. **Advance.** The brink retreats at Part 4 (4.3)–(4.9) with H_h = z_i − z_{i+1}, d_c = y_c,i,
+   d_bw = max(y_c,i, h_{i+1}) and the soil's k_d, τ_c, c_u, γ_t. Robinson's relations were derived for
+   a rectangular overfall: they are used with q = Q/b where the notch walls are vertical (the usual
+   cohesive case, Part 3 §3.4), and with q = Q/T(y_c) where they slope, an approximation flagged in
+   the output and tested in the sensitivity analysis. E_v ≤ 0 caps the advance at the cascading-face
    rate, as in Part 4.
-3. **Base scour** at the larger of the downstream cell's own shear (6.25) and the jet stress τ_hf (4.7),
+5. **No double counting.** In each step the shear erosion of cell i (§6.8.1) is applied first; the
+   headcut then acts on the updated geometry. The retreat accumulates as a brink position inside
+   cell i; when it crosses the cell, cell i's bed drops to z_{i+1} and the solids
+   (1 − p) b_i (z_i − z_{i+1}) Δs_i, computed from the updated bed, enter the flow once. The water in
+   cell i is kept (§6.5.6). Until the brink crosses it, cell i erodes by its own shear over its whole
+   bed; the resulting error is at most one cell and vanishes with Δs (grid study).
+6. **Base scour** at the larger of the downstream cell's own shear (6.25) and the jet stress τ_hf (4.7),
    as in Part 4 §4.3.
-4. **What is dropped.** SIMBA's erosion-resistant crest during stages 1–2 (Part 4 §4.3) is not used:
+7. **What is dropped.** SIMBA's erosion-resistant crest during stages 1–2 (Part 4 §4.3) is not used:
    the crest erodes by its own computed shear. The stage numbers are not state variables; a drop
    interface either exists or not. The residual-block sliding check (4.10)–(4.11) is kept, on the
    block of cells upstream of the most upstream brink (decision 6-10).
@@ -726,30 +862,45 @@ in.
 
 ### 6.9.1 Water
 
-    V(t) + Σ_i A_i Δs_i  =  V(0) + Σ_i A_i(0) Δs_i + ∫ ( Q_in − Q_ov − Q_sp − F^A_{N+1/2} ) dt        (6.33)
+    E_w(t) = [ V_r(t) + Σ_i A_i Δs_i ] − [ V_r(0) + Σ_i A_i(0) Δs_i ] − ∫_0^t ( Q_in − Q_ov − Q_sp − F^A_{N+1/2} ) dt   (6.33)
 
-The finite-volume update is conservative, the reservoir is integrated with the boundary flux, and
-geometric events keep A_i Δs_i (§6.5.6), so (6.33) closes to round-off: **gate 10⁻¹² relative**,
-checked every output step. Reported alongside: the slot storage (§6.4.2) and the approach-overlap volume
-(§6.6.1), which are modelling approximations, not budget terms.
+The reservoir–domain flux F^A_{1/2} and the tube transfer Q_tr are internal and cancel. The finite-volume
+update is conservative, and geometric events keep A_i Δs_i (§6.5.6), so E_w is round-off only.
+
+**Norm and gate.** ε_w = |E_w(t)| / max( V_r(0) + Σ A_i(0) Δs_i + ∫ Q_in dt , V_floor ), V_floor = 10⁻⁹ m³
+(so a dry or empty test does not divide by zero). It is the **cumulative** error, evaluated at every
+output step. Gate: ε_w < 10⁻¹⁰ in every run. The draft-1 value 10⁻¹² is kept only as a **per-step**
+check in the phase B tests: over 10⁶–10⁷ steps, round-off of order 10⁻¹⁶ per step can accumulate past
+10⁻¹², which is not a conservation fault. Reported alongside, as modelling approximations and not budget
+terms: the slot storage (§6.4.2) and the omitted debris pore water (§6.8.2).
 
 ### 6.9.2 Momentum
 
-Momentum is not conserved (bed, walls and friction act on it). A momentum budget is computed as a
-diagnostic in phases B and C: the change of Σ Q_i Δs_i equals the boundary fluxes plus the summed
-interface wall forces (6.16) plus friction, to round-off. Across a hydraulic jump the conjugate depths
-are checked (test B6).
+Momentum is not conserved (bed, walls and friction act on it). In phases B and C a momentum budget is
+computed as a diagnostic: the change of Σ Q_i Δs_i equals the boundary fluxes plus the step-face forces
+of (6.15) plus friction, to round-off. Across a hydraulic jump the conjugate depths are checked (test B6).
 
 ### 6.9.3 Solids
 
-Tracked as solids volumes, every step:
+All terms are solids volumes, ≥ 0, cumulative from t = 0:
 
-    S_removed(t)  =  Σ_i A_i C_i Δs_i  +  Σ_i M_i  +  S_exported(t)                                  (6.34)
+    S_susp(t) + S_M(t) + S_sp(t) + S_res(t) + S_out(t) + S_disp(t)
+        = S_susp(0) + S_M(0) + S_sp(0) + S_int(t)                                                (6.34)
 
-S_removed: intact soil removed by erosion, roof collapse and bank failure (solids); S_exported:
-∫ F^{AC}_{N+1/2} dt at the outfall. Solids in the store are counted once, whether they arrived by
-collapse, bank failure or deposition. **Gate 10⁻¹² relative.** This is the per-cell form of Part 5
-(5.13), with "exported" now meaning carried past the outfall, not removed by rule.
+| term | definition |
+|---|---|
+| S_susp | Σ (A C)_i Δs_i, suspended in the cells |
+| S_M | Σ M_i, mobile stores (fallen roof, failed walls, deposits, solids of dried cells) |
+| S_sp | Σ spoil, solids above the dam-surface cap (6.31), hydraulically inactive |
+| S_res | −∫ min(F^{AC}_{1/2}, 0) dt: solids carried **into the reservoir** by reverse flow. The reservoir delivers clear water (C = 0), so F^{AC}_{1/2} ≤ 0 always; solids that enter it are taken to settle there and are not re-entrained |
+| S_out | ∫ F^{AC}_{N+1/2} dt: solids carried past the outfall. A tailwater rating also returns clear water, so this term never decreases |
+| S_disp | solids removed by a comparison mode (`debris_mode = "export"`), kept separate from S_out because they are not transported |
+| S_int | solids removed from intact soil by erosion, roof collapse, wall failure and headcut retreat |
+
+**Norm and gate.** ε_s = |LHS − RHS| / max( S_int(t) + S_susp(0) + S_M(0) + S_sp(0), S_floor ),
+S_floor = 10⁻¹² m³, cumulative, every output step; gate ε_s < 10⁻¹⁰, as for water. This is the per-cell
+form of Part 5 (5.13), with "exported" now split into what was carried out (S_out, S_res) and what a
+comparison mode removed (S_disp).
 
 ---
 
@@ -757,7 +908,9 @@ collapse, bank failure or deposition. **Gate 10⁻¹² relative.** This is the p
 
 Gates are hard: a phase does not start until the previous one passes. Pass criteria are written here,
 before any run. All tests run in both water-only form and, where relevant, with the passive
-concentration.
+concentration. **Exact setups (domain, initial and boundary conditions, reference solution, grid
+sequence, error norm) are in Appendix 6A**, so that the tests can be reproduced by someone other than
+the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 
 **Phase B — open-channel solver, fixed geometry.**
 
@@ -773,18 +926,22 @@ concentration.
 | B8 wetting and drying | Thacker (1981)† parabolic bowl, 1-D | shoreline and h converge; positivity never violated |
 | B9 positivity | two strong rarefactions leaving a near-dry middle (Toro 2001) | A ≥ 0 every step; no NaN; mass to 10⁻¹² |
 | B10 steep bed steps and near-dry cells | flow down a 1:2 face onto a flat apron; step-up and step-down beds | stable; mass to 10⁻¹²; profile converges with Δs |
+| B12a steady abrupt junctions | expansions and contractions, rectangles and trapezoids, conduit → open | steady head change within 1 % of the junction relation of §6.5.3 (Borda for expansions); no energy gain at any junction |
+| B12b free overfall | subcritical approach to a drop onto a dry apron | brink cell critical (Q²T/gA³ = 1 within 1 %); discharge → critical-flow weir (1.4)–(1.5) for the upstream energy as Δs → 0 |
+| B13 passive scalar | contact discontinuity in C advected through uniform, varying-section and wet/dry reaches | 0 ≤ C ≤ max C(0) every step; (A C) ≥ 0; no new extrema; solids to the ε_s gate |
 | B11 grid and dt convergence | B2, B6, B7 at Δs, Δs/2, Δs/4 and CFL, CFL/2 | observed order and GCI (Roache 1998; Celik et al. 2008†) reported |
 
 **Phase C — conduit with the slot.**
 
 | test | pass criterion |
 |---|---|
-| C1 steady full pipe | discharge within 0.5 % of the closed-form outlet-control solution with the same losses; crown pressure along the pipe matches (5.8) in the long-pipe limit |
+| C1 steady full pipe | reservoir to reservoir through a full conduit (both ends submerged, Appendix 6A): discharge within 0.5 % of Q = A √(2gΔH/(K_u + 1 + fL/4R)); crown pressure along the pipe within 0.5 % of the linear friction profile, i.e. (5.8) |
+| C2b contraction into a conduit | open cell draining into a conduit (the collapsed-cell case): head loss reported against K_u = 0.05 (Part 1) and the sharp-edged value; no pass threshold, it decides decision 6-16 |
 | C2 free outlet and expansion | head loss at the outlet within 1 % of Borda–Carnot; with a free outfall the computed outflow matches (5.3) with K_d = 1 within 1 % (the lumped outlet convention recovered or not, reported either way) |
 | C3 surge celerity | a pressure step travels at a_s within 1 % |
 | C4 pipe filling | the filling bore speed and the pressurisation time against the mass and momentum jump conditions; oscillations behind the front measured and reported (peak-to-peak pressure); comparison with the Trajkovic et al. (1999)† or an equivalent filling experiment |
 | C5 pressurised ↔ free surface | emptying and refilling cycle; mass to 10⁻¹²; no spurious pressurisation |
-| C6 slot sensitivity | a_s and 2a_s: Q, crown pressure, filling time change < 1 % (this fixes the default a_s) |
+| C6 slot sensitivity | (i) both conditions (6.10) hold in every C test and every case run later (checked and logged each run); (ii) a_s and 2a_s: Q, the crown-pressure distribution along the pipe, the pressurisation time and the filling-front position change < 1 %. Together these fix the default a_s |
 | C7 HLLC with the slot | C1–C6 run with the HLLC flux; stable at CFL 0.9 and 0.45; **the slot is accepted only if C1–C7 pass** |
 | C8 priming | the emergent priming of a growing pipe compared with the lumped step (size and direction, F < 1.05 up, F > 1.05 down); reported |
 
@@ -796,20 +953,27 @@ approach is investigated (plan qualification 1). The choice is never made on bre
 | test | pass criterion |
 |---|---|
 | D1 solids budget | (6.34) to 10⁻¹² through erosion, deposition, collapse and bank failure |
-| D2 non-equilibrium relaxation | steady uniform flow, clear inflow: C(s) = C*(1 − exp(−s/L_s)) within 0.5 % at Δs ≤ L_s/5 |
+| D2 non-equilibrium relaxation | steady uniform flow, clear inflow: C(s) = C_cap(1 − exp(−s/L_s)) within 0.5 % at Δs ≤ L_s/5 |
 | D3 uniform-flow limit | a prismatic erodible reach in uniform flow: per-cell erosion rate and widening equal the lumped (2.1)/(2.3)–(2.9) and (3.1)–(3.5) for the same τ to 10⁻⁹ |
 | D4 aggradation/degradation | a published mobile-bed benchmark, chosen at review (candidates: clear-water degradation below a dam; Spinewine and Zech 2007† dam break over a mobile bed), qualitative and order-of-magnitude |
 | D5 bank and wall failure | per-cell wedge volume into the store; β_w trends as Part 3 §3.6; (5.17) reproduces the lumped wall check on identical states |
+| D7 splitting error | a coupled erosion case (uniform reach eroding under constant inflow) at CFL, CFL/2, CFL/4: bed elevation, width and Q converge with observed order reported |
 | D6 roof collapse in isolation | a fixed-flow conduit reaching the §5.5b margin: collapse at the margin crossing; debris surface (6.31); water kept; grid independence of the collapse time |
 
 **Phase E — overtopping cases.** The lumped reference cases, both engines on identical case files,
-side by side: Q_p, T_p, final width, hydrograph shape. Then the case database. Differences are
-reported and explained by the flow, never removed by adjustment.
+side by side, with the reporting protocol of Appendix 6A (E). Then the case database. Differences are
+reported and explained by the flow, never removed by adjustment. Sensitivity runs: a 2H:1V face case
+with the hydrostatic error of §6.3.1 quantified (vertical against bed-normal pressure at the same
+Q), and wall shear 0.7 × bed.
 
 **Phase F — piping, P1.** Both engines, identical inputs, frozen soil parameters (k_d band, c_u, τ_c),
-no tuning. Compared with the lumped baseline and with the photo evidence as ratios with the scale
-caveat (handoff §3–4). Reported whether or not P1 breaches. Grid convergence of the collapse location
-and time (decision 6-14).
+no tuning, with the reporting protocol of Appendix 6A (F). Compared with the lumped baseline and with
+the photo evidence as ratios with the scale caveat (handoff §3–4). Reported whether or not P1 breaches.
+Grid convergence of the collapse location and time (decision 6-14).
+
+**Phase G.** Part 6 stops at phase F. From phase G the existing roadmap (`ROADMAP_LUMPED_1D_2026-11-20`)
+takes over unchanged — pre-registered blind set, sensitivity, calibration of f_kd and f_t, validation —
+with the distributed engine as the candidate and the lumped engine as the reference.
 
 ---
 
@@ -831,7 +995,8 @@ Stated now, before results:
 9. **3-D roof and face effects** (end support, face collapse near the outlet) are not in the section
    criterion; F-1 remains a screening.
 10. **Boundaries.** Level-pool reservoir (no waves in the reservoir); TW = 0 unless a rating is given.
-11. **Approach.** Notch-width stream tube over the submerged upstream face, overlapping the level pool.
+11. **Approach.** Notch-width stream tube over the submerged upstream face (partitioned from the reservoir, §6.6.1); no flow converging laterally into the notch.
+12. **Abrupt contractions** lose a head of the sharp-edged order from the step-face balance (§6.5.3), which can differ from the rounded-entrance K_u of the lumped engine (decision 6-16).
 
 ---
 
@@ -855,14 +1020,22 @@ to the toe and a short apron downstream. The reservoir, the conduit and any down
 ### 6.12.2 Exchange of water, momentum and sediment
 
 Frontal coupling through one interface (after Bladé et al. 2012† and Morales-Hernández et al. 2013†):
-- The 2-D cells along the interface edge form the 2-D side of the 1-D interface s_c. Their states are
-  width-integrated into a 1-D right state (A, Q, C) on the interface section.
+- The 2-D cells k along the interface edge (widths Δy_k, depths h_k, normal velocities u_k, stages η_k,
+  concentrations C_k) form the 2-D side of the 1-D interface s_c. Their width-integrated state is
+  A = Σ h_k Δy_k, Q = Σ h_k u_k Δy_k, A C = Σ h_k C_k Δy_k, with the stage η defined by A_s(η) = A on the
+  interface section (so that a level 2-D edge gives exactly its own stage).
 - **One flux per interface, computed once**, by the same HLLC/hydrostatic-reconstruction rule (6.13)–
   (6.20). The 1-D cell receives it in full; the 2-D boundary edges receive it distributed over the edge
   in proportion to their share of the interface section's flow area (mass, normal momentum and
   sediment). The 1-D and 2-D budgets therefore see the same number, so water and solids are
   conserved across the interface exactly.
-- Transverse momentum on the 2-D side of the interface is zero at entry (the 1-D side has none).
+- The flux split must keep a 2-D lake at rest across the interface: the pressure part is given to each
+  edge as its own hydrostatic pressure at the common stage, and the advective parts (mass, normal
+  momentum, sediment) in proportion to the edge's share of the flow area. Transverse momentum on the
+  2-D side is zero at entry (the 1-D side has none).
+- This defines the exchange to the level needed to keep the architecture open. The full derivation and
+  its tests (a level interface, a dam break across the interface, a steady flow entering the patch) are
+  part of the patch's own development stage, when it is activated.
 
 ### 6.12.3 Boundary information and time stepping
 
@@ -896,7 +1069,8 @@ patch; it is not built to force agreement with one experiment.
 
 ### 6.12.6 What the 1-D design keeps open for it
 
-- Interfaces carry their own section (6.13), so a 2-D edge can stand in for a 1-D neighbour.
+- Each interface is an object that carries its own section (built in v1 by the intersection rule
+  (6.13)), so a 2-D edge can stand in for a 1-D neighbour.
 - The downstream boundary is an interface object (flux in, state out), not hard-coded.
 - Budgets are closed through interface fluxes, so a second domain adds terms, not exceptions.
 - q_l in (6.4) is kept for lateral exchange.
@@ -907,10 +1081,10 @@ patch; it is not built to force agreement with one experiment.
 
 | no. | question | proposal |
 |---|---|---|
-| 6-1 | approach over the submerged upstream face (overtopping) | stream tube of notch width from the upstream toe; overlap volume reported; boundary moved to the crest edge if overlap > 0.5 % |
+| 6-1 | approach over the submerged upstream face (overtopping) | stream tube of notch width from the upstream toe, with the space partitioned between cells and reservoir (6.23a) and a recorded transfer when the tube widens; crest-edge boundary as an option |
 | 6-2 | slot celerity | fixed in phase C by the insensitivity criteria (6.10) and test C6; start at 50 m/s |
 | 6-3 | order of accuracy | first order is the v1 baseline; MUSCL + SSP-RK2 only if it passes the same gates |
-| 6-4 | interface sections | the intersection rule (6.13) with the well-balanced correction (6.15), ours, verified in phase B |
+| 6-4 | interface sections | the intersection rule (6.13) with the step-face balance (6.15)–(6.16), ours, verified in phase B |
 | 6-5 | lateral spreading on the face and above the ground | none (stream tube); stated limitation and the first 2-D activation candidate |
 | 6-6 | Part 3 reach closures c_b (3.6) and Appendix 3A | not used; (3.6) kept as an option for comparison |
 | 6-7 | headcut | Part 4 relations as a drop-interface closure (§6.8.4); SIMBA's erosion-resistant crest dropped |
@@ -921,6 +1095,72 @@ patch; it is not built to force agreement with one experiment.
 | 6-12 | mixture effects | clear-water continuity in v1 |
 | 6-13 | numbering | call this Part 6 of the distributed engine's own theory (`python/onedim/docs/theory/06_…`), and renumber the lumped plan's future parts (impulse waves, moraine) as 7 and 8 when they are written |
 | 6-14 | minimum collapse length | none in advance; introduced only if the grid study shows non-convergence, and then with a source |
+| 6-15 | stage that loads a step face | upwind stage capped by the face cell's stage (6.16b); the draft-1 rule gave an energy gain at expansions |
+| 6-16 | contraction loss where an open cell drains into a conduit | the step-face result as it comes; measured in C2b against K_u = 0.05; no closure added before that evidence |
+| 6-17 | conservation gates | cumulative relative error < 10⁻¹⁰ (water and solids) every run; 10⁻¹² per step in phase B |
+
+---
+
+## Appendix 6A — Benchmark specifications (phases B–F)
+
+Common rules. g = 9.81 m/s². Error norms are relative L1 over wet cells,
+e(φ) = Σ|φ − φ_ref| Δs / Σ|φ_ref| Δs; observed order p = log₂(e_N / e_2N); GCI after Celik et al.
+(2008)†. Unless stated, grids N, 2N, 4N, CFL 0.9 and 0.45, h_dry = 10⁻⁶ m. Where a setup is taken from
+the SWASHES collection (Delestre et al. 2013†), its parameters are used exactly as published there and
+cited by case name, so the reference solution is independent of this project.
+
+**Phase B**
+
+| test | setup | reference |
+|---|---|---|
+| B1 | L = 10 m, N = 50; piecewise-constant bed z ∈ [0, 0.4] m and sections drawn with a fixed seed (rectangles 0.5–3 m wide, trapezoids cot β_w 0–2, one 5-cell conduit 0.2 × 0.2 m); η = 0.5 m, Q = 0; closed ends; 10⁵ steps | η = 0.5, U = 0 |
+| B2 | rectangle b = 1 m, flat, frictionless, s ∈ [−1000, 1000] m, h = 1 m for s < 0, dry for s > 0, t = 50 s; N = 400, 800, 1600, 3200 | Ritter (1892); front at 2√(g h₀) t |
+| B3 | as B2 with h_R = 0.1 m | Stoker (1957); shock speed from the jump conditions |
+| B4 | trapezoid with σ(s, y) = b(s) + 2y cot β(s), b(s) = 1 + 0.5 sin(2πs/L), cot β(s) = 1 + 0.5 cos(2πs/L), z(s) = 0.1 sin(2πs/L), L = 10 m, periodic; manufactured smooth A(s, t), Q(s, t) with the source terms derived analytically from (6.4)–(6.5) | the manufactured solution; p ≥ 0.9 required |
+| B5 | Goutal and Maurel (1997)† bump, L = 25 m, z = 0.2 − 0.05(s − 10)² on 8 < s < 12, unit width, frictionless; subcritical (q = 4.42 m²/s, h_out = 2 m), transcritical without shock (q = 1.53 m²/s), with shock (q = 0.18 m²/s, h_out = 0.33 m), as in SWASHES | Bernoulli and the jump conditions (analytic) |
+| B6 | rectangle b = 1 m, flat, frictionless, L = 50 m; inflow h₁ = 0.1 m, U₁ = 3.0 m/s (Fr₁ = 3.03); outlet stage at the conjugate depth h₂ = (h₁/2)(√(1 + 8Fr₁²) − 1) | Bélanger; jump location steady to one cell |
+| B7 | rectangle b = 5 m, n = 0.02, Q = 10 m³/s, L = 1000 m: M1 (S₀ = 0.001, h_out = 3 m), M2 (free overfall at the end), S2 (S₀ = 0.02 from a critical break); repeated with b varying linearly 5 → 3 m | direct-step integration of the steady GVF equation with 10⁴ sub-steps |
+| B8 | Thacker (1981)† planar oscillation in a parabolic bowl, the SWASHES 1-D case and parameters, three periods | the analytic solution; shoreline position and h |
+| B9 | rectangle, flat, frictionless; h = 1 m, U = −5 m/s for s < 0 and +5 m/s for s > 0 (two rarefactions, near-dry centre) | Toro (2001) exact Riemann solver |
+| B10 | rectangle b = 1 m, n = 0.016, Q = 0.5 m³/s: 2 m flat crest at z = 2 m, 1:2 face to z = 0, 10 m apron; tailwater rating at the end | critical at the crest edge; S2 profile on the face by direct step on the same hydrostatic equations; jump on the apron at the Bélanger location (profile within 2 %, jump within 2 cells at 4N) |
+| B11 | B2, B6, B7 at N, 2N, 4N and both CFL values | observed order and GCI reported |
+| B12a | rectangles 2 → 4, 2 → 10, 4 → 2, 10 → 2 m and trapezoid equivalents, same bed, Q = 2 m³/s, h₁ = 1 m; conduit 0.2 × 0.2 m → open 1 m | the steady junction relation of §6.5.3, solved independently; Borda for expansions |
+| B12b | flat crest z = 1 m, b = 1 m, then a 1 m drop onto a dry apron; upstream energy E = 0.5 m above the crest | Q = √g (2E/3)^{3/2} b; brink cell Fr = 1 |
+| B13 | rectangle, U = 1 m/s uniform; C = 1 on 4 ≤ s ≤ 6 m, 0 elsewhere; then the same through B4's sections and across a wetting front | 0 ≤ C ≤ 1, positivity of A C, exact solids total |
+
+**Phase C**
+
+| test | setup | reference |
+|---|---|---|
+| C1 | square conduit 0.04 m, L = 8.31 m, n_p = 0.016, invert 0.20 m; upstream reservoir 1.10 m, downstream reservoir 0.30 m (outlet submerged above the crown); K_u = 0.05 | Q = A √(2gΔH/(K_u + 1 + fL/4R)), f = 8gn_p²/R^{1/3}; linear crown-pressure profile |
+| C2 | the same conduit discharging freely onto a 3H:1V face, TW = 0 | lumped (5.3) with K_d = 1, reported (O-1) |
+| C2b | a 0.5 m wide open cell draining into the 0.04 m conduit | K_u = 0.05 and the sharp-edged value, reported |
+| C3 | full conduit at rest; inlet stage raised by 0.1 m at t = 0 | front speed a_s |
+| C4a | pipe-filling Riemann problem: part-full conduit (h = 0.5 a_p, U = 0) meeting a pressurised state (piezometric head 0.5 m above the crown) | exact Riemann solution of the slot system (Kerger et al. 2011†): front speed and states within 1 % |
+| C4b | Trajkovic et al. (1999)† filling experiment, circular section (geometry supported for this test) | measured front speed and pressures; reported; data to obtain |
+| C5 | C1 conduit; upstream level lowered below the crown and raised again over 60 s | mass to the gate; no spurious pressurisation |
+| C6 | C1–C5 at a_s and 2a_s | < 1 % in Q, the pressure distribution, the pressurisation time and the front position; both (6.10) conditions logged |
+| C7, C8 | as in §6.10 | as in §6.10 |
+
+**Phase D.** D4 is fixed as (a) a manufactured coupled flow–Exner solution on B4's channel with a
+smooth erodible bed and an analytic capacity law (quantitative: p ≥ 0.9, error at 4N below 1 %), and
+(b) one laboratory mobile-bed case, qualitative and order of magnitude only, chosen at review from
+data on file (candidates: Spinewine and Zech 2007†; a non-cohesive Walsh flume run). D1–D3 and D5–D7
+as in §6.10.
+
+**Phase E protocol (overtopping).** For each case and both engines: Q_p; T_p measured from the same
+reference event as the lumped records; the final average width B̄ (1.1) at the control cell and its
+maximum over the dam; the final control-bed elevation; the outflow volume at 25, 50, 75 and 100 % of the
+event; the hydrograph. Report new, reference and observation, (new − ref)/ref and (new − obs)/obs. A
+distributed result is reported as converged only if the GCI of Q_p, T_p and B̄ is below 5 %; otherwise
+it is reported as not converged, with the GCI.
+
+**Phase F protocol (P1).** Report: time and position of the first collapse; the sequence of collapsed
+cells in time; b_p and a_p of the outlet cell in time, and their ratios at the photo times (5, 8 and
+13 min after the same reference event as R-2 §9); the outcome class (open breach, sealed, or water
+above the dam surface flagged); Q(t), and Q_p and T_p if it breaches. Runs: k_d = 0.88, 3.16 and
+16.5 (the frozen §5.4a band) × c_u0 4–7 kPa as in the lumped records; Δs and Δs/2; CFL 0.9 and 0.45.
+No parameter outside these is changed.
 
 ---
 
@@ -946,6 +1186,9 @@ New in this part (†: to be checked against the paper before sign-off):
   Hydraulics*. Pitman.
 - Cunge, J. A., and Wegner, M. (1964). Intégration numérique des équations d'écoulement de Barré de
   Saint-Venant par un schéma implicite de différences finies. *La Houille Blanche*, 1, 33–39.
+- † Delestre, O., Lucas, C., Ksinant, P.-A., Darboux, F., Laguerre, C., Vo, T. N. T., James, F., and
+  Cordier, S. (2013). SWASHES: a compilation of shallow water analytic solutions for hydraulic and
+  environmental studies. *Int. J. Numer. Methods Fluids*, 72(3), 269–300.
 - † Einfeldt, B. (1988). On Godunov-type methods for gas dynamics. *SIAM J. Numer. Anal.*, 25(2),
   294–318.
 - † Einfeldt, B., Munz, C.-D., Roe, P. L., and Sjögreen, B. (1991). On Godunov-type methods near low
