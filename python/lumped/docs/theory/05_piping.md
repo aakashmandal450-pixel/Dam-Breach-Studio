@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.10 · 2026-11-26 · status: exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.11 · 2026-11-26 · status: debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1438,9 +1438,15 @@ length of wall.
 - **Bias.** The real face after failure is inclined at 45° and is much more stable than a vertical one.
   Rechecking a vertical face is therefore biased toward more spreading. This is a stated
   simplification.
-- **Volume updates.**
-  - V_fall increases by the wedge volume.
-  - An end-wall retreat also adds the newly exposed pipe void, so V_pipe increases by b_p a_p Δ.
+- **Volume updates (corrected, draft 5.11).**
+  - V_fall increases by the soil above the floor over the new strip.
+    - Side walls: ½ H_w² per unit length, unchanged.
+    - End walls: W ∫ (z_dam − z_d)₊ dx over the strip, exact for the profile. ½ H_w² W assumes level
+      ground and over-counts on a sloping face, which broke (5.18)–(5.19) once the floor fell below
+      the crown (instant removal). On a level crest the two agree.
+  - An end-wall retreat also adds the pipe void below the floor, b_p clip(z_d − z_inv, 0, a_p) Δ. This
+    equals b_p a_p Δ while the debris is above the crown. Above the floor, the pipe lies inside the
+    wedge column already.
 
 ### 5.7a.4 Hydraulics with the crater (quasi-steady at each instant)
 

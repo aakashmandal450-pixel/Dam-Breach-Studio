@@ -76,6 +76,9 @@ class Crater:
     W_c: float = 0.0
     released: float = 0.0
     pore_storage: bool = True
+    debris: str = "level"      # 'level' (5.18-5.20, default) | 'instant' (removal) | 'tank' (DL Breach virtual tank)
+    V_tank: float = 0.0        # bulk debris held in the virtual tank ('tank' mode)
+    V_exp_out: float = 0.0     # bulk debris that has left the model domain (system export)
 
     # ---------------------------------------------------------------- geometry (5.18)-(5.19)
     @property
@@ -165,9 +168,20 @@ class Crater:
 
     # ---------------------------------------------------------------- events
     def fall(self, dV: float, S_r: float = 1.0, new_pipe: float = 0.0) -> None:
-        """Soil of intact bulk volume dV falls in, bringing S_r n dV of pore water; new_pipe adds pipe void."""
+        """Soil of intact bulk volume dV falls in, bringing S_r n dV of pore water; new_pipe adds pipe void.
+        Comparison treatments (5.7): 'instant' exports the bulked debris (kappa dV) out of the model domain at
+        once; 'tank' removes it from the crater into the virtual tank. In both, the soil's pore water leaves
+        with it and is not added to the crater water (it was never part of the water budget)."""
         self.V_fall += dV
         self.V_pipe += new_pipe
+        if self.debris in ("instant", "tank"):
+            moved = self.kappa * dV
+            self.V_exp += moved                  # leaves the crater control volume
+            if self.debris == "instant":
+                self.V_exp_out += moved          # and the model domain
+            else:
+                self.V_tank += moved             # held in the virtual tank (inside the model)
+            return
         if self.V_open < 0.0:                          # bulked debris would overfill: excess to spoil
             self.V_spoil += -self.V_open
         if self.pore_storage:
@@ -187,17 +201,26 @@ class Crater:
 
     def retreat_wall(self, which: str, S_r: float = 1.0) -> float:
         """Fail wall 'up' | 'down' | 'side' | 'sides' (both sides): vertical retreat by Delta = H_w/2, wedge
-        volume 1/2 H_w^2 per unit length into V_fall; end walls also expose pipe void b_p a_p Delta."""
+        volume 1/2 H_w^2 per unit length into V_fall; end walls also expose the pipe void below the floor,
+        b_p clip(z_d - z_inv, 0, a_p) Delta (= b_p a_p Delta while the debris is above the crown)."""
         H = self.wall_heights()
         if which in ("up", "down"):
             Hw = H[which][0]
             d = 0.5 * Hw
-            wedge = 0.5 * Hw * Hw * self.W
+            zd = self.z_d
+            xa, xb = (self.x1 - d, self.x1) if which == "up" else (self.x2, self.x2 + d)
+            # soil above the floor over the new strip, exact for the dam profile (draft 5.11 correction):
+            # 1/2 H_w^2 W assumes level ground and over-counts on a sloping face, which breaks (5.18)-(5.19)
+            pts = sorted({xa, xb} | {x for x in (self.dam.x_c0, self.dam.x_c1) if xa < x < xb})
+            wedge = self.W * integrate_positive(lambda x: self.dam.z_dam(x) - zd, pts)
             if which == "up":
                 self.x1 -= d
             else:
                 self.x2 += d
-            self.fall(wedge, S_r, new_pipe=self.b_p * self.a_p * d)
+            # newly exposed pipe void: only the part of the pipe below the floor; above the floor it lies inside
+            # the wedge column already (draft 5.11 correction: needed once z_d < z_cr, e.g. instant removal)
+            below = min(max(zd - self.z_inv, 0.0), self.a_p)
+            self.fall(wedge, S_r, new_pipe=self.b_p * below * d)
             if which == "down":
                 self.L_down = max(self.L_down - d, 0.0)
             return d

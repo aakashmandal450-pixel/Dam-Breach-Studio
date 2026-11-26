@@ -72,6 +72,7 @@ class PipingCase:
     tension: bool = True       # wall criterion 3.776 (True) or 2 (tension cut-off)
     pore_storage: bool = True
     exit_headcut: bool = False   # 5.6 exit headcut at the outlet (optional, off by default)
+    debris: str = "level"        # 5.7 debris treatment: 'level' (default) | 'instant' | 'tank' (comparison modes)
     C_h: float = 1.0             # Part 4 headcut advance factor (not adjusted)
 
 
@@ -223,8 +224,19 @@ class PipingRun:
             eps1 = pp.erosion_rate(pp.wall_shear(fl_end), c.kd, c.tau_c)
             if n.pipe.L > 0:
                 n.pipe, n.cum_eroded = s.pipe, s.cum_eroded
-                new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt)
-                n.pipe, n.cum_eroded = new_pipe, s.cum_eroded + dV
+                if cr.debris == "tank" and cr.V_tank > 0.0:
+                    # DL Breach virtual tank (Wu 2016, 4.7): the flow's erosion capacity removes stored debris
+                    # instead of eroding the walls; the geometry is frozen until the tank is empty
+                    _, dV_pot = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt)
+                    take = min(dV_pot, cr.V_tank)
+                    cr.V_tank -= take
+                    cr.V_exp_out += take
+                    if dV_pot > take and dV_pot > 0.0:       # tank emptied inside the step: erode for the rest
+                        new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt * (1.0 - take / dV_pot))
+                        n.pipe, n.cum_eroded = new_pipe, s.cum_eroded + dV
+                else:
+                    new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt)
+                    n.pipe, n.cum_eroded = new_pipe, s.cum_eroded + dV
         if n.crater is None:
             n.cum_out += h["Q_final"] * dt
         # reservoir
@@ -438,7 +450,7 @@ class PipingRun:
         c = self.c
         p = s.pipe
         cr = cm.Crater(c.dam, xa, xb, p.b, p.z_inv, p.D, p.b, s.x_o - xb, n=c.porosity, n_d=self.n_d,
-                       n_p=c.n_p, pore_storage=c.pore_storage)
+                       n_p=c.n_p, pore_storage=c.pore_storage, debris=c.debris)
         cr.V_pipe = p.b * p.D * (xb - xa)
         Vr, Sr = self._roof_fall(s, xa, xb)
         cr.fall(Vr, S_r=Sr)
@@ -486,7 +498,8 @@ class PipingRun:
             e.update(hc_stage=s.hc.stage, hc_x_h=s.hc.x_h, hc_z_h=s.hc.z_h, V_hc=s.hc.vol, V_hc_roof=s.hc.V_roof)
         if cr is not None:
             e.update(cr_x1=cr.x1, cr_x2=cr.x2, cr_W=cr.W, z_d=cr.z_d, z_c=cr.level(), W_c=cr.W_c,
-                     solids_err=self.solids_error(s))
+                     a_open=cr.a_open(), V_fall=cr.V_fall, V_tank=cr.V_tank, V_exp_out=cr.V_exp_out,
+                     debris=cr.debris, solids_err=self.solids_error(s))
         self.events.append(e)
 
     # ------------------------------------------------------------------ exit headcut log and limits
@@ -507,7 +520,7 @@ class PipingRun:
         cr, p = s.crater, s.pipe
         hcg = (s.hc.x_h, s.hc.z_h) if s.hc is not None else ()
         return dict(t=s.t, geom=(p.b, p.D, p.z_inv, s.x_in, s.x_o, cr.x1, cr.x2, cr.W) + hcg,
-                    vol=(cr.V_fall, cr.V_pipe, cr.V_exp, cr.V_spoil, cr.W_c, s.V), z_s=s.z_s)
+                    vol=(cr.V_fall, cr.V_pipe, cr.V_exp, cr.V_spoil, cr.W_c, s.V, cr.V_tank), z_s=s.z_s)
 
     def _seal_check(self, s: State, chk: dict) -> None:
         """Stop with 'sealed' when, continuously for T_seal: the downstream entrance is blocked (a_open = 0,
@@ -539,10 +552,14 @@ class PipingRun:
         return (s.V + Wc + s.cum_out) - (self.V0 + s.cum_supply + rel)
 
     def solids_error(self, s: State) -> float:
+        """Crater identity (5.18) plus the split of the crater export: V_exp = tank + left the domain
+        (instant / tank modes; zero in the level mode, which exports nothing)."""
         cr = s.crater
         if cr is None:
             return 0.0
-        return (1 - cr.n) * cr.V_fall - (1 - cr.n_d) * (cr.V_db + cr.V_spoil + cr.V_exp)
+        e1 = (1 - cr.n) * cr.V_fall - (1 - cr.n_d) * (cr.V_db + cr.V_spoil + cr.V_exp)
+        e2 = cr.V_exp - (cr.V_tank + cr.V_exp_out) if cr.debris in ("instant", "tank") else 0.0
+        return e1 if abs(e1) >= abs(e2) else e2
 
     def _budget(self, s: State) -> None:
         scale = max(abs(self.V0), s.cum_supply, s.cum_out, 1.0)
@@ -569,7 +586,7 @@ class PipingRun:
         if s.crater is not None:
             cr = s.crater
             r.update(cr_x1=cr.x1, cr_x2=cr.x2, cr_W=cr.W, z_d=cr.z_d, z_c=h["z_c"], Q_out_cr=h["Q_out_cr"],
-                     Q_spill=h["Q_spill"])
+                     Q_spill=h["Q_spill"], a_open=cr.a_open(), V_tank=cr.V_tank, V_exp_out=cr.V_exp_out)
         self.series.append(r)
 
     def run(self, t_end: float) -> "PipingRun":

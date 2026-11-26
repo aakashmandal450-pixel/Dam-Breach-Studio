@@ -1,7 +1,16 @@
 # Part 5, §5.7b (draft for review): what happens to the collapsed roof debris
 
-*Draft 5.11-D · 2026-11-26 · status: for review, not frozen, nothing implemented. To be merged into
-`05_piping.md` after review.*
+*Draft 5.11-D, revision 2 · 2026-11-26 · status: reviewed once; the qualifications of the review are
+incorporated below. Not frozen. The four §5.7 comparison treatments are being implemented first. D1 is
+not implemented.*
+
+**Changes in revision 2.**
+- D1 is stated as a provisional, event-based breakthrough criterion, not a removal law.
+- The D1-b opening condition is corrected.
+- Crater export is now distinguished from system export.
+- D5 evaluates each plug with its own boundary conditions.
+- Debris hydraulic conductivity is written K_hyd,d (k_d stays the erodibility).
+- §2a now maps the comparison treatments to the crater framework.
 
 ## 1. Why this note
 
@@ -52,6 +61,34 @@ no new physics.
 
 Together with the uniform layer, they bracket how much the debris treatment controls the outcome.
 
+## 2a. The comparison treatments in the crater framework (implemented first, revision 2)
+
+§5.7 lists four treatments. In the crater framework of §5.7a they map as follows:
+1. **The localised deposit at x*.** §5.7a.2 states that the crater footprint *is* the localised deposit
+   at x*. The current level deposit over the crater is therefore this treatment, the baseline
+   (`level`).
+2. **Instant removal** (`instant`). Fallen soil leaves the model domain at once (system export). Its
+   pore water leaves with it.
+3. **The DL Breach virtual tank** (`tank`). Fallen soil is removed from the crater and stored in a tank
+   inside the model. The crater geometry is the same as for instant removal. The flow's erosion
+   capacity (the pipe-wall erosion it would otherwise do) empties the tank first, and the wall
+   geometry is frozen until the tank is empty (Wu 2016, §4.7).
+4. **A uniform layer along the whole pipe** (5.12b). Not implemented. It needs a rule this note has not
+   defined: debris lying inside both pipe reaches reduces their open height, and the flow then
+   crosses and erodes a debris floor. Proposed definition, for decision: a layer of uniform thickness
+   t_d = V_db/(b_p L_pipe + A_c) over the whole floor, which reduces both reaches' open heights by
+   t_d. Its erosion follows D4 (remoulded debris) once flow crosses it.
+
+**Two corrections to §5.7a.3, found while implementing instant removal** (they apply to every
+treatment):
+- **Pipe void exposed by an end-wall retreat.** It is b_p · clip(z_d − z_inv, 0, a_p) · Δ, not
+  b_p a_p Δ. Above the floor, the pipe lies inside the wedge column already. The two are equal
+  while the debris is above the crown, as in every level-mode run so far.
+- **Soil over the new strip of an end wall.** It is W ∫ (z_dam − z_d)₊ dx over the strip, exact for the
+  profile. ½ H_w² W assumes level ground and over-counts on a sloping face. With instant removal on
+  P1 it pushed the floor below the invert, breaking (5.18)–(5.19). On a level crest the two
+  agree exactly, and side walls are unaffected.
+
 ## 3. Candidate mechanisms
 
 Each candidate is set out with the seven points the review asked for:
@@ -74,7 +111,8 @@ under a steep gradient.
     atmospheric pressure.
   - ℓ_p is the seepage path through the plug. In the first version, ℓ_p = z_d − z_cr, the
     vertical cover of debris over the opening, which is the shortest path.
-- **(b) Law.** The plug fails when the seepage force exceeds its buoyant weight plus any cohesion.
+- **(b) Law: a provisional failure trigger, not a removal law.** The plug fails when the seepage force
+  exceeds its buoyant weight plus any cohesion.
   This is the same free-body argument and the same classical critical gradient as mechanism C (§5.6;
   Terzaghi 1943):
 
@@ -83,7 +121,17 @@ under a steep gradient.
   - The cohesion term is the vertical-plane shear on the two sides of a plug of width b_p, the
     form used for the roof prism.
   - c_d = 0 for a non-plastic debris.
-  - This is a failure criterion, not a rate law.
+  - This is a failure criterion, not a rate law. D1 is an **instantaneous, event-based plug
+    breakthrough approximation**:
+    1. evaluate i;
+    2. compare it with i_cr,d;
+    3. if it is reached, open the local pipe-sized channel (D1-a);
+    4. record the event time and the removed volume;
+    5. recompute the hydraulics and geometry.
+
+    The failure rate and any progressive enlargement of the opening are **not resolved**. The
+    assumed seepage path, the saturated unit weight and the negligible remoulded cohesion remain
+    explicit assumptions.
 - **(c) Parameters.**
   - γ_sat,d comes from n_d.
   - c_d is the debris cohesion: 0 for remoulded non-plastic soil; for cohesive soil, the
@@ -92,18 +140,27 @@ under a steep gradient.
   - **D1-a, "piped through the debris":** at failure, the entrance reopens through a channel of
     the pipe's size cut through the debris, a_open = a_p. The level debris surface z_d stays where
     it is. This represents a local failure, which the level deposit cannot resolve.
-  - **D1-b, "lowering":** debris is removed until the entrance just opens (z_d → z_cr). The whole
-    layer above the crown is exported, (z_d − z_cr) A_c. This is simpler, but it removes far more
-    soil than a local failure would.
-- **(e) Solids.** The removed debris is carried into the downstream pipe and out:
+  - **D1-b, "lowering":** debris is removed until the entrance opens. Under (5.25),
+    a_open = clip(z_cr − max(z_d, z_inv), 0, a_p) is still zero at z_d = z_cr. So D1-b would have to
+    lower the surface by an arbitrary finite distance below the crown, or define a finite opening
+    threshold. It also removes the whole layer, (z_d − z_cr) A_c and more, which is far more soil
+    than a local failure would. **Decided (review): D1-a.**
+- **(e) Solids: crater export versus system export.** The removed debris leaves the crater control
+  volume (*crater export*, V_exp). Whether it also leaves the model domain (*system export*,
+  V_exp,out) is a separate statement. The first-version assumption: the plug material is carried
+  through the empty downstream pipe and out of its outlet by the released flow, so V_exp,out also
+  increases. If a later version deposits it in the downstream reach, it becomes a transfer into that
+  reach's floor, not an export. The removed volumes are:
   - D1-a: volume b_p a_p ℓ_p;
   - D1-b: volume (z_d − z_cr) A_c.
 
   In both cases V_exp increases by that amount, so the crater solids identity (5.18) still closes.
 - **(f) Budgets.**
-  - Solids: through V_exp.
-  - Water: the pore water of the exported debris (n_d × volume) leaves with it. It is recorded as a
-    separate outflow term, so the water budget closes.
+  - Solids: the crater identity (5.18) closes through V_exp, and the system balance closes through
+    V_exp = V_tank + V_exp,out.
+  - Water: the pore water of the removed debris (n_d × volume) is part of the crater water W_c until
+    the plug fails. It is counted as outflow only when it leaves the water control volume, which here
+    is through the downstream pipe to the outlet.
 - **(g) Evidence.**
   - *P1 support (indicative).* P1 is a non-plastic silty sand whose specimens collapsed when wetted
     (PAP-1017, Table 5). Its remoulded debris has negligible cohesion.
@@ -118,8 +175,9 @@ under a steep gradient.
 
 ### D2. Steady seepage through the debris (Darcy), without failure
 
-- **(a)–(b)** A leak path Q_seep = k_d i A_p through an intact plug, with debris permeability k.
-- **(c)** k for a loose silty sand is of order 10⁻⁶–10⁻⁵ m/s. No case has a measured value.
+- **(a)–(b)** A leak path Q_seep = K_hyd,d i A_p through an intact plug. K_hyd,d is the debris
+  hydraulic conductivity (not k_d, which is the erodibility).
+- **(c)** K_hyd,d for a loose silty sand is of order 10⁻⁶–10⁻⁵ m/s. No case has a measured value.
 - **(d)** Geometry unchanged. **(e)** No solids. **(f)** A water-budget term only.
 - **(g)** The flow it gives in P1 is about 10⁻⁶ m³/s, a thousandth of the pipe flows. It would end the
   "sealed" classification but not reopen anything. **Sensitivity only.**
@@ -153,8 +211,14 @@ consistent choices:
 2. **Both mouths left open**, with the difference justified. For example, the jet from the upstream
    reach keeps its mouth clear while it flows (D3). That justification holds only while Q_in > 0.
 
-Recommended: choice 1, with D1 at both mouths. It is the only treatment consistent with the level
-deposit.
+Recommended (review): choice 1, **where the deposit actually covers the mouth**. It is the only
+treatment consistent with the level deposit. Each plug is evaluated with its own hydraulic boundary
+conditions, never failed automatically together:
+- **The downstream plug** has the crater water above it and the empty, atmospheric pipe beyond it.
+- **The upstream plug** has the reservoir on one side and the crater on the other. Its driving head
+  is the level difference z_s − z_c, with the seepage direction set by its sign. In the sealed P1
+  state both levels are 1.100 m, so the upstream plug carries almost no gradient while the downstream
+  plug exceeds its critical gradient.
 
 ## 4. Is the debris the only gap? (stated, not resolved)
 
@@ -170,7 +234,19 @@ observed outcome. The note therefore keeps open that the roof-remnant geometry, 
 differs from P1. Measured pipe-length or funnel data from Hanson et al. (2010), not obtained, would
 decide it.
 
-## 5. Proposed order (for decision)
+## 5. Proposed order (revision 2, as decided in review)
+
+1. Implement and validate the comparison treatments (in progress: level, instant, tank). Check
+   geometry, event logging and budgets.
+2. Compare them across the §5.4a band with identical inputs and time steps. Report the crater level,
+   downstream reopening, geometry, collapse and hand-over times, pipe-stage peak and budget closure.
+3. Review the results.
+4. Revise and freeze D1 (event-based, D1-a) and D5 (per-plug boundary conditions).
+5. Only then implement D1-a.
+
+No progressive debris erosion, jet scour or new transport law is added before this.
+
+## 5 (original). Proposed order (for decision)
 
 1. **Implement the comparison modes §5.7 already requires.** These are instant removal, the DL
    Breach virtual tank and the mound at x*, alongside the uniform layer. They are theory already
