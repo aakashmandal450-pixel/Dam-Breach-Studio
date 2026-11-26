@@ -287,3 +287,32 @@ This is by construction: without H1-c the wider exit changes nothing upstream of
 **Next, per the review:** H1-c as a separate experiment. First verify the local unsupported-span
 geometry at the outlet end and introduce per-section widths, then couple, with located failure
 events only.
+
+## 10. Record at the H1-a stopping point (2026-11-26)
+
+**Conclusion.** H1-a reproduces substantial lateral widening of the exit without the roof being
+wetted, but it does not by itself explain the observed breach progression.
+
+1. **Verified, not validated.** H1-a is verified: the law, the volumes, the limit, and identity with
+   the option off. It is not validated as the physical P1 mechanism. B_e/b ≈ 3 is a model result. The
+   photographic estimate (≳ 5) is uncertain: its scale is a perspective-limited lower bound with no
+   measured marker spacing.
+2. **One-way coupling.** The unchanged collapse time is expected. H1-a does not alter the pipe
+   discharge or the outlet position, so it is a **one-way coupling** (the outlet flow drives the
+   widening, and the widening does not act back). It is not hydraulic feedback. Feedback on timing
+   would enter only through H1-c.
+3. **The free-surface interpretation is conditional.** The notch critical depth below the pipe height
+   (0.197 against 0.29 m at collapse) supports it but does not by itself establish the flow regime at
+   the pipe-to-notch transition. The photographed open cavern is supporting evidence.
+4. **Option-off identity.** The bit-identical test with the option off shows that the new mechanism
+   does not silently alter the frozen baseline. It is kept as a standing regression test.
+5. **The outcome stays sealed.** H1-a widens the exit but does not resolve the P1 failure
+   discrepancy. That is a meaningful result, not a failed experiment, and it stays visible in the
+   validation record.
+
+**H1-c, next and narrow:**
+1. Verify the local unsupported roof span and the per-section width geometry at the outlet end.
+2. Then run H1-c as a separate experiment.
+
+It is **not** combined with H1-b, and the frozen crater and plug rules are **not** changed in the
+same experiment.
