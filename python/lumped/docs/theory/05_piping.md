@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.14 · 2026-11-26 · status: P1 validation finding under §5.7b recorded and frozen (§5.7b.4, unresolved); roof-remnant geometry under investigation; debris D1-a/D5 frozen (§5.7b, plugs option), downstream-reach erosion recorded as unresolved (§5.7c); state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.15 · 2026-11-26 · status: exit-headcut diagnostic on P1 frozen (§5.6c: never plunges; k_d not adjusted); P1 validation finding under §5.7b recorded and frozen (§5.7b.4, unresolved); roof-remnant geometry under investigation; debris D1-a/D5 frozen (§5.7b, plugs option), downstream-reach erosion recorded as unresolved (§5.7c); state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1203,6 +1203,37 @@ of it. Pipe erosion acts only inside the pipe. After collapse, all erosion is ha
 soil volume is eroded by two routines.
 
 ---
+
+### 5.6c Diagnostic finding: the exit headcut on P1 (recorded 2026-11-26, frozen)
+
+Baseline: commit d998c7b, `verification/exit_headcut_history.txt`, note R-2 §8 (k_d 3.16, dt 2 s,
+exit headcut on, every other input as in the P1 band).
+
+> The P1 investigation indicates that the existing §5.6 plunging headcut does not activate under the
+> current model configuration. The channel bed erodes faster than the pipe walls, but the headcut drop
+> remains below critical depth throughout the simulated period. Increasing the erosion coefficient is
+> therefore not justified as a correction. The remaining discrepancy is likely related to the
+> representation of the downstream outlet, particularly the possibility of progressive notch widening
+> or roof-lip erosion observed in the experiment. These mechanisms require separate investigation and
+> validation before implementation. No model code was changed.
+
+**Mechanism.**
+- The drop H_h = z_inv − z_h and the critical depth d_c grow together as the discharge rises, so the
+  trigger H_h > d_c stays marginal or unsatisfied. H_h − d_c is −0.05 m at t = 0 and −0.06 m at 848 s.
+- The bed reaches the dam base at 908 s. After that the drop shrinks while d_c grows, to −0.31 m at
+  1483 s.
+
+**Counterfactual (diagnostic arithmetic only).** The bed is allowed to keep eroding below z = 0. The
+gap then closes only to −0.003 m by roof collapse. **This is not evidence that the P1 foundation
+erodes**: the foundation material and its erodibility are unknown. It shows only that the base cap is
+not the main obstacle.
+
+**Held fixed.**
+- k_d is not increased.
+- The crater and debris rules are unchanged.
+- The headcut is not forced to activate.
+- Any outlet-widening hypothesis is developed separately from §5.6, until its physical basis and
+  validation evidence are established.
 
 ## 5.7 Collapse, the debris layer and the hand-over
 

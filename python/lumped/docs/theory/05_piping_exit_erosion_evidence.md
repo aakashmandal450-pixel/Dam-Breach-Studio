@@ -149,3 +149,56 @@ headcut never activates, and it would barely activate even with an erodible base
 the limiting factor: the face channel already erodes 3–5 times faster than the pipe walls. Whether P1
 needs a different exit mechanism (E1, widening of the open notch; E2, erosion of the roof lip by the
 exit jet) is the open question. No code is changed.
+
+## 9. The experimental opening, quantified from Wu (2016) Fig. 2.14 (2026-11-26)
+
+**Method.** The photos are extracted from the DL Breach report PDF at native resolution, with each
+panel enlarged 2 times. The survey markers (white crosses) form a regular grid on the downstream face,
+so sizes are measured in **marker spacings s** along the row nearest the opening. That avoids
+assuming s. The horizontal spacing reads 72–73 px in panels (b), (c) and (d) alike, which suggests a
+similar camera position.
+
+| panel | time | opening width | top of the opening | notes |
+|---|---|---|---|---|
+| (a) | initiation | a narrow crack only | — | a thin erosion channel runs down the face from the lowest marker row |
+| (b) | 5 min | ≈ 1.1 s | at the lowest row | a single hole; the flow spreads over the toe |
+| (c) | 8 min | ≈ 2.1 s | ≈ 0.4 of a row interval above the lowest row | arch-shaped, wider than high |
+| (d) | 13 min, before collapse | ≈ 3.4 s | at the next row up | arch-shaped, wider than high; the toe is under flowing water |
+
+**Scale (estimate, S).** In panel (a), two people stand in front of the face. Each spans about 3.8
+marker spacings (≈ 277 px against ≈ 72 px). The markers are farther from the camera than the people,
+so this is a lower bound: **s ≳ 0.45 m**, for a person height of 1.75 m (assumed). A 2 ft grid
+(0.61 m) would fit. On that basis:
+
+| time | observed opening width | model pipe width (k_d 3.16) |
+|---|---|---|
+| 5 min | ≳ 0.5 m | 0.063 m (at 300 s) |
+| 13 min, roof collapse | ≳ 1.5 m | 0.29 m (at collapse) |
+
+**Comparison that does not depend on the time origin (§5.4a):** at roof collapse, the observed exit
+opening is at least about 5 times wider than the model's pipe.
+
+**Height.** The arch top rises from the lowest row (5 min) to about one row interval above it
+(13 min). If s is measured along the slope, one interval is s sin β ≈ 0.14–0.19 m of height. The
+height of the opening therefore grows far less than its width. The model's square pipe has a crown
+at 0.37 m at collapse, so it is comparable in height but not in width.
+
+**What this supports, and what it does not:**
+- **It supports** exit-concentrated, predominantly **lateral** enlargement at the downstream face,
+  well before the roof collapses. That is mechanism E1 (widening of the open notch, cavern
+  formation), possibly with E2 (erosion of the roof lip). Lateral collapse of the cavern walls once
+  undercut can follow; the G1/G2 module is available for that check.
+- **It does not establish** the rate law, the pipe geometry inside the dam (the photos show only the
+  face), or the exact scale. s is a perspective-limited lower bound, and the photo times relative to
+  pulling the pipe are not stated.
+
+**Data that would firm this up:**
+1. The actual marker spacing (Hanson et al. 2010 or HERU records).
+2. The photo times relative to pulling the pipe.
+3. Any measured outlet dimensions.
+
+**Next (not started): outlet-widening hypothesis H-1.** It is developed separately from §5.6, with the
+same discipline as the debris and face notes: (a)–(g) for each candidate, no coefficient chosen to
+match, and acceptance tests set before any run. One acceptance target follows from this section: the
+exit opening at roof collapse should be several times wider than the pipe (≳ 5 times, scale-limited),
+with the height growing much less than the width.
