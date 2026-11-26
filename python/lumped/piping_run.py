@@ -38,7 +38,7 @@ from . import piping as pp
 from . import roof
 from .geometry import Dam
 from .hydraulics import crest_overflow
-from .stability_table import StabilityTable
+from .stability_table import StabilityTable, TableRangeError
 
 GAMMA_W = roof.GAMMA_W
 Z_BASE = 0.0          # dam base elevation: hard lower bound of every floor (5.7a.11)
@@ -75,6 +75,8 @@ class PipingCase:
     exit_headcut: bool = False   # 5.6 exit headcut at the outlet (optional, off by default)
     debris: str = "level"        # 5.7 debris treatment: 'level' (default) | 'instant' | 'tank' (comparison modes)
     C_h: float = 1.0             # Part 4 headcut advance factor (not adjusted)
+    plugs: bool = False          # 5.7b: D5 (both mouths obstructed by the deposit) + D1-a plug breakthrough
+    c_d: float = 0.0             # 5.7b: debris cohesion in (5.26) [Pa]; 0 = non-plastic remoulded debris
 
 
 @dataclass
@@ -99,12 +101,26 @@ class State:
     hc_moved: float = 0.0      # outlet retreat by the exit headcut in the last step (for the event log)
 
 
-def upstream_flow(p: pp.Pipe, z_s: float, z_c: float, n_p: float):
+def upstream_flow(p: pp.Pipe, z_s: float, z_c: float, n_p: float, mouth=None):
     """Signed discharge of the upstream reach between the reservoir (z_s) and the crater (z_c), and the
     PipeFlow that sets the wall shear and soffit pressure. Forward (z_s >= z_c): reservoir -> crater with
     tailwater z_c. Reverse (z_c > z_s): the same pipe relations with the ends exchanged, crater -> reservoir
-    (draft 5.8; a hydraulic correction that keeps z_c from rising above the reservoir)."""
+    (draft 5.8; a hydraulic correction that keeps z_c from rising above the reservoir).
+
+    mouth = (a_open, z_o) when the deposit covers the upstream mouth (5.7b.1, D5): a partly covered mouth
+    uses the pipe relations with height a_open and heads from z_o (as the downstream reach, 5.25); a fully
+    covered mouth (a plug) passes no flow and leaves the reach full and stagnant at the reservoir head."""
     L = max(p.L, 0.0)
+    if mouth is not None and mouth[0] < p.D:
+        a, z_o = mouth
+        if a <= 0.0:
+            fl = pp.pipe_flow(z_s - p.z_inv, p.b, p.D, L, n_p, h_t=z_s - p.z_inv)
+            return 0.0, fl, False
+        if z_c <= z_s:
+            fl = pp.pipe_flow(z_s - z_o, p.b, a, L, n_p, h_t=max(z_c - z_o, 0.0))
+            return fl.Q, fl, False
+        fl = pp.pipe_flow(z_c - z_o, p.b, a, L, n_p, h_t=max(z_s - z_o, 0.0))
+        return -fl.Q, fl, True
     if z_c <= z_s:
         fl = pp.pipe_flow(z_s - p.z_inv, p.b, p.D, L, n_p, h_t=max(z_c - p.z_inv, 0.0))
         return fl.Q, fl, False
@@ -145,6 +161,7 @@ class PipingRun:
         self.seal_tol = dict(length=1e-6, volume=1e-6, flow=1e-6)
         self._seal_ref = None
         self._spill_ref, self._spilling = None, False
+        self._plugs_formed = set()
 
     # ------------------------------------------------------------------ hydraulics on a state
     def hyd(self, s: State) -> dict:
@@ -158,10 +175,10 @@ class PipingRun:
         else:
             cr = s.crater
             z_c = cr.level()
-            q_up, fl, rev = upstream_flow(p, s.z_s, z_c, c.n_p)
+            q_up, fl, rev = upstream_flow(p, s.z_s, z_c, c.n_p, self._mouth_up(s))
             h["reverse"] = rev
             ao = cr.a_open()
-            z_o = max(cr.z_d, cr.z_inv)
+            z_o = cr.z_open()
             fl_dn = pp.pipe_flow(z_c - z_o, cr.b_p, ao, cr.L_down, c.n_p) if ao > 0 and cr.L_down > 0 else None
             Qo, Qs = cr.Q_out(z_c), cr.Q_spill(z_c)
             h.update(fl_up=fl, Q_res=q_up, z_c=z_c, Q_out_cr=Qo, Q_spill=Qs, fl_dn=fl_dn, Q_final=Qo + Qs)
@@ -193,11 +210,12 @@ class PipingRun:
             # reservoir, so the water budget closes exactly.
             cr = n.crater
             W0 = cr.W_c
+            mouth = self._mouth_up(s)
 
             def fluxes(W):
                 old = cr.W_c; cr.W_c = max(W, 0.0)
                 zc = cr.level()
-                qi, fl_i, rev = upstream_flow(p0, s.z_s, zc, c.n_p)
+                qi, fl_i, rev = upstream_flow(p0, s.z_s, zc, c.n_p, mouth)
                 qo = cr.Q_out(zc) + cr.Q_spill(zc)
                 cr.W_c = old
                 return qi, qo, fl_i
@@ -278,6 +296,14 @@ class PipingRun:
 
     # ------------------------------------------------------------------ checks on one state
     def checks(self, s: State) -> dict:
+        """Everything that can fail, evaluated on one state. A geometry outside the stability table stops
+        the run as 'table_range' (never extrapolated, 5.5b)."""
+        try:
+            return self._checks(s)
+        except TableRangeError as e:
+            raise RunStop("table_range", str(e))
+
+    def _checks(self, s: State) -> dict:
         """Everything that can fail, evaluated on one state. Returns a dict of findings."""
         c, dam = self.c, self.c.dam
         h = self.hyd(s)
@@ -315,6 +341,9 @@ class PipingRun:
                                         c.soil.c_u0, c.soil.rho)
             out["push"] = (mu, md)
             mins += [mu, md]
+            if c.plugs:
+                out["plugs"] = self.plug_margins(s, h["z_c"])
+                mins += [d["M"] for d in out["plugs"].values()]
             mins = [v for v in mins if not math.isnan(v)]
             out["min_M"] = min(mins) if mins else math.inf
         out["fail"] = out["min_M"] < -self.M_tol
@@ -342,6 +371,7 @@ class PipingRun:
             chk = self.checks(s)
             if not chk["fail"]:
                 self.passes_max = max(self.passes_max, npass - 1)
+                self._log_plugs_formed(s)
                 return s
             s = self.apply(s, chk)
             if self.stopped:
@@ -442,6 +472,10 @@ class PipingRun:
             return self._handover(s, "upstream remnant pushed out (5.23)")
         if md <= 0.0:
             return self._stop(s, "crater_open_downstream", "downstream remnant pushed out (5.23)")
+        # plug breakthrough (5.7b.3, D1-a), on the same state as the checks
+        for k, d in chk.get("plugs", {}).items():
+            if d["M"] < -self.M_tol:
+                self._plug_fail(s, k, d)
         # roof extension of the crater
         if new_x1 < cr.x1:
             self._extend(s, new_x1, cr.x2, "up")
@@ -466,6 +500,84 @@ class PipingRun:
         cr.L_down = s.x_o - cr.x2
         s.pipe_dn = pp.Pipe(s.pipe_dn.b, s.pipe_dn.D, s.pipe_dn.z_inv, cr.L_down)
         return s
+
+    # ------------------------------------------------------------------ plugs (5.7b, D5 + D1-a)
+    def _mouth_up(self, s: State):
+        """(a_open, z_o) of the upstream mouth when the deposit can cover it (5.27); None when unrestricted."""
+        cr = s.crater
+        if cr is None or not self.c.plugs or cr.open_up:
+            return None
+        p = s.pipe
+        a = min(max(p.z_cr - max(cr.z_d, p.z_inv), 0.0), p.D)
+        return (a, max(cr.z_d, p.z_inv))
+
+    def i_cr(self, b: float) -> float:
+        """(5.26): critical gradient of a debris plug of width b."""
+        c, n, nd = self.c, self.c.porosity, self.n_d
+        gs = (c.soil.gamma_sat - n * GAMMA_W) / (1.0 - n)          # solid unit weight of the intact soil
+        gsd = (1.0 - nd) * gs + nd * GAMMA_W
+        return (gsd - GAMMA_W) / GAMMA_W + 2.0 * c.c_d / (GAMMA_W * b)
+
+    def plug_margins(self, s: State, z_c: float) -> dict:
+        """M_plug = gamma_w l (i_cr - i) of every fully covered, unfailed mouth (5.28), each with its own
+        boundary conditions: downstream, crater water over an empty pipe; upstream, reservoir against crater."""
+        cr, out = s.crater, {}
+        zd = cr.z_d
+        if not cr.open_dn and cr.L_down > 0 and cr.a_open() <= 0.0:
+            ell = zd - cr.z_cr
+            if ell > 0:
+                dh = max(z_c - cr.z_cr, 0.0)
+                ic = self.i_cr(cr.b_p)
+                out["dn"] = dict(M=GAMMA_W * (ell * ic - dh), i=dh / ell, i_cr=ic, dh=dh, ell=ell,
+                                 b=cr.b_p, a=cr.a_p, z_cr=cr.z_cr)
+        mouth = self._mouth_up(s)
+        if mouth is not None and mouth[0] <= 0.0 and s.x_in < cr.x1:
+            p = s.pipe
+            ell = zd - p.z_cr
+            if ell > 0:
+                if s.z_s >= z_c:
+                    dh = max(s.z_s - max(z_c, p.z_cr), 0.0)
+                else:
+                    dh = max(z_c - max(s.z_s, p.z_cr), 0.0)
+                ic = self.i_cr(p.b)
+                out["up"] = dict(M=GAMMA_W * (ell * ic - dh), i=dh / ell, i_cr=ic, dh=dh, ell=ell,
+                                 b=p.b, a=p.D, z_cr=p.z_cr)
+        return out
+
+    def _plug_fail(self, s: State, k: str, d: dict) -> None:
+        """D1-a: a pipe-sized channel reopens the mouth. Downstream: the plug b a l is carried out of the
+        outlet (crater and system export) with its pore water; upstream: it rejoins the deposit (no export)."""
+        cr = s.crater
+        if k not in self._plugs_formed:                  # covered and failed in the same cascade
+            self._plugs_formed.add(k)
+            self._event(s, f"plug_{k}_formed", z_d=cr.z_d)
+        V = d["b"] * d["a"] * d["ell"]
+        w = 0.0
+        if k == "dn":
+            S = min(max((cr.level() - d["z_cr"]) / d["ell"], 0.0), 1.0)
+            w = min(self.n_d * V * S, cr.W_c)
+            cr.V_exp += V
+            cr.V_exp_out += V
+            cr.W_c -= w
+            s.cum_out += w
+            cr.open_dn = True
+        else:
+            cr.open_up = True
+        self._event(s, f"plug_{k}_fail", i=d["i"], i_cr=d["i_cr"], dh=d["dh"], ell=d["ell"],
+                    V_plug=V if k == "dn" else 0.0, V_plug_geom=V, w_out=w)
+        self._event(s, f"mouth_{k}_open")
+
+    def _log_plugs_formed(self, s: State) -> None:
+        if not self.c.plugs or s.crater is None:
+            return
+        cr = s.crater
+        cov = {"dn": (not cr.open_dn and cr.a_open() <= 0.0)}
+        m = self._mouth_up(s)
+        cov["up"] = m is not None and m[0] <= 0.0 and s.x_in < cr.x1
+        for k, on in cov.items():
+            if on and k not in self._plugs_formed:
+                self._plugs_formed.add(k)
+                self._event(s, f"plug_{k}_formed", z_d=cr.z_d)
 
     # ------------------------------------------------------------------ helpers for apply
     def _sat(self, H, z_bot, z_ph):
@@ -622,7 +734,7 @@ class PipingRun:
         if cr is None:
             return 0.0
         e1 = (1 - cr.n) * cr.V_fall - (1 - cr.n_d) * (cr.V_db + cr.V_spoil + cr.V_exp)
-        e2 = cr.V_exp - (cr.V_tank + cr.V_exp_out) if cr.debris in ("instant", "tank") else 0.0
+        e2 = cr.V_exp - (cr.V_tank + cr.V_exp_out)     # system split, every treatment (5.7b.3)
         return e1 if abs(e1) >= abs(e2) else e2
 
     def _budget(self, s: State) -> None:

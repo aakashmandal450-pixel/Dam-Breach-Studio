@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.12 · 2026-11-26 · status: state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.13 · 2026-11-26 · status: debris D1-a/D5 frozen (§5.7b, plugs option), downstream-reach erosion recorded as unresolved (§5.7c); state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1778,6 +1778,165 @@ The solids closure of wall widening is covered by `test_debris_modes`.
 passes about 1 m³/s through the downstream reach for an hour. That reach does not erode in the first
 version (§5.7a.7: only the upstream pipe is time-integrated). The outcome there therefore rests on an
 unmodelled process, and it is reported as such.
+
+## 5.7b The collapsed roof debris: plug breakthrough D1-a and the two mouths D5 (frozen 2026-11-26)
+
+*Frozen 2026-11-26 after two reviews of `05_piping_debris_draft.md` (revision 2) and the P1 c_u0
+check (`verification/p1_cu0_check.txt`). The draft is kept as the record of the reasoning
+(evidence, candidates D1–D5, the sealed-state check i = 1.32 > i_cr = 1.06). This section is the
+frozen statement that the code follows.*
+
+**Why.** In every P1 run the level deposit buries the downstream entrance. The crater fills and the
+run ends `sealed` or `crater_spilling`. This holds over the whole k_d band (§5.4a), dt 2–0.5 s, the exit
+headcut off and on, and c_u0 = 4–7 kPa. The observed P1 breach kept widening after the roof
+collapse. Only the instant and tank treatments reach a hand-over, and only for c_u0 ≤ 6 kPa. The
+debris treatment, not c_u0, decides the outcome, so a physical breakthrough mechanism is needed.
+
+**Decisions.**
+
+| item | decision |
+|---|---|
+| D1 critical-gradient trigger (5.26) | adopted, **provisionally**: an event-based breakthrough, not a removal law |
+| geometry after failure | **D1-a**, a local pipe-sized reopening (D1-b, lowering, rejected) |
+| D5 | **both mouths obstructed alike** where the deposit covers them; each plug checked separately with its own hydraulic boundary conditions, never failed together automatically |
+| D2 (Darcy leak), D3 (jet scour), D4 (remoulded erodibility) | sensitivities only, not implemented |
+| comparison treatments | level, instant and tank retained; the uniform pipe layer deferred |
+| downstream-reach erosion | unresolved limitation, §5.7c; not implemented |
+| P1, 7 kPa, instant | reported as unresolved: neither a breach nor a confirmed stable dam |
+
+The tank and instant treatments differ in their solids accounting: the tank stores the debris, and
+instant removal exports it. Identical hydraulic outcomes do not make them interchangeable.
+
+**Scope switch.** D1-a and D5 are one option, `plugs` (off by default, so the comparison treatments
+reproduce). It acts only where a deposit covers a mouth, which in practice means the `level`
+treatment. Under `instant` and `tank` the floor is at the invert, so no mouth is ever covered and the
+option changes nothing.
+
+### 5.7b.1 Mouths (D5)
+
+The crater has two mouths:
+- the **upstream mouth**, at x_1, the exit of the upstream reach (current section b, D, z_inv);
+- the **downstream mouth**, at x_2, the entrance of the downstream reach (b_p, a_p, z_inv).
+
+Each has an open height by the same rule (5.25):
+
+    a_open,k = clip( z_cr,k − max(z_d, z_inv,k), 0, a_k )                                   (5.27)
+
+with a_k = D (up) or a_p (down). The upstream rule is new: before the freeze the upstream mouth was
+never obstructed, which was inconsistent with the level deposit.
+
+**Hydraulics through a partly covered upstream mouth.** These are the same as for the downstream
+reach:
+- The pipe relations (5.2)–(5.4) are applied to the reach with height a_open,up and with heads
+  measured from the bottom of the open part, z_o = max(z_d, z_inv). The tailwater is the crater level.
+  Reverse flow uses the same relations with the ends exchanged.
+- The wall shear and soffit pressure of the reach follow from that flow.
+
+This is the downstream first-version approximation, now applied alike to both ends. The restriction
+acts over the reach, not only at its exit.
+
+**A fully covered mouth** (a_open,k = 0) passes no flow, because seepage is not represented (D2 is a
+sensitivity). It is a **plug**.
+- The upstream reach is then full and stagnant at the reservoir head. Its soffit pressure is
+  hydrostatic (5.8).
+- The downstream reach beyond a plug is empty, at atmospheric pressure.
+
+### 5.7b.2 The plug criterion (D1)
+
+For each plug k, the mean seepage gradient is
+
+    i_k = Δh_k / ℓ_k,   ℓ_k = z_d − z_cr,k   (vertical debris cover over the mouth)                 (5.28)
+
+and the plug fails when
+
+    i_k ≥ i_cr,d = (γ_sat,d − γ_w)/γ_w + 2 c_d /(γ_w b_k)                                           (5.26)
+
+The terms:
+- γ_sat,d = (1 − n_d) γ_s + n_d γ_w, where γ_s = (γ_sat − n γ_w)/(1 − n) is the solid unit weight of
+  the intact soil.
+- c_d is the debris cohesion: 0 by default (non-plastic remoulded debris). The remoulded value
+  c_u0/S_t is a sensitivity.
+
+The driving heads are each plug's own boundary conditions:
+- **Downstream plug:** the crater water is above it and the empty pipe beyond it, so
+  Δh_dn = max(z_c − z_cr,dn, 0).
+- **Upstream plug:** the reservoir is on the pipe side and the crater on the other.
+  - The head on the crater side is z_x = max(z_c, z_cr,up). Below the crown, the crater side of the
+    plug is not under water pressure.
+  - Δh_up = |z_s − z_x| when z_s ≥ z_c (pushed into the crater).
+  - Δh_up = |z_c − max(z_s, z_cr,up)| when z_c > z_s.
+
+The check enters the cascade as a margin in pressure units, like the roof margins:
+
+    M_plug,k = γ_w ℓ_k (i_cr,d − i_k) = (γ_sat,d − γ_w) ℓ_k + 2 c_d ℓ_k / b_k − γ_w Δh_k
+
+It fails at M < −M_tol. Its crossing is event-located like every other margin (§5.7a.6).
+
+### 5.7b.3 At plug failure (D1-a)
+
+1. **Reopening.** Mouth k reopens through a pipe-sized channel cut through the debris:
+   a_open,k = a_k, and the bottom of the opening is z_inv,k.
+   - First-version assumption: the channel stays open afterwards. It is kept clear by the flow,
+     including when later wall debris raises z_d.
+   - Its progressive enlargement is not resolved.
+2. **Removed volume.** The plug volume is V_plug = b_k a_k ℓ_k (bulk debris).
+   - **Downstream:** carried by the released flow through the empty downstream pipe and out of its
+     outlet. Crater export and system export both increase: V_exp += V_plug and V_exp,out += V_plug.
+     Its pore water, n_d V_plug S with S = clip((z_c − z_cr,dn)/ℓ_dn, 0, 1), leaves W_c with it and is
+     counted as outflow. It leaves the water control volume through the outlet.
+   - **Upstream:** the plug material stays in the crater. It is pushed into the crater, or, for reverse
+     flow, it is not tracked into the pipe (first-version assumption). It rejoins the level deposit:
+     no export, no change of V_db or z_d, and its pore water stays in W_c.
+3. **Budgets.**
+   - The crater solids identity (5.18) closes through V_exp.
+   - The system split closes as V_exp = V_tank + V_exp,out, now checked in every treatment.
+   - The water budget is unchanged in form: the pore water moves from W_c to the outflow.
+4. **Levels.** The lowering of the level deposit by V_plug/A_c (downstream) is the lumped
+   representation of a local removal. The level surface itself is not reshaped.
+5. **Then** the hydraulics and the geometry are recomputed in the same cascade (§5.7a.6). The
+   falling crater level can then fail the walls (§5.7a.7).
+
+**Logging.** Each plug has three events:
+- `plug_<k>_formed`: the mouth becomes fully covered;
+- `plug_<k>_fail`, with i, i_cr,d, Δh, ℓ, V_plug and the exported pore water;
+- `mouth_<k>_open`.
+
+**What is not resolved, and stays explicit.** These are stated as assumptions:
+- the failure rate and the enlargement of the opening;
+- the seepage path (vertical cover);
+- the saturated unit weight of the whole plug;
+- the negligible remoulded cohesion.
+
+No P1 observation documents the plug failure itself. D1 is supported only by the outcome (the
+debris was washed away) and by the model's own sealed state exceeding i_cr.
+
+**Tests** (`tests/test_plugs.py`):
+- (5.26) and (5.28) by hand;
+- both mouths covered by a level deposit;
+- the P1 sealed state margins by hand (both plugs below i_cr);
+- a forced breakthrough with lighter test debris (n_d = 0.6, i_cr = 0.66): the upstream plug fails
+  first, the crater fills, then the downstream plug fails;
+- reopening exports exactly b_p a_p ℓ through the outlet;
+- water and solids budgets close;
+- instant and tank unchanged by the option.
+
+## 5.7c Erosion of the downstream reach after crater formation (unresolved limitation, 2026-11-26)
+
+1. **Current rule.** After the crater forms, the downstream reach keeps the dimensions it had at
+   crater start (§5.7a.7: only the upstream pipe is time-integrated). Only the exit headcut (§5.6,
+   optional) moves its outlet.
+2. **Demonstrated consequence.** In the P1 c_u0 check at 7 kPa (instant), the crater walls stand
+   while about 1.06 m³/s passes through the crater and the downstream reach for more than an hour,
+   with no change in that reach's geometry.
+3. **What follows.** The model cannot establish whether downstream erosion would eventually develop
+   a breach in that condition. That case is reported as unresolved, not as a stable dam. The same
+   applies to any run that ends with sustained flow through an un-eroded downstream reach,
+   including runs reopened by D1-a.
+4. **No law adopted.** No erosion law and no additional parameter is adopted for the downstream reach
+   at this stage.
+5. **Reserved.** Downstream-reach erosion is reserved for a later theory and validation phase. It is
+   kept separate from D1: D1 concerns failure of the debris plug, while this concerns what the flow
+   does in the reach after it passes.
 
 ## 5.8 Inputs, safeguards and the cases that test this part
 

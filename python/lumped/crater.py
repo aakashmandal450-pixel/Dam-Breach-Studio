@@ -79,6 +79,8 @@ class Crater:
     debris: str = "level"      # 'level' (5.18-5.20, default) | 'instant' (removal) | 'tank' (DL Breach virtual tank)
     V_tank: float = 0.0        # bulk debris held in the virtual tank ('tank' mode)
     V_exp_out: float = 0.0     # bulk debris that has left the model domain (system export)
+    open_up: bool = False      # 5.7b: upstream mouth reopened by plug failure (D1-a); stays open
+    open_dn: bool = False      # 5.7b: downstream mouth reopened by plug failure (D1-a); stays open
 
     # ---------------------------------------------------------------- geometry (5.18)-(5.19)
     @property
@@ -152,14 +154,21 @@ class Crater:
 
     # ---------------------------------------------------------------- outflows (5.21), (5.25)
     def a_open(self) -> float:
+        """(5.25); a mouth reopened by plug failure (5.7b, D1-a) is open over its full height."""
+        if self.open_dn:
+            return self.a_p
         return min(max(self.z_cr - max(self.z_d, self.z_inv), 0.0), self.a_p)
+
+    def z_open(self) -> float:
+        """Bottom of the open part of the downstream entrance (the invert once reopened, 5.7b)."""
+        return self.z_inv if self.open_dn else max(self.z_d, self.z_inv)
 
     def Q_out(self, z_c: float | None = None) -> float:
         z_c = self.level() if z_c is None else z_c
         ao = self.a_open()
         if ao <= 0.0 or self.L_down <= 0.0:
             return 0.0
-        z_o = max(self.z_d, self.z_inv)               # bottom of the open part of the entrance
+        z_o = self.z_open()                           # bottom of the open part of the entrance
         return pp.pipe_flow(z_c - z_o, self.b_p, ao, self.L_down, self.n_p).Q
 
     def Q_spill(self, z_c: float | None = None) -> float:

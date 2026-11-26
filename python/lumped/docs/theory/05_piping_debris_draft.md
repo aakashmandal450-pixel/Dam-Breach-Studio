@@ -1,6 +1,6 @@
 # Part 5, §5.7b (draft for review): what happens to the collapsed roof debris
 
-*Draft 5.11-D, revision 2 · 2026-11-26 · status: reviewed once; the qualifications of the review are
+*Draft 5.11-D, revision 2 · 2026-11-26 · **superseded: frozen as §5.7b of 05_piping.md (draft 5.13, 2026-11-26); kept as the record of the reasoning.** Earlier status: reviewed once; the qualifications of the review are
 incorporated below. Not frozen. The four §5.7 comparison treatments are being implemented first. D1 is
 not implemented.*
 
