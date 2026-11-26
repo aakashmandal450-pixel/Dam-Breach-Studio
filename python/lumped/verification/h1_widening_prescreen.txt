@@ -1,0 +1,7 @@
+H-1 pre-screen: exit-notch widening at the face-flow rate (one-way, no feedback), P1, dt 2 s
+
+k_d 16.50: roof collapse t    293 s | pipe b 0.291 m | exit B_e 0.866 m | B_e/b 2.98 | exit flow depth 0.056 m (crown 0.367) | tau_e 162 Pa
+k_d  6.77: roof collapse t    709 s | pipe b 0.292 m | exit B_e 0.863 m | B_e/b 2.96 | exit flow depth 0.056 m (crown 0.367) | tau_e 162 Pa
+k_d  3.16: roof collapse t   1519 s | pipe b 0.293 m | exit B_e 0.866 m | B_e/b 2.96 | exit flow depth 0.056 m (crown 0.367) | tau_e 163 Pa
+k_d  1.48: roof collapse t   3239 s | pipe b 0.293 m | exit B_e 0.865 m | B_e/b 2.95 | exit flow depth 0.056 m (crown 0.367) | tau_e 163 Pa
+k_d  0.88: roof collapse t   5448 s | pipe b 0.293 m | exit B_e 0.866 m | B_e/b 2.95 | exit flow depth 0.056 m (crown 0.367) | tau_e 163 Pa

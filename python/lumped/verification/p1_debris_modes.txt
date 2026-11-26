@@ -1,0 +1,135 @@
+ARS P1 debris treatments (level,instant,tank) across the 5.4a k_d band; tau_c 0, n_p 0.016, exit headcut off; time steps [2.0, 1.0, 0.5] s; t_end 14400 s
+observed sequence (PAP-1017): pipe enlargement with headcutting to the base, soil-bridge collapse at 0.23 h (790-830 s), breach;
+time origin not defined in the source: comparison provisional (5.4a point 6)
+
+run                                  dt  tau0 Pa  inlet s crater s  b_cr m  retr m handov s  outcome
+field JET (R = 1) | level                         2     9.85     21.2     35.5   0.283   0.940        -  sealed
+field JET (R = 1) | level                         1     9.85     21.4     33.7   0.288   0.937        -  sealed
+field JET (R = 1) | level                       0.5     9.85     21.3     32.9   0.292   0.946        -  sealed
+R = 9.1 (low): k_d 16.5 | level                   2     9.85    194.3    295.3   0.294   0.948        -  sealed
+R = 9.1 (low): k_d 16.5 | level                   1     9.85    194.2    293.5   0.294   0.949        -  sealed
+R = 9.1 (low): k_d 16.5 | level                 0.5     9.85    192.4    292.5   0.294   0.948        -  sealed
+R = 22.2 (P2): k_d 6.76 | level                   2     9.85    473.1    715.2   0.294   0.949        -  sealed
+R = 22.2 (P2): k_d 6.76 | level                   1     9.85    471.9    713.1   0.294   0.948        -  sealed
+R = 22.2 (P2): k_d 6.76 | level                 0.5     9.85    468.5    711.9   0.295   0.947        -  sealed
+R = 47.4 (central): k_d 3.16 | level              2     9.85   1001.5   1522.1   0.294   0.948        -  sealed
+R = 47.4 (central): k_d 3.16 | level              1     9.85   1006.0   1520.0   0.295   0.947        -  sealed
+R = 47.4 (central): k_d 3.16 | level            0.5     9.85   1005.4   1518.9   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | level                  2     9.85   2152.0   3251.5   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | level                  1     9.85   2150.7   3249.2   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | level                0.5     9.85   2150.1   3248.1   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | level               2     9.85   3635.8   5493.0   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | level               1     9.85   3634.6   5490.8   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | level             0.5     9.85   3633.9   5489.7   0.295   0.947        -  sealed
+field JET (R = 1) | instant                       2     9.85     21.2     35.5   0.283   1.139     35.5  handover
+field JET (R = 1) | instant                       1     9.85     21.4     33.7   0.288   1.133     33.7  handover
+field JET (R = 1) | instant                     0.5     9.85     21.3     32.9   0.292   1.152     32.9  handover
+R = 9.1 (low): k_d 16.5 | instant                 2     9.85    194.3    295.3   0.294   1.155    295.3  handover
+R = 9.1 (low): k_d 16.5 | instant                 1     9.85    194.2    293.5   0.294   1.156    293.5  handover
+R = 9.1 (low): k_d 16.5 | instant               0.5     9.85    192.4    292.5   0.294   1.152    292.5  handover
+R = 22.2 (P2): k_d 6.76 | instant                 2     9.85    473.1    715.2   0.294   1.157    715.2  handover
+R = 22.2 (P2): k_d 6.76 | instant                 1     9.85    471.9    713.1   0.294   1.151    713.1  handover
+R = 22.2 (P2): k_d 6.76 | instant               0.5     9.85    468.5    711.9   0.295   1.151    711.9  handover
+R = 47.4 (central): k_d 3.16 | instant            2     9.85   1001.5   1522.1   0.294   1.151   1522.1  handover
+R = 47.4 (central): k_d 3.16 | instant            1     9.85   1006.0   1520.0   0.295   1.151   1520.0  handover
+R = 47.4 (central): k_d 3.16 | instant          0.5     9.85   1005.4   1518.9   0.295   1.150   1518.9  handover
+R = 101.4 (P3): k_d 1.48 | instant                2     9.85   2152.0   3251.5   0.295   1.151   3251.5  handover
+R = 101.4 (P3): k_d 1.48 | instant                1     9.85   2150.7   3249.2   0.295   1.150   3249.2  handover
+R = 101.4 (P3): k_d 1.48 | instant              0.5     9.85   2150.1   3248.1   0.295   1.150   3248.1  handover
+R = 171.4 (high): k_d 0.875 | instant             2     9.85   3635.8   5493.0   0.295   1.150   5493.0  handover
+R = 171.4 (high): k_d 0.875 | instant             1     9.85   3634.6   5490.8   0.295   1.150   5490.8  handover
+R = 171.4 (high): k_d 0.875 | instant           0.5     9.85   3633.9   5489.7   0.295   1.150   5489.7  handover
+field JET (R = 1) | tank                          2     9.85     21.2     35.5   0.283   1.139     35.5  handover
+field JET (R = 1) | tank                          1     9.85     21.4     33.7   0.288   1.133     33.7  handover
+field JET (R = 1) | tank                        0.5     9.85     21.3     32.9   0.292   1.152     32.9  handover
+R = 9.1 (low): k_d 16.5 | tank                    2     9.85    194.3    295.3   0.294   1.155    295.3  handover
+R = 9.1 (low): k_d 16.5 | tank                    1     9.85    194.2    293.5   0.294   1.156    293.5  handover
+R = 9.1 (low): k_d 16.5 | tank                  0.5     9.85    192.4    292.5   0.294   1.152    292.5  handover
+R = 22.2 (P2): k_d 6.76 | tank                    2     9.85    473.1    715.2   0.294   1.157    715.2  handover
+R = 22.2 (P2): k_d 6.76 | tank                    1     9.85    471.9    713.1   0.294   1.151    713.1  handover
+R = 22.2 (P2): k_d 6.76 | tank                  0.5     9.85    468.5    711.9   0.295   1.151    711.9  handover
+R = 47.4 (central): k_d 3.16 | tank               2     9.85   1001.5   1522.1   0.294   1.151   1522.1  handover
+R = 47.4 (central): k_d 3.16 | tank               1     9.85   1006.0   1520.0   0.295   1.151   1520.0  handover
+R = 47.4 (central): k_d 3.16 | tank             0.5     9.85   1005.4   1518.9   0.295   1.150   1518.9  handover
+R = 101.4 (P3): k_d 1.48 | tank                   2     9.85   2152.0   3251.5   0.295   1.151   3251.5  handover
+R = 101.4 (P3): k_d 1.48 | tank                   1     9.85   2150.7   3249.2   0.295   1.150   3249.2  handover
+R = 101.4 (P3): k_d 1.48 | tank                 0.5     9.85   2150.1   3248.1   0.295   1.150   3248.1  handover
+R = 171.4 (high): k_d 0.875 | tank                2     9.85   3635.8   5493.0   0.295   1.150   5493.0  handover
+R = 171.4 (high): k_d 0.875 | tank                1     9.85   3634.6   5490.8   0.295   1.150   5490.8  handover
+R = 171.4 (high): k_d 0.875 | tank              0.5     9.85   3633.9   5489.7   0.295   1.150   5489.7  handover
+
+Summary (crater-start time at each step, convergence, outcome):
+field JET (R = 1) | level                      sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+field JET (R = 1) | level                      (dt 0.5) crater level 1.049-1.100 m; downstream open from - s; pipe-stage peak 0.239 m3/s at 33 s
+field JET (R = 1) | level                      (dt 0.5) end state: crater [5.58, 6.27] W 0.29 z_d 0.931; pipe b 0.292 D 0.300; fallen 0.175 m3, exported 0.000, tank 0.000
+field JET (R = 1) | level                      crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: sealed
+R = 9.1 (low): k_d 16.5 | level                sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 9.1 (low): k_d 16.5 | level                (dt 0.5) crater level 1.053-1.100 m; downstream open from - s; pipe-stage peak 0.241 m3/s at 292 s
+R = 9.1 (low): k_d 16.5 | level                (dt 0.5) end state: crater [5.63, 6.28] W 0.29 z_d 0.928; pipe b 0.295 D 0.295; fallen 0.163 m3, exported 0.000, tank 0.000
+R = 9.1 (low): k_d 16.5 | level                crater start 295.3, 293.5, 292.5 s | p = 0.76, t_inf =    291.0 s | outcome same: sealed
+R = 22.2 (P2): k_d 6.76 | level                sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 22.2 (P2): k_d 6.76 | level                (dt 0.5) crater level 1.053-1.100 m; downstream open from - s; pipe-stage peak 0.240 m3/s at 711 s
+R = 22.2 (P2): k_d 6.76 | level                (dt 0.5) end state: crater [5.63, 6.27] W 0.29 z_d 0.928; pipe b 0.295 D 0.295; fallen 0.162 m3, exported 0.000, tank 0.000
+R = 22.2 (P2): k_d 6.76 | level                crater start 715.2, 713.1, 711.9 s | p = 0.82, t_inf =    710.3 s | outcome same: sealed
+R = 47.4 (central): k_d 3.16 | level           sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 47.4 (central): k_d 3.16 | level           (dt 0.5) crater level 1.053-1.100 m; downstream open from - s; pipe-stage peak 0.240 m3/s at 1519 s
+R = 47.4 (central): k_d 3.16 | level           (dt 0.5) end state: crater [5.63, 6.27] W 0.29 z_d 0.928; pipe b 0.295 D 0.295; fallen 0.161 m3, exported 0.000, tank 0.000
+R = 47.4 (central): k_d 3.16 | level           crater start 1522.1, 1520.0, 1518.9 s | p = 0.87, t_inf =   1517.6 s | outcome same: sealed
+R = 101.4 (P3): k_d 1.48 | level               sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 101.4 (P3): k_d 1.48 | level               (dt 0.5) crater level 1.053-1.100 m; downstream open from - s; pipe-stage peak 0.240 m3/s at 3248 s
+R = 101.4 (P3): k_d 1.48 | level               (dt 0.5) end state: crater [5.63, 6.27] W 0.29 z_d 0.928; pipe b 0.295 D 0.295; fallen 0.161 m3, exported 0.000, tank 0.000
+R = 101.4 (P3): k_d 1.48 | level               crater start 3251.5, 3249.2, 3248.1 s | p = 1.00, t_inf =   3247.0 s | outcome same: sealed
+R = 171.4 (high): k_d 0.875 | level            sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 171.4 (high): k_d 0.875 | level            (dt 0.5) crater level 1.053-1.100 m; downstream open from - s; pipe-stage peak 0.240 m3/s at 5489 s
+R = 171.4 (high): k_d 0.875 | level            (dt 0.5) end state: crater [5.63, 6.27] W 0.29 z_d 0.929; pipe b 0.295 D 0.295; fallen 0.161 m3, exported 0.000, tank 0.000
+R = 171.4 (high): k_d 0.875 | level            crater start 5493.0, 5490.8, 5489.7 s | p = 1.00, t_inf =   5488.6 s | outcome same: sealed
+field JET (R = 1) | instant                    sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+field JET (R = 1) | instant                    (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.239 m3/s at 33 s
+field JET (R = 1) | instant                    (dt 0.5) end state: crater [3.15, 6.80] W 1.44 z_d 0.070; pipe b 0.292 D 0.299; fallen 5.842 m3, exported 5.842, tank 0.000
+field JET (R = 1) | instant                    crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: handover
+R = 9.1 (low): k_d 16.5 | instant              sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 9.1 (low): k_d 16.5 | instant              (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.241 m3/s at 292 s
+R = 9.1 (low): k_d 16.5 | instant              (dt 0.5) end state: crater [3.16, 6.80] W 1.44 z_d 0.072; pipe b 0.294 D 0.295; fallen 5.828 m3, exported 5.828, tank 0.000
+R = 9.1 (low): k_d 16.5 | instant              crater start 295.3, 293.5, 292.5 s | p = 0.76, t_inf =    291.0 s | outcome same: handover
+R = 22.2 (P2): k_d 6.76 | instant              sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 22.2 (P2): k_d 6.76 | instant              (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 711 s
+R = 22.2 (P2): k_d 6.76 | instant              (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.823 m3, exported 5.823, tank 0.000
+R = 22.2 (P2): k_d 6.76 | instant              crater start 715.2, 713.1, 711.9 s | p = 0.82, t_inf =    710.3 s | outcome same: handover
+R = 47.4 (central): k_d 3.16 | instant         sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 47.4 (central): k_d 3.16 | instant         (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 1519 s
+R = 47.4 (central): k_d 3.16 | instant         (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.821 m3, exported 5.821, tank 0.000
+R = 47.4 (central): k_d 3.16 | instant         crater start 1522.1, 1520.0, 1518.9 s | p = 0.87, t_inf =   1517.6 s | outcome same: handover
+R = 101.4 (P3): k_d 1.48 | instant             sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 101.4 (P3): k_d 1.48 | instant             (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 3248 s
+R = 101.4 (P3): k_d 1.48 | instant             (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.820 m3, exported 5.820, tank 0.000
+R = 101.4 (P3): k_d 1.48 | instant             crater start 3251.5, 3249.2, 3248.1 s | p = 1.00, t_inf =   3247.0 s | outcome same: handover
+R = 171.4 (high): k_d 0.875 | instant          sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 171.4 (high): k_d 0.875 | instant          (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 5489 s
+R = 171.4 (high): k_d 0.875 | instant          (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.820 m3, exported 5.820, tank 0.000
+R = 171.4 (high): k_d 0.875 | instant          crater start 5493.0, 5490.8, 5489.7 s | p = 1.00, t_inf =   5488.6 s | outcome same: handover
+field JET (R = 1) | tank                       sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+field JET (R = 1) | tank                       (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.239 m3/s at 33 s
+field JET (R = 1) | tank                       (dt 0.5) end state: crater [3.15, 6.80] W 1.44 z_d 0.070; pipe b 0.292 D 0.299; fallen 5.842 m3, exported 0.000, tank 5.842
+field JET (R = 1) | tank                       crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: handover
+R = 9.1 (low): k_d 16.5 | tank                 sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 9.1 (low): k_d 16.5 | tank                 (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.241 m3/s at 292 s
+R = 9.1 (low): k_d 16.5 | tank                 (dt 0.5) end state: crater [3.16, 6.80] W 1.44 z_d 0.072; pipe b 0.294 D 0.295; fallen 5.828 m3, exported 0.000, tank 5.828
+R = 9.1 (low): k_d 16.5 | tank                 crater start 295.3, 293.5, 292.5 s | p = 0.76, t_inf =    291.0 s | outcome same: handover
+R = 22.2 (P2): k_d 6.76 | tank                 sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 22.2 (P2): k_d 6.76 | tank                 (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 711 s
+R = 22.2 (P2): k_d 6.76 | tank                 (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.823 m3, exported 0.000, tank 5.823
+R = 22.2 (P2): k_d 6.76 | tank                 crater start 715.2, 713.1, 711.9 s | p = 0.82, t_inf =    710.3 s | outcome same: handover
+R = 47.4 (central): k_d 3.16 | tank            sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 47.4 (central): k_d 3.16 | tank            (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 1519 s
+R = 47.4 (central): k_d 3.16 | tank            (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.821 m3, exported 0.000, tank 5.821
+R = 47.4 (central): k_d 3.16 | tank            crater start 1522.1, 1520.0, 1518.9 s | p = 0.87, t_inf =   1517.6 s | outcome same: handover
+R = 101.4 (P3): k_d 1.48 | tank                sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 101.4 (P3): k_d 1.48 | tank                (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 3248 s
+R = 101.4 (P3): k_d 1.48 | tank                (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.820 m3, exported 0.000, tank 5.820
+R = 101.4 (P3): k_d 1.48 | tank                crater start 3251.5, 3249.2, 3248.1 s | p = 1.00, t_inf =   3247.0 s | outcome same: handover
+R = 171.4 (high): k_d 0.875 | tank             sequence (dt 0.5): inlet_retreat > crater_start > inlet_retreat > crater_extend_up > crater_extend_down > wall_up > wall_down > wall_sides > handover
+R = 171.4 (high): k_d 0.875 | tank             (dt 0.5) crater level -; downstream open from - s; pipe-stage peak 0.240 m3/s at 5489 s
+R = 171.4 (high): k_d 0.875 | tank             (dt 0.5) end state: crater [3.16, 6.79] W 1.44 z_d 0.073; pipe b 0.295 D 0.295; fallen 5.820 m3, exported 0.000, tank 5.820
+R = 171.4 (high): k_d 0.875 | tank             crater start 5493.0, 5490.8, 5489.7 s | p = 1.00, t_inf =   5488.6 s | outcome same: handover
+
+wall time 228 s on 8 workers; largest water-budget error 3.3e-16, solids 0.0e+00

@@ -1,0 +1,57 @@
+== 1. Prandtl strip footing, exact 2+pi = 5.1416
+footing h=0.1                      ntri=  1380  LB   4.4215 [optimal]  UB   5.2932 [optimal]    0.7s
+                                   LB audit: eq 3.5e-13 trac 9.4e-13 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 9.4e-11 bc 2.8e-11 recomputed 5.2932
+                                   brackets exact: PASS
+footing h=0.05                     ntri=  2204  LB   4.4694 [optimal]  UB   5.2414 [optimal]    1.2s
+                                   LB audit: eq 9.6e-14 trac 3.1e-15 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 5.5e-10 bc 7.7e-11 recomputed 5.2414
+                                   brackets exact: PASS
+
+== 2. Circular tunnel vs Wilson et al. 2011 (rho = 0), H = cover
+circle H/D=1 gD/c=0 h=0.1          ntri=  4584  LB   2.4236 [optimal]  UB   2.4564 [optimal]    3.4s
+                                   LB audit: eq 1.5e-11 trac 4.9e-11 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 2.0e-11 bc 1.8e-11 recomputed 2.4564
+                                   Wilson [2.43, 2.45]  overlap: PASS  (our LB -0.3%, UB +0.3% vs theirs)
+circle H/D=2 gD/c=0 h=0.1          ntri=  7064  LB   3.4401 [optimal]  UB   3.4859 [optimal]   18.5s
+                                   LB audit: eq 2.4e-11 trac 2.8e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 9.6e-11 bc 8.0e-12 recomputed 3.4859
+                                   Wilson [3.45, 3.48]  overlap: PASS  (our LB -0.3%, UB +0.2% vs theirs)
+circle H/D=3 gD/c=0 h=0.1          ntri=  8360  LB   4.1092 [optimal]  UB   4.1764 [optimal]   30.5s
+                                   LB audit: eq 1.2e-13 trac 2.8e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 2.8e-10 bc 1.6e-11 recomputed 4.1764
+                                   Wilson [4.12, 4.16]  overlap: PASS  (our LB -0.3%, UB +0.4% vs theirs)
+circle H/D=1 gD/c=1 h=0.1          ntri=  4584  LB   1.2433 [optimal]  UB   1.2723 [optimal]    3.9s
+                                   LB audit: eq 2.5e-12 trac 3.1e-12 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 2.1e-11 bc 1.1e-11 recomputed 1.2723
+                                   Wilson [1.25, 1.26]  overlap: PASS  (our LB -0.5%, UB +1.0% vs theirs)
+circle H/D=2 gD/c=1 h=0.1          ntri=  7064  LB   1.1654 [optimal]  UB   1.2130 [optimal]   21.3s
+                                   LB audit: eq 2.7e-11 trac 3.5e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 9.2e-11 bc 1.1e-11 recomputed 1.2130
+                                   Wilson [1.17, 1.20]  overlap: PASS  (our LB -0.4%, UB +1.1% vs theirs)
+circle H/D=3 gD/c=1 h=0.1          ntri=  8360  LB   0.7815 [optimal]  UB   0.8463 [optimal]   23.7s
+                                   LB audit: eq 3.9e-12 trac 7.2e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 4.1e-10 bc 2.9e-11 recomputed 0.8463
+                                   Wilson [0.79, 0.84]  overlap: PASS  (our LB -1.1%, UB +0.8% vs theirs)
+circle H/D=1 gD/c=2 h=0.1          ntri=  4584  LB   0.0084 [optimal]  UB   0.0411 [optimal]    4.2s
+                                   LB audit: eq 8.4e-12 trac 2.9e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 7.2e-10 bc 8.2e-11 recomputed 0.0411
+                                   Wilson [0.01, 0.03]  overlap: PASS  (our LB -0.3%, UB +2.2% vs theirs)
+circle H/D=2 gD/c=2 h=0.1          ntri=  7064  LB  -1.1803 [optimal]  UB  -1.1343 [optimal]   20.4s
+                                   LB audit: eq 1.7e-11 trac 3.0e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 2.3e-10 bc 3.5e-11 recomputed -1.1343
+                                   Wilson [-1.17, -1.15]  overlap: PASS  (our LB -0.9%, UB +1.4% vs theirs)
+circle H/D=3 gD/c=2 h=0.1          ntri=  8360  LB  -2.6222 [optimal]  UB  -2.5611 [optimal]   25.3s
+                                   LB audit: eq 2.7e-11 trac 5.4e-11 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 6.8e-10 bc 5.9e-11 recomputed -2.5611
+                                   Wilson [-2.62, -2.57]  overlap: PASS  (our LB -0.1%, UB +0.3% vs theirs)
+circle H/D=2 gD/c=1 h=0.05         ntri= 18600  LB   1.1747 [optimal]  UB   1.2053 [optimal]  118.9s
+                                   LB audit: eq 3.8e-12 trac 3.0e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 1.2e-10 bc 2.8e-10 recomputed 1.2053
+                                   mesh refinement of the case above (Wilson [1.17, 1.20])
+
+== 3. Square opening (pipe roof), D/B = 1, gB/cu = 1, rigorous far field
+square C/B=0.5 h=0.1               ntri=  1880  LB   0.4421 [optimal]  UB   0.5994 [optimal]    0.9s
+                                   LB audit: eq 3.5e-13 trac 2.4e-11 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 1.3e-11 bc 2.9e-11 recomputed 0.5994
+                                   rigid block 0.500
+square C/B=1.0 h=0.1               ntri=  2528  LB   0.8330 [optimal]  UB   0.9634 [optimal]    1.7s
+                                   LB audit: eq 7.8e-12 trac 1.9e-11 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 4.6e-11 bc 1.8e-11 recomputed 0.9634
+                                   rigid block 1.000
+square C/B=2.0 h=0.1               ntri=  3300  LB   0.6811 [optimal]  UB   0.8459 [optimal]    2.1s
+                                   LB audit: eq 8.7e-12 trac 5.1e-11 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 1.1e-12 bc 2.7e-12 recomputed 0.8459
+                                   rigid block 2.000
+square C/B=4.0 h=0.1               ntri=  5132  LB  -0.2608 [optimal]  UB  -0.0646 [optimal]    4.3s
+                                   LB audit: eq 9.0e-12 trac 1.1e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 1.4e-09 bc 3.3e-11 recomputed -0.0646
+                                   rigid block 4.000
+square C/B=2 h=0.05                ntri=  6760  LB   0.6968 [optimal]  UB   0.8271 [optimal]    5.5s
+                                   LB audit: eq 3.2e-11 trac 2.6e-10 yield+ 0.0e+00 side+ 0.0e+00 bot+ 0.0e+00 | UB audit: vol 3.7e-10 bc 5.5e-11 recomputed 0.8271
+
+== RESULT: ALL PASS

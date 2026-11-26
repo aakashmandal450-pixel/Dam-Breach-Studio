@@ -1,0 +1,126 @@
+{
+ "id": "ARS_P1",
+ "tier": "validation",
+ "kind": "lab",
+ "mode": "piping",
+ "status": "DRAFT - not runnable",
+ "facility": "USDA-ARS HERU, Stillwater OK, 2006-2007",
+ "geometry": {
+  "H_m": {
+   "value": 1.3,
+   "alt": [
+    1.22
+   ],
+   "status": "measured",
+   "src": "1.3 m: Hanson et al. 2010 (via abstract) and Chen et al. 2019; 4 ft = 1.22 m: Wahl PAP-1017. Conflict open"
+  },
+  "crest_w_m": {
+   "value": 1.83,
+   "alt": [
+    1.98
+   ],
+   "status": "measured",
+   "src": "6 ft: PAP-1017; 1.98 m (1.78-2.18) is the GeoHazards 2024 model mode; Chen et al. 2019 Table 1 uses 1.8 m"
+  },
+  "zu": {
+   "value": 3.0,
+   "status": "measured",
+   "src": "3H:1V both faces, PAP-1017"
+  },
+  "zd": {
+   "value": 3.0,
+   "status": "measured",
+   "src": "PAP-1017"
+  },
+  "section_width_m": {
+   "value": 100,
+   "status": "estimated",
+   "src": "Chen et al. 2019 Table 1 lists dam length 100 m (model input; unclear whether measured)"
+  },
+  "pipe": {
+   "diameter_m": 0.04,
+   "type": "steel, upstream end capped, pulled out after filling",
+   "elevation_m": 0.2,
+   "elevation_status": "estimated (Chen et al. 2019 Table 1 input, said to follow Hanson et al. 2010)",
+   "src": "Chen et al. 2019; PAP-1017 (1.5 in). Elevation only described as the lowest marker row on the d/s slope"
+  },
+  "reservoir": {
+   "type": "constant_head_then_supply_limited",
+   "level_m": 1.1,
+   "weir_length_m": 43,
+   "inflow_m3s": {
+    "value": 2.45,
+    "status": "estimated",
+    "src": "post-peak plateau of measured Q (2.4-2.55 m3/s, 0.5-1.0 h) = supply once the weir stops spilling"
+   },
+   "area_height": {
+    "status": "missing",
+    "note": "Chen used an As-H curve not given; same facility as overtopping test 1, so the E1S1 curve is a scenario option"
+   },
+   "src": "Chen et al. 2019 sec. 3.1: 43-m weir kept the pool near constant during piping; later all flow passed through the breach"
+  }
+ },
+ "soil": {
+  "uscs": "SM",
+  "sand": 76,
+  "silt": 19,
+  "clay": 5,
+  "PI": "NP",
+  "w_opt": 12.5,
+  "src": "DSO-08-05 Table 3"
+ },
+ "as_built": {
+  "w_pct": 11.49,
+  "rho_d": 1.696,
+  "src": "PAP-1017 Table 4"
+ },
+ "erodibility": {
+  "kd_cm3Ns": 150,
+  "tauc_Pa": 0.0,
+  "status": "measured field JET",
+  "src": "PAP-1017 Table 4",
+  "alt": [
+   {
+    "kd": 274,
+    "tauc": 8.7e-05,
+    "m": "lab JET, ARS conditions"
+   },
+   {
+    "kd": 309,
+    "tauc": 0.00031,
+    "m": "lab JET"
+   }
+  ],
+  "note": "no HET possible: specimens collapsed on wetting"
+ },
+ "strength": {
+  "c_kPa": 5.0,
+  "tan_phi": 0.625,
+  "gamma_kNm3": 18.73,
+  "status": "estimated (model inputs, GeoHazards 2024 Table 1)"
+ },
+ "reservoir_level_m": {
+  "value": 1.1,
+  "status": "measured",
+  "src": "Chen et al. 2019, initial reservoir level"
+ },
+ "obs": {
+  "Tc_s": 828,
+  "Tc_src": "0.23 h PAP-1017 Table 1; 0.22 h Chen 2019 Table 2",
+  "Qp_m3s": 2.98,
+  "Tp_s": 1548,
+  "Tp_src": "0.43 h Chen 2019 Table 2 (1560 s GeoHazards 2024)",
+  "B_final_m": 5.4,
+  "B_final_src": "Chen 2019 Table 2 at ~1 h; GeoHazards 2024 gives max width 6.46 m (likely later in test)",
+  "hydrograph_csv": "ARS_P1_obs_hydrograph_digitised.csv",
+  "width_csv": "ARS_P1_obs_width_digitised.csv",
+  "src": "measured values cited to Hanson et al. 2010"
+ },
+ "strength_alt": {
+  "c_kPa": 15,
+  "phi_deg": 40,
+  "porosity": 0.36,
+  "d50_mm": 0.05,
+  "status": "estimated (Chen 2019 model inputs)"
+ }
+}

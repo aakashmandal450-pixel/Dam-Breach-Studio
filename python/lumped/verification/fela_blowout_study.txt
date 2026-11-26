@@ -1,0 +1,5 @@
+C/B=1 gB/c=1 rhoB/c=0: blow-out bounds [ -3.095,  -2.903]  rigid prism  -3.000
+C/B=2 gB/c=1 rhoB/c=0: blow-out bounds [ -5.366,  -5.224]  rigid prism  -6.000
+C/B=4 gB/c=1 rhoB/c=0: blow-out bounds [ -8.529,  -8.347]  rigid prism -12.000
+C/B=2 gB/c=1 rhoB/c=0.25: blow-out bounds [ -6.590,  -6.384]  rigid prism  -7.000
+C/B=2 gB/c=2 rhoB/c=0: blow-out bounds [ -7.502,  -7.341]  rigid prism  -8.000

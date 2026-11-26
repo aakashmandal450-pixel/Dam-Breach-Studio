@@ -1,0 +1,48 @@
+P1 downstream face, static scan (draft F-1). c' = 0, tan phi' = 0.625, gamma 18.55/20.17 kN/m3, w = b, K0 = 1 - sin phi'; minimum blocks t >= 0.25 b, L >= b/2 ('*' = minimum on that limit)
+
+P1 wetting thickness above the crown after 828 s (Green-Ampt F.6, h_p = 0, psi_f 0.11 m, d_theta 0.165):
+  K_s 1e-07 m/s: delta = 0.010 m
+  K_s 3e-06 m/s: delta = 0.048 m
+  K_s 1e-05 m/s: delta = 0.075 m
+
+P2 phreatic exit on the face (Casagrande): x 8.84 m, z 0.262 m
+
+stage               b   x_d | scenario               |    G1 FS     t     L |    G2 FS alpha     L
+--------------------------------------------------------------------------------------------------
+start (40 mm)   0.040  8.91 | P0 c_s 0 kPa           |   2.030* 0.010  0.03 |   2.100*  17.9  0.89
+start (40 mm)   0.040  8.91 | P0 c_s 1 kPa           |  10.554* 0.010  0.03 |  16.965   16.7  3.18
+start (40 mm)   0.040  8.91 | P0 c_s 3 kPa           |  27.602* 0.010  0.03 |  42.376   16.1  3.18
+start (40 mm)   0.040  8.91 | P1 K 3e-6 c_s 0 kPa    |   2.030* 0.010  0.03 |   2.100*  17.9  0.89
+start (40 mm)   0.040  8.91 | P1 K 3e-6 c_s 3 kPa    |   2.030* 0.010  0.03 |   2.637*  14.4  0.13
+start (40 mm)   0.040  8.91 | P1 K 1e-5 c_s 3 kPa    |   2.030* 0.010  0.03 |   2.340*  16.1  0.22
+start (40 mm)   0.040  8.91 | P2 c_s 0 kPa           |   1.095* 0.010  0.77 |   1.089*  17.3  0.45
+start (40 mm)   0.040  8.91 | P2 c_s 3 kPa           |   1.095* 0.010  0.77 |   1.089*  17.3  0.45
+
+mid             0.148  8.74 | P0 c_s 0 kPa           |   2.030* 0.037  0.11 |   2.175*  17.3  1.65
+mid             0.148  8.74 | P0 c_s 1 kPa           |   4.334* 0.037  0.11 |   8.298   15.5  3.01
+mid             0.148  8.74 | P0 c_s 3 kPa           |   8.941* 0.037  0.11 |  18.276   14.4  3.01
+mid             0.148  8.74 | P1 K 3e-6 c_s 0 kPa    |   2.030* 0.037  0.11 |   2.175*  17.3  1.65
+mid             0.148  8.74 | P1 K 3e-6 c_s 3 kPa    |   2.030* 0.037  0.11 |   6.310*   7.4  0.18
+mid             0.148  8.74 | P1 K 1e-5 c_s 3 kPa    |   2.030* 0.037  0.11 |   3.884*  10.3  0.24
+mid             0.148  8.74 | P2 c_s 0 kPa           |   1.115* 0.037  0.59 |   1.183*  14.9  0.56
+mid             0.148  8.74 | P2 c_s 3 kPa           |   1.115* 0.037  0.59 |   1.183*  14.9  0.56
+
+roof collapse   0.290  8.52 | P0 c_s 0 kPa           |   2.030* 0.072  0.22 |   2.255*  16.7  2.17
+roof collapse   0.290  8.52 | P0 c_s 1 kPa           |   3.206* 0.072  0.22 |   6.602   14.9  2.79
+roof collapse   0.290  8.52 | P0 c_s 3 kPa           |   5.557* 0.072  0.22 |  13.613   13.8  2.79
+roof collapse   0.290  8.52 | P1 K 3e-6 c_s 0 kPa    |   2.028* 0.072  0.22 |   2.255*  16.7  2.17
+roof collapse   0.290  8.52 | P1 K 3e-6 c_s 3 kPa    |   2.404* 0.072  0.22 |  10.060*   7.4  0.36
+roof collapse   0.290  8.52 | P1 K 1e-5 c_s 3 kPa    |   2.030* 0.072  0.22 |   6.922*   8.6  0.40
+roof collapse   0.290  8.52 | P2 c_s 0 kPa           |   1.165* 0.072  0.39 |   1.500*   9.1  0.42
+roof collapse   0.290  8.52 | P2 c_s 3 kPa           |   1.165* 0.072  0.39 |   1.500*   9.1  0.42
+
+A3 global check: G2 per unit width over the whole face (plane strain, no sides), toe at the collapse-stage outlet level:
+  P0 c_s 0      : FS 2.084 at alpha 16.7 deg, L 2.79 m
+  P2 c_s 0      : FS 1.385* at alpha 9.1 deg, L 0.42 m
+  P2 c_s 3 kPa  : FS 1.385* at alpha 9.1 deg, L 0.42 m
+
+Sensitivity to the numerical block limits (roof-collapse stage, b 0.29 m):
+t_min/b L_min/b | P0 c_s 0 G1      G2 | P2 c_s 0 G1      G2
+  0.125   0.250 |      1.952*  2.092* |      1.070*  1.185*
+  0.250   0.500 |      2.030*  2.255* |      1.165*  1.500*
+  0.500   1.000 |      2.185*  2.615* |      1.336*  2.536*

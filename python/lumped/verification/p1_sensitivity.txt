@@ -1,0 +1,48 @@
+ARS P1 one-at-a-time sensitivity (baseline k_d 150 cm3/(N s), tau_c 0, n_p 0.016); time steps [2.0, 1.0, 0.5] s
+observed: soil-bridge collapse 790-830 s (PAP-1017; Chen et al. 2019), not fitted
+
+run                                  dt  tau0 Pa  inlet s crater s  b_cr m  retr m handov s  outcome
+baseline                              2     9.85     21.2     35.5   0.283   0.940        -  sealed
+baseline                              1     9.85     21.4     33.7   0.288   0.937        -  sealed
+baseline                            0.5     9.85     21.3     32.9   0.292   0.946        -  sealed
+tau_c = 8.7e-05 Pa                    2     9.85     21.2     35.5   0.283   0.940        -  sealed
+tau_c = 8.7e-05 Pa                    1     9.85     21.4     33.7   0.288   0.937        -  sealed
+tau_c = 8.7e-05 Pa                  0.5     9.85     21.3     32.9   0.292   0.946        -  sealed
+tau_c = 0.00031 Pa                    2     9.85     21.2     35.5   0.283   0.940        -  sealed
+tau_c = 0.00031 Pa                    1     9.85     21.4     33.7   0.288   0.937        -  sealed
+tau_c = 0.00031 Pa                  0.5     9.85     21.3     32.9   0.292   0.946        -  sealed
+tau_c = 0.144 Pa                      2     9.85     21.6     35.7   0.283   0.941        -  sealed
+tau_c = 0.144 Pa                      1     9.85     21.5     33.9   0.288   0.937        -  sealed
+tau_c = 0.144 Pa                    0.5     9.85     21.6     33.2   0.292   0.946        -  sealed
+tau_c = 0.16 Pa                       2     9.85     21.5     35.7   0.283   0.940        -  sealed
+tau_c = 0.16 Pa                       1     9.85     21.6     33.9   0.288   0.937        -  sealed
+tau_c = 0.16 Pa                     0.5     9.85     21.6     33.2   0.292   0.946        -  sealed
+tau_c = 1 Pa (above all P1 sources)    2     9.85     22.6     37.1   0.284   0.939        -  sealed
+tau_c = 1 Pa (above all P1 sources)    1     9.85     22.6     35.3   0.288   0.937        -  sealed
+tau_c = 1 Pa (above all P1 sources)  0.5     9.85     22.5     34.5   0.292   0.946        -  sealed
+n_p = 0.012                           2     9.48     16.9     38.7   0.270   1.013        -  sealed
+n_p = 0.012                           1     9.48     17.1     37.1   0.273   1.012        -  sealed
+n_p = 0.012                         0.5     9.48     17.1     36.4   0.276   1.020        -  sealed
+n_p = 0.02                            2    10.04     24.5     34.0   0.296   0.889        -  spilling at t_end
+n_p = 0.02                            1    10.04     24.2     32.3   0.300   0.882        -  spilling at t_end
+n_p = 0.02                          0.5    10.04     24.1     31.5   0.305   0.890        -  spilling at t_end
+n_p = 0.025                           2    10.16     27.0     33.3   0.305   0.703        -  spilling at t_end
+n_p = 0.025                           1    10.16     26.7     31.4   0.312   0.834        -  spilling at t_end
+n_p = 0.025                         0.5    10.16     26.5     30.5   0.314   0.831        -  spilling at t_end
+n_p = 0.03                            2    10.23     29.0     32.8   0.313   0.797        -  spilling at t_end
+n_p = 0.03                            1    10.23     28.5     31.0   0.317   0.670        -  spilling at t_end
+n_p = 0.03                          0.5    10.23     27.9     30.1   0.322   0.708        -  spilling at t_end
+
+Summary (crater-start time at each step, convergence, outcome):
+baseline                           crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: sealed
+tau_c = 8.7e-05 Pa                 crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: sealed
+tau_c = 0.00031 Pa                 crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: sealed
+tau_c = 0.144 Pa                   crater start 35.7, 33.9, 33.2 s | p = 1.28, t_inf =     32.6 s | outcome same: sealed
+tau_c = 0.16 Pa                    crater start 35.7, 33.9, 33.2 s | p = 1.25, t_inf =     32.6 s | outcome same: sealed
+tau_c = 1 Pa (above all P1 sources) crater start 37.1, 35.3, 34.5 s | p = 1.24, t_inf =     34.0 s | outcome same: sealed
+n_p = 0.012                        crater start 38.7, 37.1, 36.4 s | p = 1.09, t_inf =     35.8 s | outcome same: sealed
+n_p = 0.02                         crater start 34.0, 32.3, 31.5 s | p = 1.09, t_inf =     30.8 s | outcome same: spilling at t_end
+n_p = 0.025                        crater start 33.3, 31.4, 30.5 s | p = 0.98, t_inf =     29.5 s | outcome same: spilling at t_end
+n_p = 0.03                         crater start 32.8, 31.0, 30.1 s | p = 1.05, t_inf =     29.3 s | outcome same: spilling at t_end
+
+wall time 333 s on 8 workers; largest water-budget error 3.6e-14

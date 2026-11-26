@@ -1,0 +1,58 @@
+ARS P1 c_u0 sensitivity of the debris bounds; k_d 3.16 cm3/(N s); time steps [2.0, 1.0, 0.5] s; other inputs unchanged
+dry-wall critical height (5.17) H_c = 3.776 c_u0 / gamma_bar
+
+c_u0 4 kPa | level   | crater start 1096.4, 1095.0, 1094.4 s | pipe at collapse 0.186 m | outcome same: running at t_end 
+    end (dt 0.5, t 7200 s): crater [5.68, 6.36] W 0.19 z_d 1.017
+    end state: z_s 1.100, crater water 1.100, rim up 1.300 / down 1.092 m; Q_res 0.245 L/s, Q_out 0.000, spill 0.245; a_open 0.000 m; upstream pipe b 0.186 D 0.186 vs crater W 0.186 a_p 0.186
+    events: crater_extend_down 2, crater_start 1, inlet_retreat 879
+    wall failures per dt [0, 0, 0]: none
+    final walls (stand): up H_w 0.283 H_c 0.831; down H_w 0.075 H_c 1.458; side H_w 0.186 H_c 0.872
+c_u0 4 kPa | instant | crater start 1096.4, 1095.0, 1094.4 s | pipe at collapse 0.186 m | outcome same: handover (reservoir above the ground at the crater's upstream end)
+    end (dt 0.5, t 1094 s): crater [3.21, 6.84] W 1.28 z_d 0.127
+    end state: z_s 1.100, crater water 0.127, rim up 1.071 / down 0.931 m; Q_res 92.786 L/s, Q_out 0.000, spill 0.000; a_open 0.186 m; upstream pipe b 0.186 D 0.186 vs crater W 1.281 a_p 0.186
+    events: crater_extend_down 1, crater_extend_up 1, crater_start 1, handover 1, inlet_retreat 880, wall_down 1, wall_sides 1, wall_up 1
+    wall failures per dt [3, 3, 3]
+      up t=1094.4 H_w 1.173 H_c 0.759
+      down t=1094.4 H_w 1.158 H_c 0.759
+      sides t=1094.4 H_w 1.169 H_c 0.759
+c_u0 5 kPa | level   | crater start 1519.8, 1518.0, 1517.1 s | pipe at collapse 0.293 m | outcome same: sealed (blocked and stationary from t = 1519.6 s)
+    end (dt 0.5, t 2120 s): crater [5.66, 6.26] W 0.29 z_d 0.929
+    end state: z_s 1.100, crater water 1.100, rim up 1.300 / down 1.123 m; Q_res -0.000 L/s, Q_out 0.000, spill 0.000; a_open 0.000 m; upstream pipe b 0.293 D 0.294 vs crater W 0.293 a_p 0.293
+    events: crater_extend_down 5, crater_start 1, inlet_retreat 1195, sealed 1
+    wall failures per dt [0, 0, 0]: none
+    final walls (stand): up H_w 0.371 H_c 1.097; down H_w 0.194 H_c 1.529; side H_w 0.293 H_c 1.169
+c_u0 5 kPa | instant | crater start 1519.8, 1518.0, 1517.1 s | pipe at collapse 0.293 m | outcome same: handover (reservoir above the ground at the crater's upstream end)
+    end (dt 0.5, t 1517 s): crater [3.17, 6.78] W 1.44 z_d 0.073
+    end state: z_s 1.100, crater water 0.073, rim up 1.057 / down 0.949 m; Q_res 273.290 L/s, Q_out 0.000, spill 0.000; a_open 0.293 m; upstream pipe b 0.293 D 0.293 vs crater W 1.444 a_p 0.293
+    events: crater_extend_down 1, crater_extend_up 1, crater_start 1, handover 1, inlet_retreat 1196, wall_down 1, wall_sides 1, wall_up 1
+    wall failures per dt [3, 3, 3]
+      up t=1517.1 H_w 1.227 H_c 0.948
+      down t=1517.1 H_w 1.202 H_c 0.947
+      sides t=1517.1 H_w 1.221 H_c 0.948
+c_u0 6 kPa | level   | crater start 1974.4, 1971.9, 1970.7 s | pipe at collapse 0.433 m | outcome same: sealed (blocked and stationary from t = 1973.7 s)
+    end (dt 0.5, t 2574 s): crater [4.77, 6.23] W 0.43 z_d 0.838
+    end state: z_s 1.100, crater water 1.100, rim up 1.300 / down 1.134 m; Q_res -0.000 L/s, Q_out 0.000, spill 0.000; a_open 0.000 m; upstream pipe b 0.433 D 0.433 vs crater W 0.433 a_p 0.433
+    events: crater_extend_down 3, crater_start 1, inlet_retreat 1825, sealed 1
+    wall failures per dt [0, 0, 0]: none
+    final walls (stand): up H_w 0.462 H_c 1.389; down H_w 0.296 H_c 1.843; side H_w 0.433 H_c 1.420
+c_u0 6 kPa | instant | crater start 1974.4, 1971.9, 1970.7 s | pipe at collapse 0.433 m | outcome same: handover (reservoir above the ground at the crater's upstream end)
+    end (dt 0.5, t 1971 s): crater [3.25, 6.79] W 1.66 z_d 0.003
+    end state: z_s 1.100, crater water 0.003, rim up 1.084 / down 0.946 m; Q_res 685.521 L/s, Q_out 0.000, spill 0.000; a_open 0.433 m; upstream pipe b 0.433 D 0.433 vs crater W 1.657 a_p 0.433
+    events: crater_extend_down 1, crater_extend_up 1, crater_start 1, handover 1, inlet_retreat 1826, wall_down 1, wall_sides 1, wall_up 1
+    wall failures per dt [3, 3, 3]
+      up t=1970.7 H_w 1.297 H_c 1.137
+      down t=1970.7 H_w 1.297 H_c 1.137
+      sides t=1970.7 H_w 1.297 H_c 1.137
+c_u0 7 kPa | level   | crater start 2621.9, 2618.6, 2616.9 s | pipe at collapse 0.649 m | outcome same: running at t_end 
+    end (dt 0.5, t 7200 s): crater [3.90, 6.43] W 0.65 z_d 0.723
+    end state: z_s 1.100, crater water 1.100, rim up 1.300 / down 1.066 m; Q_res 6.804 L/s, Q_out 0.000, spill 6.804; a_open 0.000 m; upstream pipe b 0.649 D 0.545 vs crater W 0.649 a_p 0.545
+    events: crater_extend_down 1, crater_start 1, inlet_retreat 2863
+    wall failures per dt [0, 0, 0]: none
+    final walls (stand): up H_w 0.577 H_c 1.714; down H_w 0.343 H_c 2.552; side H_w 0.545 H_c 1.766
+c_u0 7 kPa | instant | crater start 2621.9, 2618.6, 2616.9 s | pipe at collapse 0.649 m | outcome same: handover (cascade reached the inlet)
+    end (dt 0.5, t 4035 s): crater [3.35, 6.43] W 0.65 z_d -0.013
+    end state: z_s 1.100, crater water 0.706, rim up 1.117 / down 1.066 m; Q_res 1479.664 L/s, Q_out 640.419, spill 0.000; a_open 0.545 m; upstream pipe b 0.848 D 0.644 vs crater W 0.649 a_p 0.545
+    events: crater_extend_down 1, crater_extend_up 12, crater_start 1, handover 1, inlet_retreat 2866
+    wall failures per dt [0, 0, 0]: none
+
+wall time 533 s on 8 workers; largest water-budget error 1.1e-14, solids 0.0e+00
