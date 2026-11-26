@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.13 · 2026-11-26 · status: debris D1-a/D5 frozen (§5.7b, plugs option), downstream-reach erosion recorded as unresolved (§5.7c); state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.14 · 2026-11-26 · status: P1 validation finding under §5.7b recorded and frozen (§5.7b.4, unresolved); roof-remnant geometry under investigation; debris D1-a/D5 frozen (§5.7b, plugs option), downstream-reach erosion recorded as unresolved (§5.7c); state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1919,6 +1919,37 @@ debris was washed away) and by the model's own sealed state exceeding i_cr.
 - reopening exports exactly b_p a_p ℓ through the outlet;
 - water and solids budgets close;
 - instant and tank unchanged by the option.
+
+### 5.7b.4 Validation finding: ARS P1 under the frozen rules (recorded 2026-11-26, frozen)
+
+Baseline: commit f60998a, `verification/p1_plugs_band.txt`. The runs:
+- debris: level, with D5 and D1-a;
+- k_d: the whole §5.4a band;
+- exit headcut off and on;
+- dt = 2, 1 and 0.5 s;
+- c_u0 = 5 kPa, c_d = 0, n_d = n.
+
+> Under the frozen D1-a/D5 debris formulation, all 30 P1 validation runs remained sealed following
+> crater formation. Neither the upstream nor downstream debris plug reached the critical hydraulic
+> gradient required for breakthrough (i ≈ 0.52 and 0.78 against i_cr = 1.056). The result was
+> consistent across the tested erodibility range, time steps, and exit-headcut configurations, with
+> exact water and solids budget closure. Consequently, the current formulation does not reproduce the
+> continued breach development observed in the P1 experiment. This discrepancy is retained as an
+> unresolved validation finding rather than addressed through parameter adjustment. Roof-remnant
+> geometry and the assumptions governing seepage through the debris plugs remain subjects for further
+> investigation.
+
+**Mechanism of the result.** D5 buries the upstream mouth. The crater then holds only the pipe water
+and the water drained from the fallen soil, z_c ≈ 0.80 m, which lies inside the debris
+(z_d ≈ 0.93 m). Before D5, the crater filled to 1.10 m and the downstream plug reached i = 1.32. D5
+removes that loading.
+
+**Held fixed (decision 2026-11-26).**
+- D1-a and D5 are not altered to obtain a breach.
+- The three plug assumptions stay frozen: a vertical path through the full cover, a fully saturated
+  plug, c_d = 0. Each is to be reviewed separately, and only on evidence.
+- D2 stays a separate sensitivity.
+- The roof-remnant geometry is reviewed first (`05_piping_remnant_draft.md`).
 
 ## 5.7c Erosion of the downstream reach after crater formation (unresolved limitation, 2026-11-26)
 
