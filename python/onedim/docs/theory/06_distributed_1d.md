@@ -1,7 +1,9 @@
 # Theory, Part 6 — The distributed 1-D breach engine
 
-*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 2 · 2026-11-26 ·
-status: for review (draft 2.1: second review's reference and decision points). No code until sign-off.*
+*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 3 · 2026-11-26 ·
+status: sign-off candidate (correction-only draft after the review of draft 2). No code until sign-off.
+Architecture and decisions 6-1 to 6-17 settled; the step-face closure (6.16b) and the brink closure
+(§6.8.4) remain conditional on their phase B and C tests.*
 
 *Draft 2 takes in the review of 2026-11-26 (see §6.0). The main change is a correction found while
 re-deriving the interface momentum balance with explicit signs: draft 1 loaded the wall step at an
@@ -14,7 +16,24 @@ volume with HLLC and hydrostatic reconstruction; debris by per-cell sediment tra
 decisions 2–4 are written into §6.4, §6.5, §6.7 and §6.10. New decisions requested by this draft are
 collected in §6.13.*
 
-## 6.0 Changes from draft 1 (review of 2026-11-26)
+## 6.0 Changes
+
+### Draft 3 (review of draft 2, 2026-11-26) — corrections only, no redesign
+
+| review point | change |
+|---|---|
+| (6.16b) is a closure, not a consequence of the equations | called a **proposed loading closure (v1 candidate)**; required tests listed: both flow directions, rectangle, trapezoid and conduit-to-open junctions, gradual changes over several cells (§6.5.3; B12a, B12c) |
+| 10 → 2 m contraction: 0.0368 m against ≈ 0.025 m is not agreement | table corrected: the estimate is a rough pressurised-pipe correlation, the 47 % difference is an open discrepancy for C2b (§6.5.3) |
+| brink proof uses the exact rarefaction, but the solver's flux is HLL | proof split: (a) the physical result (exact Riemann: brink cell critical); (b) what HLL actually does (no subcritical steady brink state, but Fr ≥ 1 not fixed at 1, so the discharge is **not** proven); direct flux comparison added to B12b; fallback decision 6-18 (§6.8.4) |
+| (found while checking (b)) dry-state wave speeds undefined | dry-side speeds U ± Φ(A) stated, replacing the Roe averages there (§6.5.4) |
+| headcut and shear erosion must remove disjoint volumes | partition stated by elevation bands and section layers; open cells may hold a stacked (layered) section (§6.2.3, §6.8.4) |
+| 6-1: order of tube widening and water transfer | sequence within the step stated (§6.6.1) |
+| 6-9: resolved notch, remaining crest, spillway | three disjoint outflow paths defined; (1.8) covers exactly the complement of the notch (§6.6.3) |
+| 6-17: per-step diagnostic undefined | defined mathematically; stated as a round-off diagnostic, not an accuracy criterion (§6.9.1) |
+| 6-4 and 6-15 cannot be approved separately | joined in §6.13 |
+| reference count | there are **18** † references (17 in draft 1, plus SWASHES); the "20" in the reply to the review was a miscount. Source-to-claim status table added (Appendix 6B) |
+
+### Draft 2 (review of draft 1, 2026-11-26)
 
 | review item | assessment | change |
 |---|---|---|
@@ -134,6 +153,10 @@ notation), with n_loc erodible walls (Part 3), up to the dam surface z_g,i:
 
     σ_i(η) = b_i + n_loc (η − z_b,i) cot β_w,i                 z_b,i ≤ η ≤ z_g,i
     σ_i(η) = σ_i(z_g,i)                                        η > z_g,i   (vertical extension)    (6.2)
+
+An open cell may hold a **stack of such layers**, each a trapezoid with its own bottom width and wall
+angle (for example a vertical-walled headcut slot under the earlier trapezoid, §6.8.4). σ_i(η) is then
+piecewise linear in η, and A, T and I1 are integrated exactly layer by layer.
 
 Above the dam surface the section continues as a **vertical-sided stream tube** of the notch's top
 width: water standing above the ground is not allowed to spread across the dam. These fictitious walls
@@ -382,7 +405,10 @@ one step,
   the first moment, about stage η, of the area of cell i's section that lies outside the interface
   section (6.13). It includes the strip below the interface bottom (a bed step) and any width in
   excess of the neighbour's (a wall step), so bed and width steps are one term.
-- η_f, the stage that loads the face, is set by the flow direction at that interface:
+- η_f, the stage that loads the face, is a **proposed loading closure (v1 candidate)**. It is not a
+  consequence of the Saint-Venant equations, which say nothing about the pressure on a step inside a
+  cell-averaged model; it is a hydrostatic model of the separation zone, set by the flow direction at
+  that interface:
 
       η_f = η_i                       if the interface mass flux leaves cell i (or is zero)
       η_f = min( η_i, η_nb )          if it enters cell i from the neighbour nb                      (6.16b)
@@ -422,15 +448,24 @@ B):
 |---|---|---|---|
 | expansion 2 → 4 m | energy **gain** 0.0127 m | loss 0.0131 m | Borda (U₁ − U₂)²/2g = 0.0134 m |
 | expansion 2 → 10 m | gain 0.0307 m | loss 0.0328 m | Borda 0.0329 m |
-| contraction 4 → 2 m | loss 0.0143 m | loss 0.0143 m (same rule) | sharp-edged K ≈ 0.5(1 − A₂/A₁) U₂²/2g ≈ 0.014 m |
-| contraction 10 → 2 m | loss 0.0368 m | loss 0.0368 m | sharp-edged ≈ 0.025 m |
+| contraction 4 → 2 m | loss 0.0143 m | loss 0.0143 m (same rule) | rough estimate 0.014 m* |
+| contraction 10 → 2 m | loss 0.0368 m | loss 0.0368 m | rough estimate 0.025 m*: **47 % lower, unresolved** |
 
-So with (6.16b): abrupt expansions lose the Borda head; abrupt contractions lose a head of the
-sharp-edged order, larger than the sharp-edge value for strong contractions; gradual changes resolved
-over many cells lose only O((ΔU)²) per cell, which vanishes with refinement. The contraction result
-matters at a collapsed cell draining into the next conduit, where the frozen lumped engine uses a
-rounded entrance K_u ≈ 0.05; that difference is recorded as decision 6-16, to be measured in test C2b
-before anything is done about it.
+\* K ≈ 0.5 (1 − A₂/A₁) U₂²/2g, a pressurised-pipe correlation used only for scale; open-channel
+contraction-loss data are to be identified at the source check.
+
+What the table shows, and no more: with (6.16b) the two abrupt expansions lose the Borda head to within
+2.4 %, and no junction gains energy. The contractions lose a head of the right order, but the strong one
+loses about 47 % more than the rough estimate; that discrepancy is open, not agreement. Gradual changes
+resolved over many cells should lose only O((ΔU)²) per cell, which vanishes with refinement; that is a
+claim to be tested (B12c), not shown here. The contraction result matters where a collapsed cell drains
+into the next conduit, where the frozen lumped engine uses a rounded entrance K_u ≈ 0.05 (decision 6-16,
+measured in C2b before anything is done about it).
+
+**Required before (6.16b) is accepted** (with the intersection rule, decision 6-4/6-15): the junction
+tests B12a in **both flow directions**, for rectangle, trapezoid and conduit-to-open junctions, and B12c
+(gradual expansion and contraction over 5–50 cells: no energy gain anywhere, and a total loss that falls
+towards zero as the change is spread over more cells).
 
 **Positivity.** The interface section is contained in each neighbour's section (6.13), so the
 reconstructed area never exceeds the cell's own area. With Einfeldt wave speeds this gives the
@@ -457,6 +492,11 @@ shallow-water equations in a rectangular channel (Einfeldt et al. 1991). That re
 cover this scheme (intersection sections, step faces, slot): positivity here rests on the argument of
 §6.5.3 and on tests B9 and B13.
 In a full conduit c = a_s, so the speeds include the slot celerity automatically.
+
+**Dry side.** If one reconstructed state is dry, the Roe averages degenerate and are not used. The
+speeds are those of the dry-front rarefaction (Toro 2001, Ch. 5, generalised to a section through
+(6.8)): with the left side wet and the right dry, S_L = U_L − c_L and S_R = U_L + Φ_L(A_L); mirrored
+for a dry left side. For a rectangle Φ = 2c, Toro's U_L + 2c_L.
 
 **Mass and momentum flux: HLL.** In one dimension the shallow-water system has only the two acoustic
 waves, so the HLLC mass and momentum fluxes are the HLL ones (Toro 2001, Ch. 10):
@@ -561,6 +601,13 @@ partitioned so that no water is counted twice:
   stored water is kept, §6.5.6). Widening of the tube takes a strip from the reservoir's space: the
   water in that strip below z_s is moved from V_r to the cell, as one recorded transfer, so both
   budgets close and the total physical storage is counted once.
+- **Order within the step** (after the flow update has set z_s^{n+1} and the cell states):
+  (1) the cell geometry is updated (§6.8.1); (2) the newly claimed strip of each upstream-face cell is
+  computed between its old and new top widths; (3) the strip's water volume below z_s^{n+1},
+  ΔV_tr,i, is computed on the new geometry; (4) ΔV_tr,i is added to A_i Δs_i and removed from V_r;
+  (5) V_t(z) and hence Z_r are rebuilt. Since the removed volume equals the strip volume below z_s^{n+1},
+  Z_r(V_r) returns z_s^{n+1} unchanged: no water is created and the stage does not jump. The cell's
+  stage is then recomputed from its new A_i.
 - **Piping mode has no overlap**: the boundary is the pipe inlet, and the upstream face is not part of
   the path.
 
@@ -580,6 +627,12 @@ the upstream face. The draft-1 0.5 % threshold is withdrawn.
   recorded in the case file.
 
 ### 6.6.3 Intact-crest overflow
+
+**Three disjoint outflow paths.** (i) The **resolved notch**: all flow within the notch top width
+B_top,cr at crest level goes through the 1-D cells and erodes them. (ii) The **remaining intact crest**,
+of length max(L_cr − B_top,cr, 0): Part 1 (1.8), non-eroding. (iii) A **spillway or outlet**, Q_sp, from
+its own rating. Because (1.8) uses exactly the crest length outside B_top,cr, no part of the crest is
+counted in two paths.
 
 **On the breach axis, overtopping is in the domain.** In overtopping mode the notch cells lie along the
 axis, so all flow through the notch is solved and erodes the cells. Part 1 (1.8) is used only for the
@@ -839,27 +892,44 @@ as a **sub-grid closure on an interface**, for soils with a detachment law (Part
    where that section is rectangular.
 2. **Drop interface (plunging condition (4.2)).** Interface i+1/2 is a drop interface when
    z_i − z_{i+1} > y_c,i and the downstream stage is below the brink, η_{i+1} < z_i.
-3. **The overfall discharge, derived rather than assumed** *(ours)*. With the downstream side dry at
-   the interface, the interface flux is the sonic state of the left rarefaction from cell i's
-   reconstructed state. Along that rarefaction R⁺ = U + Φ(A) is constant (6.8), so the mass flux
-   Q(A) = A [R⁺ − Φ(A)] has dQ/dA = U − c: it is largest exactly at the sonic point U = c. The
-   interface flux is that maximum, and cell i's own discharge lies on the same curve. In steady flow
-   the two must be equal, which happens only if cell i is itself at its sonic point: **the brink cell
-   is critical, Q² T/(g A³) = 1**, for any section shape. Its discharge for a given upstream energy is
-   then the critical-flow discharge of Part 1 (1.4)–(1.5), less the energy lost by numerical
-   dissipation in the approach cells, which vanishes with refinement. Test B12b checks this.
+3. **The overfall discharge: physical result and numerical flux, kept apart** *(ours)*.
+   - **(a) Physical result (exact Riemann flux).** With the downstream side dry, the exact interface
+     flux is the sonic state of the left rarefaction from cell i's state. Along it R⁺ = U + Φ(A) is
+     constant (6.8), so Q(A) = A [R⁺ − Φ(A)] and dQ/dA = U − c: the flux is largest at the sonic point.
+     In steady flow cell i's own discharge must equal that maximum, which happens only if cell i is
+     sonic: **the brink cell is critical, Q²T/(gA³) = 1**, for any section shape, and the discharge is
+     the critical-flow discharge for the brink cell's energy (Part 1 (1.4)–(1.5)).
+   - **(b) What the HLL flux actually does.** The solver does not use the exact flux. With the dry-side
+     speeds of §6.5.4 (S_L = U − c, S_R = U + Φ), the HLL mass flux for a wet left state and a dry
+     right state is F = S_R (Q − S_L A)/(S_R − S_L) when S_L < 0. Setting F = Q gives
+     S_L (Q − S_R A) = 0, which requires U = U + Φ: impossible. So **HLL admits no subcritical steady
+     brink state**: the brink cell is driven to Fr ≥ 1 (when S_L ≥ 0 the flux is the cell's own, and any
+     supercritical state is steady-compatible). HLL therefore does not by itself select Fr = 1, and
+     the transonic jump between the subcritical approach cell and the brink cell does not shrink with
+     the grid. **The discharge over a drop is not proven** to converge to the critical-flow value.
+   - **(c) Verification.** B12b compares the computed interface flux directly with the independently
+     computed critical discharge for the same upstream energy, at N, 2N, 4N and 8N, and reports the
+     brink-cell Froude number. Pass: the flux error falls below 1 % and decreases with refinement.
+   - **(d) If B12b fails**, the fallback (decision 6-18) is the exact sonic flux of (a) at drop
+     interfaces only, with HLL everywhere else. It is decided by the test, not in advance.
 4. **Advance.** The brink retreats at Part 4 (4.3)–(4.9) with H_h = z_i − z_{i+1}, d_c = y_c,i,
    d_bw = max(y_c,i, h_{i+1}) and the soil's k_d, τ_c, c_u, γ_t. Robinson's relations were derived for
    a rectangular overfall: they are used with q = Q/b where the notch walls are vertical (the usual
    cohesive case, Part 3 §3.4), and with q = Q/T(y_c) where they slope, an approximation flagged in
    the output and tested in the sensitivity analysis. E_v ≤ 0 caps the advance at the cascading-face
    rate, as in Part 4.
-5. **No double counting.** In each step the shear erosion of cell i (§6.8.1) is applied first; the
-   headcut then acts on the updated geometry. The retreat accumulates as a brink position inside
-   cell i; when it crosses the cell, cell i's bed drops to z_{i+1} and the solids
-   (1 − p) b_i (z_i − z_{i+1}) Δs_i, computed from the updated bed, enter the flow once. The water in
-   cell i is kept (§6.5.6). Until the brink crosses it, cell i erodes by its own shear over its whole
-   bed; the resulting error is at most one cell and vanishes with Δs (grid study).
+5. **Disjoint volumes, by construction.** Within a step, in this order:
+   - Shear erosion (§6.8.1) removes, from each cell, the layer of normal thickness Δz from its bed and
+     walls: on cell i everything **above** the updated bed z′_i, on cell i+1 everything above z′_{i+1}.
+   - The headcut crossing then removes, from cell i only, the prism **between z′_{i+1} and z′_i** over
+     the updated bottom width b′_i: V_s = (1 − p) b′_i (z′_i − z′_{i+1}) Δs_i. Cell i's section gains a
+     vertical-walled layer of width b′_i from z′_{i+1} to z′_i under its existing layers (the Part 4
+     vertical headcut slot, §4.9); its walls above z′_i are untouched.
+   - The three volumes lie in different cells or different elevation bands, so they cannot overlap,
+     and the solids budget (6.34) checks the sum. If the new, taller wall is unstable, §6.8.3 fails it
+     on the next check and the wedge goes to the store: a separate, recorded volume.
+   - The water in cell i is kept (§6.5.6). Until the brink crosses it, cell i erodes by its own shear
+     over its whole bed; this sub-cell error is at most one cell and should vanish with Δs (grid study).
 6. **Base scour** at the larger of the downstream cell's own shear (6.25) and the jet stress τ_hf (4.7),
    as in Part 4 §4.3.
 7. **What is dropped.** SIMBA's erosion-resistant crest during stages 1–2 (Part 4 §4.3) is not used:
@@ -887,7 +957,15 @@ update is conservative, and geometric events keep A_i Δs_i (§6.5.6), so E_w is
 (so a dry or empty test does not divide by zero). It is the **cumulative** error, evaluated at every
 output step. Gate: ε_w < 10⁻¹⁰ in every run. The draft-1 value 10⁻¹² is kept only as a **per-step**
 check in the phase B tests: over 10⁶–10⁷ steps, round-off of order 10⁻¹⁶ per step can accumulate past
-10⁻¹², which is not a conservation fault. Reported alongside, as modelling approximations and not budget
+10⁻¹², which is not a conservation fault.
+
+**Per-step diagnostic (defined).** For step n, with W = V_r + Σ A_i Δs_i,
+
+    δ_w^n = | (W^{n+1} − W^n) − Δt (Q_in − Q_ov − Q_sp − F^A_{N+1/2})^n | / max( Σ_i |ΔA_i| Δs_i + Δt (|Q_in| + |Q_ov| + |Q_sp| + |F^A_{N+1/2}|) , V_floor )
+
+the step's imbalance relative to the step's total turnover. Phase B requires δ_w^n < 10⁻¹² in every step;
+the same definition with solids terms gives δ_s^n. It is a round-off diagnostic that detects a
+non-conservative operation in one step; it is not a measure of physical accuracy. Reported alongside, as modelling approximations and not budget
 terms: the slot storage (§6.4.2) and the omitted debris pore water (§6.8.2).
 
 ### 6.9.2 Momentum
@@ -942,8 +1020,9 @@ the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 | B8 wetting and drying | Thacker (1981)† parabolic bowl, 1-D | shoreline and h converge; positivity never violated |
 | B9 positivity | two strong rarefactions leaving a near-dry middle (Toro 2001) | A ≥ 0 every step; no NaN; mass to 10⁻¹² |
 | B10 steep bed steps and near-dry cells | flow down a 1:2 face onto a flat apron; step-up and step-down beds | stable; mass to 10⁻¹²; profile converges with Δs |
-| B12a steady abrupt junctions | expansions and contractions, rectangles and trapezoids, conduit → open | steady head change within 1 % of the junction relation of §6.5.3 (Borda for expansions); no energy gain at any junction |
-| B12b free overfall | subcritical approach to a drop onto a dry apron | brink cell critical (Q²T/gA³ = 1 within 1 %); discharge → critical-flow weir (1.4)–(1.5) for the upstream energy as Δs → 0 |
+| B12a steady abrupt junctions | expansions and contractions, rectangles, trapezoids and conduit → open, **in both flow directions** | steady head change within 1 % of the junction relation of §6.5.3; Borda within 3 % for expansions; contraction losses reported against data; no energy gain at any junction |
+| B12b free overfall | subcritical approach to a drop onto a dry apron, N to 8N | computed interface flux against the independently computed critical discharge for the same upstream energy: error < 1 % and decreasing with refinement; brink-cell Fr reported; failure triggers decision 6-18 |
+| B12c gradual junctions | the B12a changes spread over 5, 10, 20, 50 cells, both directions | no energy gain in any cell; total head loss decreasing towards zero as the change is spread |
 | B13 passive scalar | contact discontinuity in C advected through uniform, varying-section and wet/dry reaches | 0 ≤ C ≤ max C(0) every step; (A C) ≥ 0; no new extrema; solids to the ε_s gate |
 | B11 grid and dt convergence | B2, B6, B7 at Δs, Δs/2, Δs/4 and CFL, CFL/2 | observed order and GCI (Roache 1998; Celik et al. 2008†) reported |
 
@@ -1093,27 +1172,31 @@ patch; it is not built to force agreement with one experiment.
 
 ---
 
-## 6.13 Decisions requested by this draft
+## 6.13 Decisions
+
+Status after the review of draft 2: 6-1, 6-3, 6-5, 6-6, 6-8, 6-10, 6-12, 6-13, 6-14, 6-16 (test first)
+and 6-17 accepted; 6-2, 6-4 + 6-15 and 6-7 conditional on their tests; 6-9 accepted with the wording
+below; 6-11 not answered in the review and still open; 6-18 new.
 
 | no. | question | proposal |
 |---|---|---|
 | 6-1 | approach over the submerged upstream face (overtopping) | stream tube of notch width from the upstream toe, with the space partitioned between cells and reservoir (6.23a) and a recorded transfer when the tube widens; crest-edge boundary as an option |
 | 6-2 | slot celerity | fixed in phase C by the insensitivity criteria (6.10) and test C6 (a_s, 2a_s, 4a_s); 50 m/s is only the starting value |
 | 6-3 | order of accuracy | first order is the v1 baseline; MUSCL + SSP-RK2 only if it passes the same gates |
-| 6-4 | interface sections | the intersection rule (6.13) with the step-face balance (6.15)–(6.16), ours, verified in phase B |
+| 6-4 + 6-15 | interface sections **and** step-face loading, approved together | the intersection rule (6.13) fixes what is open to flow, the loading closure (6.16b) the force on what is not; both v1 candidates, ours, conditional on B1, B12a–c and C2/C2b |
 | 6-5 | lateral spreading on the face and above the ground | none (stream tube); stated limitation and the first 2-D activation candidate |
 | 6-6 | Part 3 reach closures c_b (3.6) and Appendix 3A | not used; (3.6) kept as an option for comparison |
 | 6-7 | headcut | Part 4 relations as a drop-interface closure (§6.8.4); SIMBA's erosion-resistant crest dropped |
 | 6-8 | wall criteria | collapsed cells: the frozen wet undrained cut (5.17), retreat ½ H_w; open-breach cells: Part 3 (3.12)–(3.14) |
-| 6-9 | intact-crest overflow | along the axis, overtopping is in the domain and erodes; (1.8) only for the crest outside the notch top width; a piping run with z_s above the crest stops with an out-of-scope flag in v1 |
+| 6-9 | intact-crest overflow | three disjoint paths: resolved notch (domain, erodes), remaining crest max(L_cr − B_top,cr, 0) by (1.8), spillway Q_sp; a piping run with z_s above the crest stops with an out-of-scope flag in v1 |
 | 6-10 | residual-block sliding (4.10)–(4.11) | kept, on the block upstream of the most upstream brink |
 | 6-11 | debris | per-cell mobile store as a level layer (6.31); `export` as a comparison mode only |
 | 6-12 | mixture effects | clear-water continuity in v1 |
 | 6-13 | numbering | call this Part 6 of the distributed engine's own theory (`python/onedim/docs/theory/06_…`), and renumber the lumped plan's future parts (impulse waves, moraine) as 7 and 8 when they are written |
 | 6-14 | minimum collapse length | none in advance; introduced only if the grid study shows non-convergence, and then with a source |
-| 6-15 | stage that loads a step face | upwind stage capped by the face cell's stage (6.16b); the draft-1 rule gave an energy gain at expansions |
 | 6-16 | contraction loss where an open cell drains into a conduit | the step-face result as it comes; measured in C2b against K_u = 0.05; no closure added before that evidence |
-| 6-17 | conservation gates | cumulative relative error < 10⁻¹⁰ (water and solids) every run; 10⁻¹² per step in phase B |
+| 6-17 | conservation gates | cumulative relative error < 10⁻¹⁰ (water and solids) every run; per-step diagnostic δ^n < 10⁻¹² in phase B, as defined in §6.9.1 |
+| 6-18 | brink flux if B12b fails | exact sonic flux of §6.8.4(a) at drop interfaces only; HLL elsewhere; used only if B12b fails |
 
 ---
 
@@ -1141,7 +1224,8 @@ cited by case name, so the reference solution is independent of this project.
 | B10 | rectangle b = 1 m, n = 0.016, Q = 0.5 m³/s: 2 m flat crest at z = 2 m, 1:2 face to z = 0, 10 m apron; tailwater rating at the end | critical at the crest edge; S2 profile on the face by direct step on the same hydrostatic equations; jump on the apron at the Bélanger location (profile within 2 %, jump within 2 cells at 4N) |
 | B11 | B2, B6, B7 at N, 2N, 4N and both CFL values | observed order and GCI reported |
 | B12a | rectangles 2 → 4, 2 → 10, 4 → 2, 10 → 2 m and trapezoid equivalents, same bed, Q = 2 m³/s, h₁ = 1 m; conduit 0.2 × 0.2 m → open 1 m | the steady junction relation of §6.5.3, solved independently; Borda for expansions |
-| B12b | flat crest z = 1 m, b = 1 m, then a 1 m drop onto a dry apron; upstream energy E = 0.5 m above the crest | Q = √g (2E/3)^{3/2} b; brink cell Fr = 1 |
+| B12b | flat crest z = 1 m, b = 1 m, then a 1 m drop onto a dry apron; upstream energy E = 0.5 m above the crest; repeated with a trapezoid (cot β_w = 1); N, 2N, 4N, 8N | Q = √g (2E/3)^{3/2} b (rectangle) or the general critical solution (1.4)–(1.5); interface flux compared directly; brink-cell Fr |
+| B12c | as B12a, with the width change spread linearly over 5, 10, 20 and 50 cells | energy per cell; total loss against the abrupt case |
 | B13 | rectangle, U = 1 m/s uniform; C = 1 on 4 ≤ s ≤ 6 m, 0 elsewhere; then the same (a) through B4's sections, (b) across a wetting front, (c) with the flow reversed mid-run, (d) with a wet cell draining into a dry one, (e) with a large solids source in a cell of small water volume | 0 ≤ C ≤ max C(0); positivity of A C; sediment moves with the flow direction; no solids created on drying (they go to the store); exact solids total in every sub-case |
 
 **Phase C**
@@ -1177,6 +1261,35 @@ cells in time; b_p and a_p of the outlet cell in time, and their ratios at the p
 above the dam surface flagged); Q(t), and Q_p and T_p if it breaches. Runs: k_d = 0.88, 3.16 and
 16.5 (the frozen §5.4a band) × c_u0 4–7 kPa as in the lumped records; Δs and Δs/2; CFL 0.9 and 0.45.
 No parameter outside these is changed.
+
+---
+
+## Appendix 6B — Source-to-claim status of the † references
+
+"Bibliographic" means the reference exists and is relevant; "claim" means the specific statement in
+Part 6 has been checked against the paper. No reference is marked fully verified until its claim is
+checked. Priority for the claim check: Batten, Einfeldt et al., SWASHES, Goutal and Maurel, Kerger.
+
+| reference | claim in Part 6 | status |
+|---|---|---|
+| Batten et al. (1997) | HLLC contact speed (6.19), adapted to p = g I1 | bibliographic; adaptation labelled ours; claim check pending (priority) |
+| Bladé et al. (2012) | conservative 1-D/2-D frontal coupling | bibliographic; the area-weighted split of §6.12.2 is ours |
+| Cao et al. (2004) | coupled mixture formulation exists (later option) | bibliographic |
+| Celik et al. (2008) | GCI procedure | bibliographic; article-number formatting to confirm |
+| Chaudhry (2008) | slot equations | bibliographic; chapter to be cited |
+| Delestre et al. (2013), SWASHES | B5, B8 setups and solutions | **B5 and B8 parameters and the B8 solution checked against the arXiv version** (1110.0288); B2, B3, B7 to check |
+| Einfeldt (1988) | wave-speed estimates | bibliographic; adaptation to sections ours |
+| Einfeldt et al. (1991) | HLLE positivity, rectangular SWE | scoped in §6.5.4; claim check pending (priority) |
+| Goutal and Maurel (1997) | bump benchmarks | case values confirmed through SWASHES; author or editor roles and report to confirm (priority) |
+| Hernández-Dueñas and Karni (2011) | balance laws for arbitrary sections | bibliographic; does not prove (6.13)/(6.16b) |
+| Kerger et al. (2011) | slot with Godunov scheme; exact Riemann solution for C4a; negative slot not used | bibliographic; claim check pending (priority) |
+| Liang and Marche (2009) | implicit friction (6.22) | bibliographic; (6.22) to be checked under our section and friction definitions |
+| Morales-Hernández et al. (2013) | conservative 1-D/2-D coupling | bibliographic; sediment and moving-interface parts ours |
+| Spinewine and Zech (2007) | D4(b) candidate | bibliographic; experiment and measurements to select |
+| Thacker (1981) | origin of B8 | B8 now uses the SWASHES 1-D reduction (checked) |
+| Trajkovic et al. (1999) | C4b experiment | bibliographic; configuration to reproduce, data to obtain |
+| Vasconcelos et al. (2009) | slot oscillations at filling bores | bibliographic; central to C4, C6 |
+| Vázquez-Cendón (1999) | source terms, locally rectangular channels | bibliographic; applicability scoped in §6.5.3 |
 
 ---
 
