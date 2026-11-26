@@ -104,3 +104,48 @@ origin (§5.4a) adds a further caveat.
 | exit erosion | next theory investigation (this note) |
 | non-uniform pipe | investigated alongside; on present evidence it would be exit-concentrated (E1), not hydraulic along the pipe |
 | erosion coefficients | not chosen to reproduce the retreat |
+
+## 8. Review check of the existing exit headcut §5.6 (2026-11-26; `verification/exit_headcut_history.txt`)
+
+The review asked which of three problems applies: the headcut never plunges, its erosion rate is too
+low, or the experiment needs an outlet-widening mechanism. The checks, in the order requested:
+
+1. **Initial state.** `ExitHeadcut(x_h = x_o, z_h = z_inv0)`: the channel bed starts at the pipe
+   invert, so H_h = 0 at t = 0 (the review's reading is correct). H_h then grows by the difference
+   between the face-channel and invert erosion rates.
+2. **Hydraulic consistency.** The driver passes the actual outlet discharge: the pipe flow before the
+   crater, then the crater's Q_out. Before the crater, the R-2 diagnostic's reconstructed flow is the
+   same calculation, so its numbers agree for that period.
+3. **Equations** (`sediment.py`, `headcut.py`):
+   - Erosion: E = k_d (τ − τ_c)^n, with n = 1.
+   - Critical depth: d_c = (q²/g)^(1/3), q = Q/b.
+   - Face stress: Robinson (4.3)–(4.7), with no tailwater (d_bw = d_c).
+   - Advance: (4.9), with the undercut at failure (4.8), capped at the 0.5H:1V surface rate.
+
+   Two remarks:
+   - (a) The `stage` label stays 2 once reached, while the rates follow the current condition.
+     Cosmetic; nothing here reached stage 2.
+   - (b) The trigger H_h > d_c and the Robinson relations assume a free overfall at critical depth,
+     but the outlet here runs full, faster than critical. This approximation is already stated in §5.6.
+4. **P1 time history** (k_d 3.16, dt 2 s, all 1708 flowing steps):
+
+| t (s) | H_h (m) | d_c (m) | H_h − d_c (m) |
+|---|---|---|---|
+| 0 | 0.000 | 0.052 | −0.052 |
+| 424 | 0.045 | 0.103 | −0.058 |
+| 848 | 0.130 | 0.188 | −0.058 |
+| 908 | the channel bed reaches the dam base, z_h = 0 | | |
+| 1483 | 0.078 | 0.392 | −0.314 |
+
+   Results:
+   - **No plunging step, and the outlet never moves.**
+   - **Counterfactual, with no base cap** (diagnostic arithmetic only, the bed keeps eroding below
+     z = 0): H_h − d_c rises only to −0.003 m at roof collapse. **The base cap is not the main
+     obstacle.** H_h and d_c grow almost exactly together, both driven by the same rising Q, so the
+     trigger stays marginal throughout.
+
+**Answer to the review's question:** the existing model fails to move the outlet because its plunging
+headcut never activates, and it would barely activate even with an erodible base. Erosion rate is not
+the limiting factor: the face channel already erodes 3–5 times faster than the pipe walls. Whether P1
+needs a different exit mechanism (E1, widening of the open notch; E2, erosion of the roof lip by the
+exit jet) is the open question. No code is changed.
