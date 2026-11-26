@@ -1,7 +1,7 @@
 # Theory, Part 6 — The distributed 1-D breach engine
 
 *Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 2 · 2026-11-26 ·
-status: for review. No code until sign-off.*
+status: for review (draft 2.1: second review's reference and decision points). No code until sign-off.*
 
 *Draft 2 takes in the review of 2026-11-26 (see §6.0). The main change is a correction found while
 re-deriving the interface momentum balance with explicit signs: draft 1 loaded the wall step at an
@@ -249,7 +249,8 @@ the interior uses the conservative scheme.
 A narrow, frictionless slot of width T_s is placed on top of the conduit (6.3). When the water rises
 above the crown, the extra water is stored in the slot, the stage η is the **piezometric level**, and
 (6.4)–(6.5) describe pressurised flow with a pressure-wave speed set by T_s (Preissmann 1961; Cunge and
-Wegner 1964; Chaudhry 2008†). One set of equations then covers free-surface flow, pressurised flow and
+Wegner 1964; Chaudhry 2008†, chapter to be cited at the source check; Kerger et al. 2011† for the
+slot with an explicit Godunov scheme). One set of equations then covers free-surface flow, pressurised flow and
 the moving front between them.
 
 **The slot is a geometric device, not a numerical scheme.** It is unrelated to the implicit Preissmann
@@ -436,9 +437,10 @@ reconstructed area never exceeds the cell's own area. With Einfeldt wave speeds 
 Audusse et al. positivity argument for the mass update, which does not involve the face forces. It
 is an argument, not a proof for this extension, and is tested (B9, B13).
 
-Ours, built from Audusse et al. (2004), Cunge et al. (1980) and the irregular-section treatments of
-Vázquez-Cendón (1999)† and Hernández-Dueñas and Karni (2011)†; verified, not trusted, in phases B
-and C.
+Ours. It is built from Audusse et al. (2004) (hydrostatic reconstruction over non-flat beds), Cunge et
+al. (1980), Vázquez-Cendón (1999)† (source terms for locally rectangular irregular channels) and
+Hernández-Dueñas and Karni (2011)† (balance laws for arbitrary cross-sections). None of these proves
+the intersection rule or the step-face loading (6.16b); they are verified, not trusted, in phases B and C.
 
 ### 6.5.4 The HLLC flux
 
@@ -450,7 +452,10 @@ interface section.
 
     S_L = min( U_L − c_L, Ũ − c̃ ),    S_R = max( U_R + c_R, Ũ + c̃ )                                (6.17)
 
-Einfeldt speeds are chosen because they make the HLL family positivity-preserving near dry states.
+Einfeldt speeds are chosen because, with them, the HLLE flux is positivity-preserving for the 1-D
+shallow-water equations in a rectangular channel (Einfeldt et al. 1991). That result does not by itself
+cover this scheme (intersection sections, step faces, slot): positivity here rests on the argument of
+§6.5.3 and on tests B9 and B13.
 In a full conduit c = a_s, so the speeds include the slot celerity automatically.
 
 **Mass and momentum flux: HLL.** In one dimension the shallow-water system has only the two acoustic
@@ -461,7 +466,8 @@ waves, so the HLLC mass and momentum fluxes are the HLL ones (Toro 2001, Ch. 10)
 (and F(U_L) or F(U_R) when both speeds have one sign).
 
 **Concentration flux: the contact wave.** The third wave of HLLC is the contact that carries the
-concentration. Its speed, for a general pressure p = g I1 (Batten et al. 1997†),
+concentration. Its speed is the HLLC contact speed of Batten et al. (1997)†, derived there for the Euler equations and
+written here for the pressure p = g I1 (the adaptation is ours):
 
     S* = [ p_R − p_L + A_L U_L (S_L − U_L) − A_R U_R (S_R − U_R) ] / [ A_L (S_L − U_L) − A_R (S_R − U_R) ]   (6.19)
 
@@ -575,10 +581,16 @@ the upstream face. The draft-1 0.5 % threshold is withdrawn.
 
 ### 6.6.3 Intact-crest overflow
 
-Flow over the intact part of the crest is Part 1 (1.8) unchanged: a direct reservoir loss Q_ov with
-B_top,cr the notch top width at the upstream crest edge. It bypasses the 1-D domain and erodes
-nothing, exactly as in the lumped engine. This covers crest overflow during the pipe stage too
-(Part 5 §5.3). A second resolved path over the crest is a later option.
+**On the breach axis, overtopping is in the domain.** In overtopping mode the notch cells lie along the
+axis, so all flow through the notch is solved and erodes the cells. Part 1 (1.8) is used only for the
+crest length **outside** the notch top width: a direct, non-eroding reservoir loss Q_ov with B_top,cr the
+notch top width at the upstream crest edge, exactly as in the lumped engine.
+
+**Piping mode with the reservoir above the crest is out of scope in v1.** There the path is the pipe, so
+crest overflow above the conduit would bypass the domain and its erosion would not be modelled. Rather
+than remove that water silently, a piping run in which z_s rises above the crest stops with an
+out-of-scope flag. ARS P1 is not affected (z_s = 1.10 m, crest 1.30 m). A second resolved surface path
+over the crest, joining the face cells, is the later option.
 
 ### 6.6.4 Hydraulic transitions inside the domain
 
@@ -634,6 +646,10 @@ with C_cap,i the Part 2 total-load capacity (2.3)–(2.4b) evaluated with |U_i| 
 combination by default, and f_t applied once. The steep-slope correction (2.5a–b) uses the bed angle
 **in the direction of flow**, θ_i = atan[sgn(U_i)(z_{i−1} − z_{i+1})/(Δs_{i−1/2} + Δs_{i+1/2})], so
 reverse flow sees the slope it actually runs down or up. Positive values erode, negative deposit.
+
+**Concentration bound.** Volumetric C cannot exceed C_max = 1 − n_d (packed bed). A step in which the
+source would push C past a much lower dense-flow limit, taken as 0.1 (beyond the dilute assumption of
+§6.3.1), is flagged in the output; C is not clipped, because clipping would create or destroy solids.
 
 **Relation to the lumped form.** For steady uniform flow over a reach, (6.26) with (6.28) integrates
 to Part 2 (2.7) exactly. That is phase D test D2: the distributed model reproduces the lumped
@@ -920,7 +936,7 @@ the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 | B2 Ritter dam break | dry downstream bed, rectangle | L1 error in h and U → 0 with Δs; observed order reported (≈ 1 expected at first order); front position within 1 % at the finest grid |
 | B3 Stoker dam break | wet downstream, rectangle | as B2; shock speed and intermediate state within 1 % |
 | B4 variable section | manufactured smooth solution in a trapezoid with varying width, side slope and bed (Appendix 6A) | observed order p ≥ 0.9; conservation to the gate |
-| B5 transcritical flow over a bump | Goutal and Maurel (1997)† cases (subcritical, transcritical with and without shock) | steady profiles within 1 % of the analytic Bernoulli/conjugate solution |
+| B5 transcritical flow over a bump | the three SWASHES bump cases after Goutal and Maurel (1997)† (subcritical, transcritical with and without shock) | steady profiles within 1 % of the **analytic** Bernoulli/conjugate solution (not of the workshop's numerical results) |
 | B6 hydraulic jump | supercritical inflow, subcritical tailwater | conjugate depths (Bélanger) within 1 %; momentum flux continuous across the jump to the grid error |
 | B7 GVF profiles | M1, M2, S2 in prismatic and non-prismatic channels with Manning friction | within 1 % of a direct-step solution at the finest grid |
 | B8 wetting and drying | Thacker (1981)† parabolic bowl, 1-D | shoreline and h converge; positivity never violated |
@@ -941,7 +957,7 @@ the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 | C3 surge celerity | a pressure step travels at a_s within 1 % |
 | C4 pipe filling | the filling bore speed and the pressurisation time against the mass and momentum jump conditions; oscillations behind the front measured and reported (peak-to-peak pressure); comparison with the Trajkovic et al. (1999)† or an equivalent filling experiment |
 | C5 pressurised ↔ free surface | emptying and refilling cycle; mass to 10⁻¹²; no spurious pressurisation |
-| C6 slot sensitivity | (i) both conditions (6.10) hold in every C test and every case run later (checked and logged each run); (ii) a_s and 2a_s: Q, the crown-pressure distribution along the pipe, the pressurisation time and the filling-front position change < 1 %. Together these fix the default a_s |
+| C6 slot sensitivity | (i) both conditions (6.10) hold in every C test and every case run later (checked and logged each run); (ii) a_s, 2a_s and 4a_s: Q, the crown-pressure distribution along the pipe, the pressurisation time and the filling-front position change < 1 % between the two highest values used. Together these fix the default a_s; 50 m/s is only the starting value |
 | C7 HLLC with the slot | C1–C6 run with the HLLC flux; stable at CFL 0.9 and 0.45; **the slot is accepted only if C1–C7 pass** |
 | C8 priming | the emergent priming of a growing pipe compared with the lumped step (size and direction, F < 1.05 up, F > 1.05 down); reported |
 
@@ -1082,14 +1098,14 @@ patch; it is not built to force agreement with one experiment.
 | no. | question | proposal |
 |---|---|---|
 | 6-1 | approach over the submerged upstream face (overtopping) | stream tube of notch width from the upstream toe, with the space partitioned between cells and reservoir (6.23a) and a recorded transfer when the tube widens; crest-edge boundary as an option |
-| 6-2 | slot celerity | fixed in phase C by the insensitivity criteria (6.10) and test C6; start at 50 m/s |
+| 6-2 | slot celerity | fixed in phase C by the insensitivity criteria (6.10) and test C6 (a_s, 2a_s, 4a_s); 50 m/s is only the starting value |
 | 6-3 | order of accuracy | first order is the v1 baseline; MUSCL + SSP-RK2 only if it passes the same gates |
 | 6-4 | interface sections | the intersection rule (6.13) with the step-face balance (6.15)–(6.16), ours, verified in phase B |
 | 6-5 | lateral spreading on the face and above the ground | none (stream tube); stated limitation and the first 2-D activation candidate |
 | 6-6 | Part 3 reach closures c_b (3.6) and Appendix 3A | not used; (3.6) kept as an option for comparison |
 | 6-7 | headcut | Part 4 relations as a drop-interface closure (§6.8.4); SIMBA's erosion-resistant crest dropped |
 | 6-8 | wall criteria | collapsed cells: the frozen wet undrained cut (5.17), retreat ½ H_w; open-breach cells: Part 3 (3.12)–(3.14) |
-| 6-9 | intact-crest overflow | Part 1 (1.8) as a non-eroding reservoir loss, as in the lumped engine |
+| 6-9 | intact-crest overflow | along the axis, overtopping is in the domain and erodes; (1.8) only for the crest outside the notch top width; a piping run with z_s above the crest stops with an out-of-scope flag in v1 |
 | 6-10 | residual-block sliding (4.10)–(4.11) | kept, on the block upstream of the most upstream brink |
 | 6-11 | debris | per-cell mobile store as a level layer (6.31); `export` as a comparison mode only |
 | 6-12 | mixture effects | clear-water continuity in v1 |
@@ -1117,16 +1133,16 @@ cited by case name, so the reference solution is independent of this project.
 | B2 | rectangle b = 1 m, flat, frictionless, s ∈ [−1000, 1000] m, h = 1 m for s < 0, dry for s > 0, t = 50 s; N = 400, 800, 1600, 3200 | Ritter (1892); front at 2√(g h₀) t |
 | B3 | as B2 with h_R = 0.1 m | Stoker (1957); shock speed from the jump conditions |
 | B4 | trapezoid with σ(s, y) = b(s) + 2y cot β(s), b(s) = 1 + 0.5 sin(2πs/L), cot β(s) = 1 + 0.5 cos(2πs/L), z(s) = 0.1 sin(2πs/L), L = 10 m, periodic; manufactured smooth A(s, t), Q(s, t) with the source terms derived analytically from (6.4)–(6.5) | the manufactured solution; p ≥ 0.9 required |
-| B5 | Goutal and Maurel (1997)† bump, L = 25 m, z = 0.2 − 0.05(s − 10)² on 8 < s < 12, unit width, frictionless; subcritical (q = 4.42 m²/s, h_out = 2 m), transcritical without shock (q = 1.53 m²/s), with shock (q = 0.18 m²/s, h_out = 0.33 m), as in SWASHES | Bernoulli and the jump conditions (analytic) |
+| B5 | Goutal and Maurel (1997)† bump, L = 25 m, z = 0.2 − 0.05(s − 10)² on 8 < s < 12, unit width, frictionless; subcritical (q = 4.42 m²/s, h_out = 2 m), transcritical without shock (q = 1.53 m²/s, h_out = 0.66 m), with shock (q = 0.18 m²/s, h_out = 0.33 m), as in SWASHES | Bernoulli and the jump conditions (analytic) |
 | B6 | rectangle b = 1 m, flat, frictionless, L = 50 m; inflow h₁ = 0.1 m, U₁ = 3.0 m/s (Fr₁ = 3.03); outlet stage at the conjugate depth h₂ = (h₁/2)(√(1 + 8Fr₁²) − 1) | Bélanger; jump location steady to one cell |
 | B7 | rectangle b = 5 m, n = 0.02, Q = 10 m³/s, L = 1000 m: M1 (S₀ = 0.001, h_out = 3 m), M2 (free overfall at the end), S2 (S₀ = 0.02 from a critical break); repeated with b varying linearly 5 → 3 m | direct-step integration of the steady GVF equation with 10⁴ sub-steps |
-| B8 | Thacker (1981)† planar oscillation in a parabolic bowl, the SWASHES 1-D case and parameters, three periods | the analytic solution; shoreline position and h |
+| B8 | SWASHES §4.2.1 "planar surface in a parabola without friction", the 1-D reduction of Thacker's (1981)† parabolic-channel solution: z(x) = h₀((x − L/2)²/a² − 1), a = 1 m, h₀ = 0.5 m, L = 4 m, B = √(2gh₀)/(2a), u(0) = 0, five periods (T = 10.0303 s) | h(t, x) = −h₀[((x − L/2)/a + (B/√(2gh₀)) cos ωt)² − 1] on the wet interval, u = B sin ωt, ω = √(2gh₀)/a; shoreline position and h |
 | B9 | rectangle, flat, frictionless; h = 1 m, U = −5 m/s for s < 0 and +5 m/s for s > 0 (two rarefactions, near-dry centre) | Toro (2001) exact Riemann solver |
 | B10 | rectangle b = 1 m, n = 0.016, Q = 0.5 m³/s: 2 m flat crest at z = 2 m, 1:2 face to z = 0, 10 m apron; tailwater rating at the end | critical at the crest edge; S2 profile on the face by direct step on the same hydrostatic equations; jump on the apron at the Bélanger location (profile within 2 %, jump within 2 cells at 4N) |
 | B11 | B2, B6, B7 at N, 2N, 4N and both CFL values | observed order and GCI reported |
 | B12a | rectangles 2 → 4, 2 → 10, 4 → 2, 10 → 2 m and trapezoid equivalents, same bed, Q = 2 m³/s, h₁ = 1 m; conduit 0.2 × 0.2 m → open 1 m | the steady junction relation of §6.5.3, solved independently; Borda for expansions |
 | B12b | flat crest z = 1 m, b = 1 m, then a 1 m drop onto a dry apron; upstream energy E = 0.5 m above the crest | Q = √g (2E/3)^{3/2} b; brink cell Fr = 1 |
-| B13 | rectangle, U = 1 m/s uniform; C = 1 on 4 ≤ s ≤ 6 m, 0 elsewhere; then the same through B4's sections and across a wetting front | 0 ≤ C ≤ 1, positivity of A C, exact solids total |
+| B13 | rectangle, U = 1 m/s uniform; C = 1 on 4 ≤ s ≤ 6 m, 0 elsewhere; then the same (a) through B4's sections, (b) across a wetting front, (c) with the flow reversed mid-run, (d) with a wet cell draining into a dry one, (e) with a large solids source in a cell of small water volume | 0 ≤ C ≤ max C(0); positivity of A C; sediment moves with the flow direction; no solids created on drying (they go to the store); exact solids total in every sub-case |
 
 **Phase C**
 
@@ -1137,9 +1153,9 @@ cited by case name, so the reference solution is independent of this project.
 | C2b | a 0.5 m wide open cell draining into the 0.04 m conduit | K_u = 0.05 and the sharp-edged value, reported |
 | C3 | full conduit at rest; inlet stage raised by 0.1 m at t = 0 | front speed a_s |
 | C4a | pipe-filling Riemann problem: part-full conduit (h = 0.5 a_p, U = 0) meeting a pressurised state (piezometric head 0.5 m above the crown) | exact Riemann solution of the slot system (Kerger et al. 2011†): front speed and states within 1 % |
-| C4b | Trajkovic et al. (1999)† filling experiment, circular section (geometry supported for this test) | measured front speed and pressures; reported; data to obtain |
+| C4b | Trajkovic et al. (1999)† experiment reproduced in its own configuration (circular pipe, gates, hydraulic jump), not as a generic filling bore; circular section supported for this test | measured front speed and pressures; reported; data to obtain |
 | C5 | C1 conduit; upstream level lowered below the crown and raised again over 60 s | mass to the gate; no spurious pressurisation |
-| C6 | C1–C5 at a_s and 2a_s | < 1 % in Q, the pressure distribution, the pressurisation time and the front position; both (6.10) conditions logged |
+| C6 | C1–C5 at a_s, 2a_s and 4a_s | < 1 % in Q, the pressure distribution, the pressurisation time and the front position; both (6.10) conditions logged |
 | C7, C8 | as in §6.10 | as in §6.10 |
 
 **Phase D.** D4 is fixed as (a) a manufactured coupled flow–Exner solution on B4's channel with a
@@ -1193,8 +1209,10 @@ New in this part (†: to be checked against the paper before sign-off):
   294–318.
 - † Einfeldt, B., Munz, C.-D., Roe, P. L., and Sjögreen, B. (1991). On Godunov-type methods near low
   densities. *J. Comput. Phys.*, 92(2), 273–295.
-- † Goutal, N., and Maurel, F. (1997). *Proceedings of the 2nd Workshop on Dam-Break Wave Simulation*.
-  EDF-DER report HE-43/97/016/B.
+- † Goutal, N., and Maurel, F. (eds.) (1997). *Proceedings of the 2nd Workshop on Dam-Break Wave
+  Simulation*. Technical Report HE-43/97/016/B, Électricité de France, Direction des Études et
+  Recherches. (Cited this way in SWASHES; one catalogue lists N. Goutal as editor. Author and editor
+  roles to be confirmed against the report.)
 - Harten, A., Lax, P. D., and van Leer, B. (1983). On upstream differencing and Godunov-type schemes
   for hyperbolic conservation laws. *SIAM Review*, 25(1), 35–61.
 - † Hernández-Dueñas, G., and Karni, S. (2011). Shallow water flows in channels. *J. Sci. Comput.*,
