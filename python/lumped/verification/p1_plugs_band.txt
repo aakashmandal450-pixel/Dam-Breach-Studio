@@ -1,0 +1,64 @@
+ARS P1 validation band, frozen debris rules 5.7b (level + D5 + D1-a); c_u0 5 kPa; time steps [2.0, 1.0, 0.5] s
+
+k_d 16.50 | headcut off | crater start 294.0, 292.1, 291.3 s | outcome same: sealed (blocked and stationary from t = 291.3 s)
+    end (dt 0.5, t 891 s): crater [5.66, 6.26] W 0.293 z_d 0.928 z_c 0.806; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=291.3 z_d 0.928
+      plug_up_formed t=291.3 z_d 0.928
+    final plugs: dn: i 0.782 / i_cr 1.056; up: i 0.523 / i_cr 1.056
+k_d 16.50 | headcut on  | crater start 294.0, 292.1, 291.3 s | outcome same: sealed (blocked and stationary from t = 291.3 s)
+    end (dt 0.5, t 891 s): crater [5.66, 6.26] W 0.293 z_d 0.928 z_c 0.806; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=291.3 z_d 0.928
+      plug_up_formed t=291.3 z_d 0.928
+    final plugs: dn: i 0.782 / i_cr 1.056; up: i 0.523 / i_cr 1.056
+k_d  6.77 | headcut off | crater start 711.2, 709.5, 708.6 s | outcome same: sealed (blocked and stationary from t = 708.6 s)
+    end (dt 0.5, t 1309 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.806; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=708.6 z_d 0.929
+      plug_up_formed t=708.6 z_d 0.929
+    final plugs: dn: i 0.782 / i_cr 1.056; up: i 0.523 / i_cr 1.056
+k_d  6.77 | headcut on  | crater start 711.2, 709.5, 708.6 s | outcome same: sealed (blocked and stationary from t = 708.6 s)
+    end (dt 0.5, t 1309 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.806; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=708.6 z_d 0.929
+      plug_up_formed t=708.6 z_d 0.929
+    final plugs: dn: i 0.782 / i_cr 1.056; up: i 0.523 / i_cr 1.056
+k_d  3.16 | headcut off | crater start 1519.8, 1518.0, 1517.1 s | outcome same: sealed (blocked and stationary from t = 1517.1 s)
+    end (dt 0.5, t 2117 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.807; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=1517.1 z_d 0.929
+      plug_up_formed t=1517.1 z_d 0.929
+    final plugs: dn: i 0.783 / i_cr 1.056; up: i 0.522 / i_cr 1.056
+k_d  3.16 | headcut on  | crater start 1519.8, 1518.0, 1517.1 s | outcome same: sealed (blocked and stationary from t = 1517.1 s)
+    end (dt 0.5, t 2117 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.807; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=1517.1 z_d 0.929
+      plug_up_formed t=1517.1 z_d 0.929
+    final plugs: dn: i 0.783 / i_cr 1.056; up: i 0.522 / i_cr 1.056
+k_d  1.48 | headcut off | crater start 3240.9, 3239.1, 3238.2 s | outcome same: sealed (blocked and stationary from t = 3238.2 s)
+    end (dt 0.5, t 3838 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.807; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=3238.2 z_d 0.929
+      plug_up_formed t=3238.2 z_d 0.929
+    final plugs: dn: i 0.783 / i_cr 1.056; up: i 0.522 / i_cr 1.056
+k_d  1.48 | headcut on  | crater start 3240.9, 3239.1, 3238.2 s | outcome same: sealed (blocked and stationary from t = 3238.2 s)
+    end (dt 0.5, t 3838 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.807; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=3238.2 z_d 0.929
+      plug_up_formed t=3238.2 z_d 0.929
+    final plugs: dn: i 0.783 / i_cr 1.056; up: i 0.522 / i_cr 1.056
+k_d  0.88 | headcut off | crater start 5448.1, 5446.3, 5445.4 s | outcome same: sealed (blocked and stationary from t = 5445.4 s)
+    end (dt 0.5, t 6045 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.807; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=5445.4 z_d 0.929
+      plug_up_formed t=5445.4 z_d 0.929
+    final plugs: dn: i 0.783 / i_cr 1.056; up: i 0.522 / i_cr 1.056
+k_d  0.88 | headcut on  | crater start 5448.1, 5446.3, 5445.4 s | outcome same: sealed (blocked and stationary from t = 5445.4 s)
+    end (dt 0.5, t 6045 s): crater [5.66, 6.26] W 0.293 z_d 0.929 z_c 0.807; mouths up as deposit, down as deposit; Q_res 0.00 L/s, Q_out 0.00, spill 0.00; V_exp 0.0000 out 0.0000 m3
+    plug events per dt [2, 2, 2]
+      plug_dn_formed t=5445.4 z_d 0.929
+      plug_up_formed t=5445.4 z_d 0.929
+    final plugs: dn: i 0.783 / i_cr 1.056; up: i 0.522 / i_cr 1.056
+
+wall time 281 s on 8 workers; largest water-budget error 0.0e+00, solids 0.0e+00
