@@ -33,6 +33,7 @@ import numpy as np
 
 from . import crater as cm
 from . import ends
+from . import exit_headcut as xh
 from . import piping as pp
 from . import roof
 from .geometry import Dam
@@ -70,6 +71,8 @@ class PipingCase:
     bound: str = "mid"
     tension: bool = True       # wall criterion 3.776 (True) or 2 (tension cut-off)
     pore_storage: bool = True
+    exit_headcut: bool = False   # 5.6 exit headcut at the outlet (optional, off by default)
+    C_h: float = 1.0             # Part 4 headcut advance factor (not adjusted)
 
 
 @dataclass
@@ -89,6 +92,8 @@ class State:
     V_end_dn: float = 0.0      # bulk roof exported at outlet retreats
     V_uplift: float = 0.0      # bulk cover removed by mechanism C
     released_out: float = 0.0  # pore water of fallen soil (enters W_c; tracked for the budget)
+    hc: xh.ExitHeadcut | None = None   # exit headcut (5.6), when switched on
+    hc_moved: float = 0.0      # outlet retreat by the exit headcut in the last step (for the event log)
 
 
 def upstream_flow(p: pp.Pipe, z_s: float, z_c: float, n_p: float):
@@ -115,6 +120,8 @@ class PipingRun:
         x_in, x_o = dam.x_up(z_bp), dam.x_down(z_bp)
         V0 = case.reservoir.volume(case.z_s0) if not case.constant_level else 0.0
         self.s = State(0.0, V0, case.z_s0, pp.Pipe(case.b0, case.D0, case.z_inv0, x_o - x_in), x_in, x_o)
+        if case.exit_headcut:
+            self.s.hc = xh.ExitHeadcut(x_h=x_o, z_h=case.z_inv0)
         self.V0 = V0
         self.events, self.series = [], []
         self.record_every, self._next_rec = record_every, 0.0
@@ -228,6 +235,25 @@ class PipingRun:
             n.cum_supply += qin * dt
             n.V += (qin - q_res) * dt
             n.z_s = c.reservoir.level(n.V)
+        # exit headcut (5.6): driven by the discharge leaving the outlet at the start of the step
+        n.hc_moved = 0.0
+        if n.hc is not None:
+            if n.crater is None:
+                q_o, po = h["fl_up"].Q, n.pipe
+            else:
+                q_o, po = h["Q_out_cr"], n.pipe_dn
+            gam = c.soil.gamma_sat
+            new_hc, x_o_new = xh.step(n.hc, c.dam, q_o, po.b, po.z_inv, po.z_cr, n.x_o, dt, c.kd, c.tau_c,
+                                      c.soil.c_u0, gam, c.n_p, c.C_h)
+            n.hc_moved = n.x_o - x_o_new
+            n.hc = new_hc
+            if x_o_new < n.x_o:
+                n.x_o = x_o_new
+                if n.crater is None:
+                    n.pipe = pp.Pipe(n.pipe.b, n.pipe.D, n.pipe.z_inv, n.x_o - n.x_in)
+                else:
+                    n.crater.L_down = n.x_o - n.crater.x2
+                    n.pipe_dn = pp.Pipe(n.pipe_dn.b, n.pipe_dn.D, n.pipe_dn.z_inv, n.crater.L_down)
         n.t = s.t + dt
         return n
 
@@ -456,15 +482,31 @@ class PipingRun:
         cr = s.crater
         e = dict(t=s.t, type=kind, z_s=s.z_s, b=s.pipe.b, D=s.pipe.D, z_inv=s.pipe.z_inv, x_in=s.x_in, x_o=s.x_o,
                  L=s.pipe.L, water_err=self.water_error(s), **kw)
+        if s.hc is not None:
+            e.update(hc_stage=s.hc.stage, hc_x_h=s.hc.x_h, hc_z_h=s.hc.z_h, V_hc=s.hc.vol, V_hc_roof=s.hc.V_roof)
         if cr is not None:
             e.update(cr_x1=cr.x1, cr_x2=cr.x2, cr_W=cr.W, z_d=cr.z_d, z_c=cr.level(), W_c=cr.W_c,
                      solids_err=self.solids_error(s))
         self.events.append(e)
 
+    # ------------------------------------------------------------------ exit headcut log and limits
+    def _headcut_log(self, s: State, stage0) -> None:
+        if s.hc is None:
+            return
+        if stage0 == 1 and s.hc.stage == 2:
+            self._event(s, "headcut_plunging", x_h=s.hc.x_h, z_h=s.hc.z_h)
+        if s.hc_moved > 0.0:
+            self._event(s, "headcut_outlet_retreat", dist=s.hc_moved, x_h=s.hc.x_h, z_h=s.hc.z_h)
+        if s.crater is None and s.x_o <= s.x_in + 1e-9:
+            self._handover(s, "exit headcut reached the inlet")
+        elif s.crater is not None and s.x_o <= s.crater.x2 + 1e-9:
+            self._stop(s, "headcut_reached_crater", "the exit headcut reached the crater (not covered by the theory)")
+
     # ------------------------------------------------------------------ sealed state
     def _seal_snapshot(self, s: State, h: dict):
         cr, p = s.crater, s.pipe
-        return dict(t=s.t, geom=(p.b, p.D, p.z_inv, s.x_in, s.x_o, cr.x1, cr.x2, cr.W),
+        hcg = (s.hc.x_h, s.hc.z_h) if s.hc is not None else ()
+        return dict(t=s.t, geom=(p.b, p.D, p.z_inv, s.x_in, s.x_o, cr.x1, cr.x2, cr.W) + hcg,
                     vol=(cr.V_fall, cr.V_pipe, cr.V_exp, cr.V_spoil, cr.W_c, s.V), z_s=s.z_s)
 
     def _seal_check(self, s: State, chk: dict) -> None:
@@ -519,6 +561,8 @@ class PipingRun:
         h = chk["h"]
         r = dict(t=s.t, z_s=s.z_s, Q=h["Q_res"], Q_final=h["Q_final"], b=s.pipe.b, D=s.pipe.D, z_inv=s.pipe.z_inv,
                  x_in=s.x_in, x_o=s.x_o, min_M=chk["min_M"], water_err=self.water_error(s))
+        if s.hc is not None:
+            r.update(hc_stage=s.hc.stage, hc_x_h=s.hc.x_h, hc_z_h=s.hc.z_h, V_hc=s.hc.vol, V_hc_roof=s.hc.V_roof)
         rc = chk.get("rc") or chk.get("rc_up")
         if rc is not None:
             r.update(min_M_c=rc.min_M_c, x_star=rc.x_star, FS_A=rc.FS_A, lip_up=rc.lips[0], lip_dn=rc.lips[1])
@@ -558,7 +602,9 @@ class PipingRun:
                     n = self.cascade(n)
                     chk = self.checks(n) if not self.stopped else chk
                 self._budget(n)
+                stage0 = s.hc.stage if s.hc is not None else None
                 s = n
+                self._headcut_log(s, stage0)
                 self._record(s, chk)
                 if not self.stopped:
                     self._seal_check(s, chk)
@@ -642,7 +688,7 @@ def timeline(run: "PipingRun") -> list:
     for e in run.events:
         kind = e["type"]
         moving = kind in ("inlet_retreat", "outlet_retreat", "crater_extend_up", "crater_extend_down",
-                          "outlet_uplift_C")
+                          "outlet_uplift_C", "headcut_outlet_retreat")
         if moving and cur is not None and cur["type"] == kind:
             cur["t_end"] = e["t"]; cur["n"] += 1; cur["dist"] += e.get("dist", 0.0); cur["last"] = e
             continue

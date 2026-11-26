@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.9 · 2026-11-26 · status: JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.10 · 2026-11-26 · status: exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1154,6 +1154,38 @@ tested.
   collapse, with the mechanism on and off.
 - **Not applied yet:** sandy soils and moraine. Their exclusion is a first-version choice, not a claim
   that exit scour cannot occur there.
+
+**Exit headcut, implementation (draft 5.10, 2026-11-26, `exit_headcut.py`).** The option is off by
+default. It is implemented as specified above, with these stated choices:
+- **Geometry.**
+  - One headcut in a channel of the outlet pipe's width b_p.
+  - The brink is at the outlet invert z_inv, at position x_h, which starts at the outlet x_o.
+  - The base z_h is horizontal from the headcut face to where it meets the downstream face.
+  - The drop is H_h = z_inv − z_h, and the unit discharge is q = Q_out/b_p.
+  - Q_out is the pipe discharge before a crater forms, and the crater's downstream-reach discharge
+    after.
+- **Stage 1** (H_h ≤ d_c): surface erosion lowers z_h at the face-flow rate of Part 4 (4.1), on the
+  face slope 1/z_d with the pipe's n_p. The brink does not move.
+- **Stage 2** (H_h > d_c, no tailwater): the base deepens at the rate given by max(τ_face flow, τ_hf)
+  of (4.3)–(4.7), and the face advances at (4.9). The advance is capped at the 0.5H:1V surface rate,
+  with C_h = 1 (not adjusted), c_u = c_u0 and γ_t = γ_sat.
+- **Outlet.** When the brink passes the outlet, the outlet moves with it (x_o = x_h). The pipe
+  shortens, or, after a crater forms, the downstream reach does. The headcut moves the outlet
+  continuously, applied at the end of each step. It is logged as `headcut_outlet_retreat`, separately
+  from roof-end retreat and from mechanism C.
+- **Volumes**, both exported (carried away by the flow) and recorded separately:
+  - V_hc: the channel below the invert, b_p × the channel area, exact for the profile;
+  - V_hc,roof: the roof over the reach the brink has passed, b_p × the roof area.
+
+  Neither is counted by any other mechanism.
+- **Limits.** If the headcut reaches the inlet before a crater forms, that is a hand-over (the whole
+  pipe is open). If it reaches a crater, the run stops with `headcut_reached_crater`. The theory does
+  not cover the crater opening downstream, and the option is not allowed to create a breach by itself.
+- **Expected consequence for P1.** The ARS P1 pipe is low: invert 0.2 m above the base, falling to
+  about 0.07 m as the floor erodes. Stage 1 therefore takes the base to the dam base long before the
+  drop can exceed d_c, which is about 0.4–0.5 m at the P1 flows. The headcut erodes the face below the
+  outlet to the base, matching PAP-1017's "headcutting to the embankment base". But it cannot plunge,
+  so it does not advance upstream. Tests: `tests/test_exit_headcut.py`.
 
 **One geometry.** Mechanism C and the exit headcut both act only through x_o and the face downstream
 of it. Pipe erosion acts only inside the pipe. After collapse, all erosion is handed to Parts 2–4. No
