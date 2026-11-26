@@ -119,11 +119,14 @@ class Pipe:
         return self.z_inv + self.D
 
 
-def erode(p: Pipe, eps: float, w: int, y: float, dt: float, z_base: float = 0.0):
+def erode(p: Pipe, eps: float, w: int, y: float, dt: float, z_base: float = 0.0, b_max: float = math.inf):
     """Advance the pipe walls by one step of length dt at erosion rate eps (5.7, rectangle update above).
 
     Returns (new pipe, eroded volume [m3]). The eroded volume equals the wetted erodible area times
     eps * dt, and the area change of the rectangle times L equals it to round-off.
+
+    b_max: width limit of a pipe connected to a crater whose walls stand (5.7a.11): the side walls stop at
+    b_max (floor and roof still erode) and the eroded volume is the actual area change times L.
     """
     if eps <= 0.0 or dt <= 0.0:
         return p, 0.0
@@ -135,5 +138,8 @@ def erode(p: Pipe, eps: float, w: int, y: float, dt: float, z_base: float = 0.0)
     dA = p.b * floor + p.b * roof + 2.0 * y * d
     D_new = p.D + floor + roof
     b_new = (p.b * p.D + dA) / D_new                # exact: b_new * D_new - b D = dA
+    if b_new > b_max:                               # side walls held at the crater width (b_max >= b)
+        b_new = max(b_max, p.b)
+        dA = b_new * D_new - p.b * p.D
     new = replace(p, b=b_new, D=D_new, z_inv=p.z_inv - floor)
     return new, dA * p.L

@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.11 · 2026-11-26 · status: debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.12 · 2026-11-26 · status: state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -1723,6 +1723,61 @@ The cases are reported side by side and never averaged into one prediction (§5.
 - **Consistency.** The crater walls obey the same physics as the breach walls after hand-over.
 
 ---
+
+### 5.7a.11 State and geometry rules (decided 2026-11-26, after the c_u0 smoke test)
+
+The c_u0 smoke test (P1, dt = 4 s) exposed two gaps in the representation. Both are closed by explicit
+state and geometry rules. **Neither adds erosion physics.**
+
+**(a) `crater_spilling`: a separate state, not `sealed`.**
+- A blocked crater (a_open = 0, Q_out = 0) whose water stands below the lowest rim may be `sealed`
+  if every other condition of the sealed test holds (unchanged).
+- If the crater water reaches the rim and leaves over it (Q_spill > 0, (5.21)), the state is
+  `crater_spilling`. It is logged on entry and exit (`spill_start`, `spill_end`).
+- A run that stays in this state with the geometry and water stationary for T_seal stops as
+  `crater_spilling`. A run still evolving (for example, slow deepening of the upstream pipe by the
+  trickle when τ_c = 0) is reported as spilling at t_end.
+- The spill discharge is recorded separately from the pipe discharge: ∫Q_spill dt is its own term
+  (`cum_spill`) inside ∫(Q_out + Q_spill) dt of the water budget (5.22), which still closes to round-off.
+- It is **not** a hand-over, and the piping engine does **not** erode the rim. Rim erosion is
+  overtopping physics. The provisional crater-spill erosion option of §5.7a.4 stays off. If the
+  overtopping engine is coupled later, it can take over from this state.
+- Why a separate label: a persistent spill (0.25 L/s at 4 kPa, 7.2 L/s at 7 kPa in the smoke test) is
+  physically different from a blocked, stationary crater, and calling both `sealed` hides it.
+
+**(b) A connected pipe never becomes wider than the crater.**
+- At a pipe–crater interface the crater opening must accommodate the pipe opening. While the crater
+  walls stand, the side walls of the connected upstream pipe stop at the crater width:
+  b ≤ W in the erosion update (5.7a). The floor and the roof still erode, and the eroded volume is the
+  actual area change times L, so the pipe volume stays exact.
+- The crater widens only through the existing wall-failure rule (5.17), whose wedge volume enters the
+  solids budget. No new wall-failure mechanism is introduced.
+- A crater extension over a reach removes that reach's own pipe section and roof, b·D and the soil
+  above its crown, not the section the crater had at its start.
+- This is a geometric constraint, not a claim that real pipes cannot undermine crater walls. If that
+  process is represented later, it must widen the crater through a physically defined wall event.
+
+**(c) The dam base is a hard lower boundary.** No crater floor may lie below z = 0. The driver checks
+this, and b ≤ W, after every cascade pass. A violation stops the run as `geometry_error`. It is never
+clipped, because clipping would break the solids budget.
+
+**Discretisation note (same date).** The roof check adds the crest corners and the upstream waterline
+as sections. The linear zero crossing used for end retreat then never spans a break of slope. Without
+them, a crater edge on the flat crest crept about 1e-5 m per pass and hit the cascade cap (7 kPa).
+
+**Tests:** `tests/test_state_rules.py`:
+- a rim below the reservoir is never sealed;
+- the spill is a separate budget term, and the rim is not moved;
+- the pipe width is capped, the cap is active when the walls stand, and the capped update is volume-exact;
+- the floor is never below the base;
+- the solids and water budgets close.
+
+The solids closure of wall widening is covered by `test_debris_modes`.
+
+**Open, exposed by these rules (not decided).** With the walls standing at 7 kPa (instant), the crater
+passes about 1 m³/s through the downstream reach for an hour. That reach does not erode in the first
+version (§5.7a.7: only the upstream pipe is time-integrated). The outcome there therefore rests on an
+unmodelled process, and it is reported as such.
 
 ## 5.8 Inputs, safeguards and the cases that test this part
 

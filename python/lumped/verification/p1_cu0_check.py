@@ -4,6 +4,7 @@ are frozen.
 c_u0 = 4, 5, 6, 7 kPa (5 kPa is the estimated baseline: GeoHazards 2024 model input; P1 has no measured
 c_u), rho = 0; k_d = 3.16 cm3/(N s) (central value of the 5.4a band); debris 'level' and 'instant'; every
 case at dt = 2, 1, 0.5 s. Every other input unchanged (tau_c 0, n_p 0.016, exit headcut off).
+Outcomes include crater_spilling (5.7a.11): blocked pipe, water over a rim below the reservoir, not sealed.
 Reported per run: crater start, pipe size at collapse, outcome, every wall failure with its exposed height
 H_w and critical height H_c (5.17), and for runs that do not hand over, the final wall heights against
 H_c; budgets. A not-a-fit check of how robust the two bounds are to an estimated input.
@@ -70,13 +71,17 @@ def run(args):
         state = (f"z_s {r.s.z_s:.3f}, crater water {h['z_c']:.3f}, rim up {zr1:.3f} / down {zr2:.3f} m; Q_res "
                  f"{h['Q_res'] * 1e3:.3f} L/s, Q_out {h['Q_out_cr'] * 1e3:.3f}, spill {h['Q_spill'] * 1e3:.3f}; "
                  f"a_open {cr.a_open():.3f} m; upstream pipe b {r.s.pipe.b:.3f} D {r.s.pipe.D:.3f} vs crater W "
-                 f"{cr.W:.3f} a_p {cr.a_p:.3f}")
+                 f"{cr.W:.3f} a_p {cr.a_p:.3f}; spilled {r.s.cum_spill:.3f} m3")
+        sp = [e["t"] for e in ev if e["type"] == "spill_start"]
+        if sp:
+            state += f"; spill began t = {sp[0]:.1f} s"
     kinds = {}
     for e in ev:
         kinds[e["type"]] = kinds.get(e["type"], 0) + 1
     counts = ", ".join(f"{k} {v}" for k, v in sorted(kinds.items()))
     return dict(state=state, counts=counts, stall=stall, cu=cu, mode=mode, dt=dt, t_crater=cra["t"] if cra else None, b=cra["b"] if cra else None,
-                outcome=r.stopped[0] if r.stopped else "running at t_end", why=r.stopped[1] if r.stopped else "",
+                outcome=r.stopped[0] if r.stopped else ("crater_spilling, still evolving at t_end" if r._spilling
+                                                 else "running at t_end"), why=r.stopped[1] if r.stopped else "",
                 walls=walls, end_walls=end_walls, water=r.max_water_err, solids=r.max_solids_err,
                 t_end=r.s.t, geom=("no crater" if cr is None else f"crater [{cr.x1:.2f}, {cr.x2:.2f}] W {cr.W:.2f} z_d {cr.z_d:.3f}"))
 

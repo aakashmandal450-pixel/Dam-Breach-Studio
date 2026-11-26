@@ -41,6 +41,7 @@ from .hydraulics import crest_overflow
 from .stability_table import StabilityTable
 
 GAMMA_W = roof.GAMMA_W
+Z_BASE = 0.0          # dam base elevation: hard lower bound of every floor (5.7a.11)
 CONTINUOUS = {"inlet", "outlet", "crater_up", "crater_down", "uplift"}   # moving boundaries (after onset)
 
 
@@ -88,6 +89,7 @@ class State:
     pipe_dn: pp.Pipe | None = None     # downstream reach (frozen at crater start, 5.7a.7)
     cum_supply: float = 0.0
     cum_out: float = 0.0
+    cum_spill: float = 0.0     # part of cum_out that left over the crater rim (crater_spilling, 5.7a.11)
     cum_eroded: float = 0.0    # bulk soil eroded from the pipe walls (exported)
     V_end_up: float = 0.0      # bulk roof exported at inlet retreats
     V_end_dn: float = 0.0      # bulk roof exported at outlet retreats
@@ -142,6 +144,7 @@ class PipingRun:
         self.T_seal = 600.0
         self.seal_tol = dict(length=1e-6, volume=1e-6, flow=1e-6)
         self._seal_ref = None
+        self._spill_ref, self._spilling = None, False
 
     # ------------------------------------------------------------------ hydraulics on a state
     def hyd(self, s: State) -> dict:
@@ -175,8 +178,9 @@ class PipingRun:
         h = self.hyd(s)
         fl = h["fl_up"]
         eps = pp.erosion_rate(pp.wall_shear(fl), c.kd, c.tau_c)
+        bmax = n.crater.W if n.crater is not None else math.inf      # 5.7a.11: connected pipe <= crater width
         if n.pipe.L > 0:
-            new_pipe, dV = pp.erode(n.pipe, eps, fl.w, fl.y, dt)
+            new_pipe, dV = pp.erode(n.pipe, eps, fl.w, fl.y, dt, b_max=bmax)
             n.pipe, n.cum_eroded = new_pipe, n.cum_eroded + dV
         p0 = s.pipe
         if n.crater is None:
@@ -219,6 +223,8 @@ class PipingRun:
             vin = dt * qi
             vout = W0 + vin - W1                              # closes the crater balance exactly
             cr.W_c = W1
+            q_sp = cr.Q_spill(cr.level())                     # split of the outflow (5.22): rim spill / pipe
+            n.cum_spill += min(dt * q_sp, vout) if vout > 0.0 else 0.0
             n.cum_out += vout + h["Q_crest"] * dt
             q_res = vin / dt + h["Q_crest"]
             # erosion of the upstream reach with the implicit (end-of-step) exchange flow
@@ -228,15 +234,15 @@ class PipingRun:
                 if cr.debris == "tank" and cr.V_tank > 0.0:
                     # DL Breach virtual tank (Wu 2016, 4.7): the flow's erosion capacity removes stored debris
                     # instead of eroding the walls; the geometry is frozen until the tank is empty
-                    _, dV_pot = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt)
+                    _, dV_pot = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt, b_max=bmax)
                     take = min(dV_pot, cr.V_tank)
                     cr.V_tank -= take
                     cr.V_exp_out += take
                     if dV_pot > take and dV_pot > 0.0:       # tank emptied inside the step: erode for the rest
-                        new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt * (1.0 - take / dV_pot))
+                        new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt * (1.0 - take / dV_pot), b_max=bmax)
                         n.pipe, n.cum_eroded = new_pipe, s.cum_eroded + dV
                 else:
-                    new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt)
+                    new_pipe, dV = pp.erode(s.pipe, eps1, fl_end.w, fl_end.y, dt, b_max=bmax)
                     n.pipe, n.cum_eroded = new_pipe, s.cum_eroded + dV
         if n.crater is None:
             n.cum_out += h["Q_final"] * dt
@@ -360,6 +366,16 @@ class PipingRun:
         return info
 
     def apply(self, s: State, chk: dict) -> State:
+        """Apply every failure found on one state together, then check the geometry invariants (5.7a.11)."""
+        s = self._apply(s, chk)
+        cr = s.crater
+        if cr is not None and cr.z_d < Z_BASE - 1e-9:
+            raise RunStop("geometry_error", f"crater floor {cr.z_d:.4f} m below the dam base {Z_BASE:.3f} m")
+        if cr is not None and s.x_in < cr.x1 and s.pipe.b > cr.W * (1 + 1e-9):
+            raise RunStop("geometry_error", f"connected pipe b {s.pipe.b:.4f} m wider than the crater W {cr.W:.4f} m")
+        return s
+
+    def _apply(self, s: State, chk: dict) -> State:
         """Apply every failure found on one state together, then update the derived quantities."""
         c, dam = self.c, self.c.dam
         s = copy.deepcopy(s)
@@ -458,8 +474,9 @@ class PipingRun:
             return 0.0
         return min(max(z_ph - z_bot, 0.0), H) / H
 
-    def _roof_fall(self, s: State, xa: float, xb: float):
-        dam, z_cr, b = self.c.dam, s.pipe.z_cr, s.pipe.b
+    def _roof_fall(self, s: State, xa: float, xb: float, pipe=None):
+        pipe = pipe or s.pipe
+        dam, z_cr, b = self.c.dam, pipe.z_cr, pipe.b
         A = ends.roof_area(dam, z_cr, xa, xb)
         A_dry = ends.roof_area(dam, max(s.z_s, z_cr), xa, xb)
         return b * A, (A - A_dry) / A if A > 0 else 0.0
@@ -483,9 +500,10 @@ class PipingRun:
         xa, xb = (x1, cr.x1) if side == "up" else (cr.x2, x2)
         if xb - xa <= 1e-9:
             return
-        Vr, Sr = self._roof_fall(s, xa, xb)
+        p = s.pipe if side == "up" else s.pipe_dn          # the reach being opened, with its own section
+        Vr, Sr = self._roof_fall(s, xa, xb, pipe=p)
         cr.x1, cr.x2 = x1, x2
-        cr.fall(Vr, S_r=Sr, new_pipe=cr.b_p * cr.a_p * (xb - xa))
+        cr.fall(Vr, S_r=Sr, new_pipe=p.b * p.D * (xb - xa))
         self._event(s, f"crater_extend_{side}", x_from=(xb if side == "up" else xa), x_to=(xa if side == "up" else xb),
                     dist=xb - xa, V_roof=Vr)
 
@@ -539,6 +557,34 @@ class PipingRun:
         hcg = (s.hc.x_h, s.hc.z_h) if s.hc is not None else ()
         return dict(t=s.t, geom=(p.b, p.D, p.z_inv, s.x_in, s.x_o, cr.x1, cr.x2, cr.W) + hcg,
                     vol=(cr.V_fall, cr.V_pipe, cr.V_exp, cr.V_spoil, cr.W_c, s.V, cr.V_tank), z_s=s.z_s)
+
+    def _spill_check(self, s: State, chk: dict) -> None:
+        """crater_spilling (5.7a.11): the downstream entrance is blocked (a_open = 0, no pipe outflow), no
+        check fails, and crater water leaves over the rim (Q_spill > 0). Logged on entry and exit; a run in
+        this state with the geometry and water stationary for T_seal stops as 'crater_spilling'. Not
+        sealed and not a hand-over: erosion of the rim belongs to the overtopping engine, not to piping."""
+        h, cr, tol = chk["h"], s.crater, self.seal_tol
+        spilling = (cr is not None and not chk["fail"] and cr.a_open() <= 0.0 and h["Q_out_cr"] == 0.0
+                    and h["Q_spill"] > 0.0)
+        if spilling != self._spilling:
+            self._event(s, "spill_start" if spilling else "spill_end", Q_spill=h["Q_spill"],
+                        z_rim=cr.z_rim if cr is not None else math.nan)
+            self._spilling = spilling
+        if not spilling:
+            self._spill_ref = None
+            return
+        snap = self._seal_snapshot(s, h)
+        ref = self._spill_ref
+        if ref is None or any(abs(a - b) > tol["length"] for a, b in zip(snap["geom"], ref["geom"])) \
+                or any(abs(a - b) > tol["volume"] for a, b in zip(snap["vol"], ref["vol"])) \
+                or abs(snap["z_s"] - ref["z_s"]) > tol["length"]:
+            self._spill_ref = snap
+            return
+        if s.t - ref["t"] >= self.T_seal:
+            self._event(s, "crater_spilling", why=f"steady rim spill since t = {ref['t']:.1f} s", Q_spill=h["Q_spill"],
+                        Q_up=h["Q_res"], z_rim=cr.z_rim, z_c=h["z_c"], spill_since=ref["t"])
+            self.stopped = ("crater_spilling", f"blocked pipe, steady spill {h['Q_spill'] * 1e3:.3f} L/s over the "
+                            f"rim (z {cr.z_rim:.3f} m) from t = {ref['t']:.1f} s")
 
     def _seal_check(self, s: State, chk: dict) -> None:
         """Stop with 'sealed' when, continuously for T_seal: the downstream entrance is blocked (a_open = 0,
@@ -604,7 +650,8 @@ class PipingRun:
         if s.crater is not None:
             cr = s.crater
             r.update(cr_x1=cr.x1, cr_x2=cr.x2, cr_W=cr.W, z_d=cr.z_d, z_c=h["z_c"], Q_out_cr=h["Q_out_cr"],
-                     Q_spill=h["Q_spill"], a_open=cr.a_open(), V_tank=cr.V_tank, V_exp_out=cr.V_exp_out)
+                     Q_spill=h["Q_spill"], a_open=cr.a_open(), V_tank=cr.V_tank, V_exp_out=cr.V_exp_out,
+                     cum_spill=s.cum_spill, cum_out=s.cum_out)
         self.series.append(r)
 
     def run(self, t_end: float) -> "PipingRun":
@@ -643,6 +690,8 @@ class PipingRun:
                 self._record(s, chk)
                 if not self.stopped:
                     self._seal_check(s, chk)
+                if not self.stopped:
+                    self._spill_check(s, chk)
         except RunStop as e:
             self._event(s, "stop_" + e.kind, why=str(e))
             self.stopped = (e.kind, str(e))
