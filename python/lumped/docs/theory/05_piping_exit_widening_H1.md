@@ -1,6 +1,9 @@
 # Part 5, note H-1 (draft for review): widening of the pipe exit at the downstream face
 
-*Draft H-1 · 2026-11-26 · status: for review. Nothing is implemented in the driver. It would be an
+*Draft H-1 · 2026-11-26 · **status after review (2026-11-26): H1-a approved for verification and one
+controlled coupled test, not for permanent coupling. H1-c is a separate second-stage experiment. H1-b
+stays conditional in the theory and inactive in the implementation.** Review decisions and corrections:
+§8. Coupled result: §9. Earlier status: for review. Nothing was implemented in the driver. It would be an
 optional mechanism, separate from the exit headcut (§5.6) and the face-stability screening (F-1). No
 coefficient is chosen to reproduce P1.*
 
@@ -59,7 +62,7 @@ Each is given with: (a) the driving quantity; (b) the law; (c) the parameters; (
 - **(b)** Each side wall retreats at the excess-shear rate of the soil, the same law and the same
   k_d and τ_c as the pipe walls (§5.4) and the exit headcut:
 
-      dB_e/dt = 2 k_d (τ_e − τ_c)                                                        (H.1)
+      dB_e/dt = 2 k_d max(τ_e − τ_c, 0)                                                 (H.1)
 
   - Applying the bed shear to the walls is the Part 3 / DL Breach convention: walls retreat at the
     bed-erosion rate, (3.3)–(3.5), Wu 2016 Eqs. 4.16–4.17. So **no new coefficient.**
@@ -193,3 +196,94 @@ existing P1 runs, with no feedback on the pipe flow.
 - Ruff, J. F., Abt, S. R., Mendoza, C., Shaikh, A., Kloberdanz, R. (1982). *Scour at Culvert Outlets
   in Mixed Bed Materials*, FHWA report.
 - FHWA HEC-14, *Hydraulic Design of Energy Dissipators for Culverts and Channels*, ch. 5.
+
+
+## 8. Review decisions and corrections (2026-11-26)
+
+| decision | outcome |
+|---|---|
+| 1. H1-a primary | yes; the existing k_d and τ_c; no side-wall multiplier |
+| 2. tracking B_e | one value for the H1-a-only test; per section once H1-c moves the outlet (a freshly exposed reach does not inherit the old width without a physical reason) |
+| 3. H1-c | a second experiment. Before coupling, verify that the local span represents the actual unsupported roof geometry; do not assume the roof rule holds for a wider span unchecked |
+| 4. H1-b | conditional in the theory, **inactive in the first implementation** |
+| 5. run order | H1-a alone, then H1-a + H1-c; never averaged |
+
+**Corrections:**
+- **A.** (H.1) carries the max(·, 0): no widening below the critical shear, and never a negative
+  widening.
+- **B.** Critical depth alone does not prove free-surface flow at the pipe-to-notch transition, which
+  also depends on the hydraulic grade, the outlet energy and the downstream control. The free-surface
+  notch calculation is kept as a **stated approximation**, and its consistency with the observed open
+  cavern is checked (§9).
+- **C.** The k_d-independence of B_e/b was a one-way pre-screen result (prescribed discharge and
+  collapse time). It is not claimed in general. Feedback through H1-c can change it, so it is to be
+  re-checked when H1-c is coupled.
+- **D.** H1-c is to be kept geometrically honest: per-section width, and the span verified before
+  coupling.
+- **Solids accounting.** Widening is booked as a **bulk** volume, V_exit, like the other end and exit
+  terms. Its **solid-grain** volume, (1 − n) V_exit, is reported beside it, so a numerically closed
+  budget cannot hide a physical inconsistency.
+
+**Two properties found in verification, stated precisely:**
+- **H-A4, self-limiting, holds in the wide regime only.** In a narrow, deep slot the hydraulic radius
+  grows with B_e, and so do the shear and the widening rate. Once B_e ≳ 3 times the flow depth, the
+  rate falls as B_e grows. P1 is in the wide regime from the first minutes: B_e 0.04–0.87 m against a
+  notch depth of 0.02–0.06 m.
+- **No feedback in H1-a alone.** The pipe relations already treat the outlet as a free discharge with
+  no tailwater, so widening the exit leaves the pipe discharge, the collapse time and the event
+  sequence unchanged. That is verified bit-identical in `tests/test_exit_widening.py`. Feedback on
+  timing enters only through H1-c.
+
+**Implementation and tests:**
+- `lumped/exit_widening.py`, with the option `exit_widening` in `piping_run.py`: off by default, and
+  refused together with `exit_headcut`.
+- `tests/test_exit_widening.py` (9 tests):
+  - (H.1) against RK4 quadrature at a constant Q: first order, 0.03% at dt = 2 s;
+  - no widening without flow or below τ_c;
+  - wide-regime self-limiting;
+  - the B_e = b limit equal to the §5.6 stage-1 channel exactly;
+  - the wall area against direct integration of the profile;
+  - booking only widening beyond the pipe;
+  - the option off reproducing the run exactly;
+  - the budget;
+  - the separate-experiments guard.
+
+## 9. Controlled coupled test of H1-a (P1; `verification/p1_h1a.txt`)
+
+Configuration: the frozen P1 validation (level debris + D5 + D1-a, c_u0 5 kPa), with H1-a on, across
+the §5.4a k_d band, at dt = 2, 1 and 0.5 s.
+
+| k_d | roof collapse (s) | pipe b | exit B_e | B_e / b | max notch depth / pipe height | notch y_c at collapse | V_exit bulk / solid (m³) | outcome |
+|---|---|---|---|---|---|---|---|---|
+| 16.5 | 291 | 0.293 | 0.867 | 2.96 | 0.54 | 0.197 (D 0.292) | 0.0424 / 0.0271 | sealed |
+| 3.16 | 1517 | 0.293 | 0.866 | 2.95 | 0.54 | 0.197 (D 0.292) | 0.0422 / 0.0270 | sealed |
+| 0.88 | 5445 | 0.293 | 0.866 | 2.95 | 0.54 | 0.197 (D 0.293) | 0.0421 / 0.0270 | sealed |
+
+(dt = 0.5 s; the dt = 2 and 1 s values differ by less than 1%.)
+
+**Acceptance tests:**
+
+| test | result |
+|---|---|
+| H-A1 | B_e = b at t = 0, and no widening without flow |
+| H-A2 | **B_e/b ≈ 2.95–2.98 at roof collapse.** Against the photographic ≳ 5 (scale-limited lower bound, s ≳ 0.45 m), H1-a alone falls short **if** the scale holds; with s ≈ 0.3 m it would fit. Reported as a ratio with its caveat; nothing tuned |
+| H-A3 | the opening's height stays at the pipe height (the notch flow never reaches the roof), while its width roughly triples |
+| H-A4 | wide regime throughout |
+| H-A5 | water and solids budgets close exactly |
+| H-A6 | the same outcome at all three dt; B_e/b within 1% |
+| H-A7 | with the option off, bit-identical |
+
+**Review point B, the open-cavern check.**
+- The notch flow is never deeper than 0.54 of the pipe height. That maximum occurs at the start, while
+  B_e = b. So the opening above the flow is air, as photographed.
+- Once widened, the notch's critical depth (0.197 m at collapse) is below the pipe height (0.29 m),
+  consistent with free-surface flow at the exit.
+- At the start (B_e = b) the outlet is still pressurised, which is where H1-b would act if it were
+  switched on.
+
+**What H1-a does not change:** the roof-collapse time, the crater, the debris and the outcome (sealed).
+This is by construction: without H1-c the wider exit changes nothing upstream of the outlet.
+
+**Next, per the review:** H1-c as a separate experiment. First verify the local unsupported-span
+geometry at the outlet end and introduce per-section widths, then couple, with located failure
+events only.

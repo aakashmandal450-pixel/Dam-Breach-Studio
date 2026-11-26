@@ -34,6 +34,7 @@ import numpy as np
 from . import crater as cm
 from . import ends
 from . import exit_headcut as xh
+from . import exit_widening as xw
 from . import piping as pp
 from . import roof
 from .geometry import Dam
@@ -73,6 +74,7 @@ class PipingCase:
     tension: bool = True       # wall criterion 3.776 (True) or 2 (tension cut-off)
     pore_storage: bool = True
     exit_headcut: bool = False   # 5.6 exit headcut at the outlet (optional, off by default)
+    exit_widening: bool = False  # note H-1, H1-a: widening of the exit notch (optional, off by default)
     debris: str = "level"        # 5.7 debris treatment: 'level' (default) | 'instant' | 'tank' (comparison modes)
     C_h: float = 1.0             # Part 4 headcut advance factor (not adjusted)
     plugs: bool = False          # 5.7b: D5 (both mouths obstructed by the deposit) + D1-a plug breakthrough
@@ -99,6 +101,8 @@ class State:
     released_out: float = 0.0  # pore water of fallen soil (enters W_c; tracked for the budget)
     hc: xh.ExitHeadcut | None = None   # exit headcut (5.6), when switched on
     hc_moved: float = 0.0      # outlet retreat by the exit headcut in the last step (for the event log)
+    B_e: float | None = None   # H-1: exit (notch) width, when exit widening is on
+    V_exit: float = 0.0        # H-1: bulk soil removed by widening beyond the pipe width (exported)
 
 
 def upstream_flow(p: pp.Pipe, z_s: float, z_c: float, n_p: float, mouth=None):
@@ -139,6 +143,10 @@ class PipingRun:
         x_in, x_o = dam.x_up(z_bp), dam.x_down(z_bp)
         V0 = case.reservoir.volume(case.z_s0) if not case.constant_level else 0.0
         self.s = State(0.0, V0, case.z_s0, pp.Pipe(case.b0, case.D0, case.z_inv0, x_o - x_in), x_in, x_o)
+        if case.exit_headcut and case.exit_widening:
+            raise ValueError("exit_headcut and exit_widening are separate experiments (note H-1, decision 5)")
+        if case.exit_widening:
+            self.s.B_e = case.b0
         if case.exit_headcut:
             self.s.hc = xh.ExitHeadcut(x_h=x_o, z_h=case.z_inv0)
         self.V0 = V0
@@ -272,6 +280,14 @@ class PipingRun:
             n.cum_supply += qin * dt
             n.V += (qin - q_res) * dt
             n.z_s = c.reservoir.level(n.V)
+        # exit widening (H-1, H1-a): the same outlet discharge as the exit headcut would see
+        if n.B_e is not None:
+            if n.crater is None:
+                q_w, pw = h["fl_up"].Q, n.pipe
+            else:
+                q_w, pw = h["Q_out_cr"], n.pipe_dn
+            n.B_e, dVw = xw.step(n.B_e, pw.b, pw.D, q_w, c.dam.zd, c.n_p, c.kd, c.tau_c, dt)
+            n.V_exit += dVw
         # exit headcut (5.6): driven by the discharge leaving the outlet at the start of the step
         n.hc_moved = 0.0
         if n.hc is not None:
@@ -644,6 +660,8 @@ class PipingRun:
                  L=s.pipe.L, water_err=self.water_error(s), **kw)
         if s.hc is not None:
             e.update(hc_stage=s.hc.stage, hc_x_h=s.hc.x_h, hc_z_h=s.hc.z_h, V_hc=s.hc.vol, V_hc_roof=s.hc.V_roof)
+        if s.B_e is not None:
+            e.update(B_e=s.B_e, V_exit=s.V_exit)
         if cr is not None:
             e.update(cr_x1=cr.x1, cr_x2=cr.x2, cr_W=cr.W, z_d=cr.z_d, z_c=cr.level(), W_c=cr.W_c,
                      a_open=cr.a_open(), V_fall=cr.V_fall, V_tank=cr.V_tank, V_exp_out=cr.V_exp_out,
@@ -756,6 +774,10 @@ class PipingRun:
                  x_in=s.x_in, x_o=s.x_o, min_M=chk["min_M"], water_err=self.water_error(s))
         if s.hc is not None:
             r.update(hc_stage=s.hc.stage, hc_x_h=s.hc.x_h, hc_z_h=s.hc.z_h, V_hc=s.hc.vol, V_hc_roof=s.hc.V_roof)
+        if s.B_e is not None:
+            po, qo = (s.pipe, h["fl_up"].Q) if s.crater is None else (s.pipe_dn, h["Q_out_cr"])
+            y_n, tau_n = xw.notch_flow(qo, s.B_e, self.c.dam.zd, self.c.n_p)
+            r.update(B_e=s.B_e, V_exit=s.V_exit, notch_depth=y_n, notch_tau=tau_n, b_out=po.b, D_out=po.D)
         rc = chk.get("rc") or chk.get("rc_up")
         if rc is not None:
             r.update(min_M_c=rc.min_M_c, x_star=rc.x_star, FS_A=rc.FS_A, lip_up=rc.lips[0], lip_dn=rc.lips[1])
