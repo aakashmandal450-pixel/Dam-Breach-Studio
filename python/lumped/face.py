@@ -1,4 +1,8 @@
-"""Stability of the downstream face at the pipe outlet (Theory Part 5, draft F-1, §5.6b; for review).
+"""Stability of the downstream face at the pipe outlet (Theory Part 5, draft F-1, §5.6b).
+
+STATUS (review 2026-11-26): screening tool for research comparison only. NOT coupled to the piping driver;
+coupling deferred (the static scan finds the P1 face stable in every scenario). The minimum block sizes
+are numerical regularisation, not physical failure dimensions.
 
 Standalone module: not yet called by the piping driver. Two alternative failure geometries, never
 combined in one run, both by force equilibrium on a planar base (moments and toppling not checked):
@@ -258,18 +262,21 @@ def _fields(sc: Scenario, soil: FaceSoil, xm, Z, z_cr):
 
 
 # ------------------------------------------------------------------ critical block searches
-C_MIN = 0.25    # end-lip limit of the roof check (cover < 0.25 b is not checked), reused as the thinnest block
+C_MIN = 0.25    # NUMERICAL REGULARISATION (review 2026-11-26), not a physical failure dimension: the end-lip
+                # limit of the roof check, reused as the thinnest block; L_min = b/2 (section spacing). Results
+                # on either limit are flagged (info['at_limit']) and their sensitivity is reported.
 
 
 def critical_G1(prof: Profile, z_cr: float, beta: float, x_back_min: float, soil: FaceSoil, sc: Scenario,
-                w: float, t_max: float, nt: int = 40, nb: int = 40, b: float | None = None, **kw) -> Block:
+                w: float, t_max: float, nt: int = 40, nb: int = 40, b: float | None = None,
+                c_min: float = C_MIN, l_min: float = 0.5, **kw) -> Block:
     """min FS over slab thickness t in [t_min, t_max] and back scarp x_b in [x_back_min, x_d - L_min].
     Resolution limits (no new parameter; draft F-1 review question): t_min = 0.25 b, the end-lip limit of
     the roof check, and L_min = b/2, the section spacing. Without them the minimum degenerates to a
     vanishing block at the outlet edge."""
     x_d = prof.daylight(z_cr)
     b = w if b is None else b
-    t_min, L_min = C_MIN * b, 0.5 * b
+    t_min, L_min = c_min * b, l_min * b
     best = None
     for t in np.linspace(t_min, max(t_max, t_min), nt):
         x_u = x_d - t / math.tan(beta)
@@ -289,13 +296,13 @@ def critical_G1(prof: Profile, z_cr: float, beta: float, x_back_min: float, soil
 
 def critical_G2(prof: Profile, z_cr: float, beta: float, x_back_min: float, soil: FaceSoil, sc: Scenario,
                 w: float, na: int = 40, nb: int = 40, alpha_min: float = math.radians(1.0), crack: bool = True,
-                b: float | None = None, **kw) -> Block:
+                b: float | None = None, c_min: float = C_MIN, l_min: float = 0.5, **kw) -> Block:
     """min FS over the plane angle alpha in [alpha_min, beta) through the toe point and x_b. crack=False:
     no tension crack, the plane runs out to the surface (x_b at the intersection; the Culmann wedge of
     Part 3). A crack carries no resistance, so with it the minimum FS is lower than Culmann's."""
     x_d = prof.daylight(z_cr)
     bw = w if b is None else b
-    L_min, t_min = 0.5 * bw, C_MIN * bw
+    L_min, t_min = l_min * bw, c_min * bw
     tb = math.tan(beta)
     best = None
     for a in np.linspace(alpha_min, beta, na + 1)[:-1]:

@@ -67,9 +67,28 @@ def main():
         g = fc.critical_G2(prof, zcr, BETA, DAM.x_c1, s, sc, 1.0, na=30, nb=30, b=0.29)
         L.append(f"  {lab:14s}: FS {g.FS:.3f}{'*' if g.info['at_limit'] else ''} at alpha {math.degrees(g.theta):.1f} deg, "
                  f"L {g.x_d - g.x_b:.2f} m")
+    L += limit_sensitivity()
     text = "\n".join(L)
     print(text)
     (HERE / "face_static_scan.txt").write_text(text + "\n", encoding="utf-8")
+
+
+def limit_sensitivity():
+    """Review 2026-11-26: the minimum block sizes are numerical regularisation; report their effect."""
+    prof = fc.Profile.from_dam(DAM)
+    ph = fc.casagrande_phreatic(DAM, 1.1)
+    L = ["", "Sensitivity to the numerical block limits (roof-collapse stage, b 0.29 m):",
+         f"{'t_min/b':>7s} {'L_min/b':>7s} | {'P0 c_s 0 G1':>11s} {'G2':>7s} | {'P2 c_s 0 G1':>11s} {'G2':>7s}"]
+    b, zcr = 0.29, 0.369
+    for cm, lm in ((0.125, 0.25), (0.25, 0.5), (0.5, 1.0)):
+        row = []
+        for sc in (fc.Scenario("P0"), fc.Scenario("P2", phreatic=ph)):
+            s = fc.FaceSoil(0.0, 0.625, 0.0, GM, GSAT, sides=True)
+            g1 = fc.critical_G1(prof, zcr, BETA, DAM.x_c1, s, sc, b, t_max=DAM.H - zcr, nt=30, nb=30, c_min=cm, l_min=lm)
+            g2 = fc.critical_G2(prof, zcr, BETA, DAM.x_c1, s, sc, b, na=30, nb=30, c_min=cm, l_min=lm)
+            row += [f"{g1.FS:10.3f}{'*' if g1.info['at_limit'] else ' '}", f"{g2.FS:6.3f}{'*' if g2.info['at_limit'] else ' '}"]
+        L.append(f"{cm:7.3f} {lm:7.3f} | {row[0]} {row[1]} | {row[2]} {row[3]}")
+    return L
 
 
 if __name__ == "__main__":

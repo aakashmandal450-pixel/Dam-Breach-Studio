@@ -1,6 +1,15 @@
 # Part 5, §5.6b (draft for review): stability of the downstream face at the pipe outlet
 
-*Draft F-1 · 2026-11-26 · status: for review. Nothing is implemented. An optional mechanism. It does
+*Draft F-1 · 2026-11-26 · **status after review (2026-11-26): screening complete; NOT coupled to the
+driver.** The standalone module (`face.py`, `tests/test_face.py`) is kept for research comparison. The
+static scan (`verification/face_static_scan.txt`) finds the P1 face stable in every scenario:
+- G1 2.03 and G2 ≥ 2.1 dry or wetting;
+- under steady seepage, 1.07–1.34 across the limit sensitivity, most critical before the pipe enlarges.
+
+The minimum block sizes (0.25 b, b/2) are **numerical regularisation, not physical failure
+dimensions**. Results on them are flagged, and their sensitivity is reported. The six-configuration
+comparison is on hold. The investigation moves to exit erosion and non-uniform enlargement (note R-2).
+Earlier status: for review. Nothing is implemented. An optional mechanism. It does
 not change the crater-wall rule (5.17), the interior roof rule (§5.5b) or the frozen debris rules
 (§5.7b). Nothing is adjusted to reach the P1 observation (§5.7b.4).*
 

@@ -40,3 +40,9 @@ A3 global check: G2 per unit width over the whole face (plane strain, no sides),
   P0 c_s 0      : FS 2.084 at alpha 16.7 deg, L 2.79 m
   P2 c_s 0      : FS 1.385* at alpha 9.1 deg, L 0.42 m
   P2 c_s 3 kPa  : FS 1.385* at alpha 9.1 deg, L 0.42 m
+
+Sensitivity to the numerical block limits (roof-collapse stage, b 0.29 m):
+t_min/b L_min/b | P0 c_s 0 G1      G2 | P2 c_s 0 G1      G2
+  0.125   0.250 |      1.952*  2.092* |      1.070*  1.185*
+  0.250   0.500 |      2.030*  2.255* |      1.165*  1.500*
+  0.500   1.000 |      2.185*  2.615* |      1.336*  2.536*
