@@ -316,3 +316,62 @@ wetted, but it does not by itself explain the observed breach progression.
 
 It is **not** combined with H1-b, and the frozen crater and plug rules are **not** changed in the
 same experiment.
+
+## 11. H1-c step 1: is there a widened unsupported roof span at the exit? (2026-11-26)
+
+**Geometry.** At roof collapse, H1-a's widening lies in the open notch between the crown daylight
+(x_d = 8.52 m) and the invert daylight (x_i = 9.41 m), where the face is already below the crown and
+the notch is open to the sky. Upstream of x_d the roof is intact and spans the pipe width only
+(0.29 m): H1-a widens nothing under it. **No section has a roof spanning B_e.** H1-c as specified
+(§3) has nothing to act on.
+
+The photographs (R-2 §9) show an **arched roof over the wide opening** at 8 and 13 min. The real
+widening therefore extended under the intact face, upstream of the exit plane. That is
+exit-concentrated, non-uniform enlargement of the last reach.
+
+**Could the barrel hydraulics produce that?** The candidate was a part-full, free-surface reach under
+the roof, which would erode faster than the full pipe. Script `verification/exit_transition_check.py`
+(P1, k_d 3.16, whole pipe stage):
+
+| quantity | start | roof collapse |
+|---|---|---|
+| Fr = U/√(gD) of the full-pipe flow | 1.47 | 1.63 |
+| y_c/D in the pipe (= Fr^(2/3)) | 1.29 | 1.39 |
+| crown pressure head 0.5 m inside the exit: model convention / HDS-5 | +0.03 / +0.05 m | −0.11 / +0.03 m |
+| length of sub-atmospheric crown, model convention | 0.2 m | 2.2 m |
+| notch y_c/D at the H1-a width | 1.29 | 0.67 |
+
+1. **The barrel runs full to its exit throughout.** y_c > D at every stage, so the flow cannot pass
+   through critical depth inside the barrel, and the standard culvert treatment (FHWA HDS-5, outlet
+   control, d_c ≥ D) takes the barrel full to the outlet. With the hydraulic grade at the crown at
+   the exit, the crown pressure is ≥ 0 everywhere upstream: **no air entry and no free-surface reach
+   under the roof.**
+2. **The sub-atmospheric reach (up to 2.2 m at collapse) is an artefact of the model's outlet
+   convention.** (5.3) puts the hydraulic grade at the exit at the pipe centreline,
+   HW − max(y/2, h_t), and (5.8) then gives a crown pressure of −D/2 at the exit, clipped to 0. That
+   is the "zero roof pressure over the last 1.5–2 m" noted earlier. **It is recorded, not changed:**
+   (5.3) is frozen. The difference from HDS-5 is D/2 of head, about 0.15 m of 1.03 m at collapse, and
+   would be a separate, reviewed decision.
+3. **Once the exit widens, the expansion happens at the exit plane.** The notch critical depth falls
+   below D once B_e ≳ 2b (from about 200 s), so the flow becomes free-surface downstream of the exit
+   plane, in the open notch, not under the roof.
+
+**Finding.**
+- The barrel hydraulics do not produce a faster-eroding free-surface reach under the roof: the
+  shear in the last reach stays the uniform full-pipe shear.
+- **H1-c is not supported by the present representation:** there is no widened unsupported span, and
+  no hydraulic route to one.
+- The arched cavern in the photos needs a process **at the exit plane** that the model does not
+  have. The obvious physical candidate is erosion of the notch's upstream end wall, beside the pipe
+  mouth, by the recirculating eddies of the sudden expansion. These sit in the corners of the step
+  between the pipe width b and the notch width B_e.
+  - Its law would need a recirculation-shear factor. The present framework gives none, and choosing
+    one would be tuning.
+  - It is recorded as a **candidate (H1-d), not specified**, until a source for the corner-eddy
+    shear at a lateral expansion, or an observation of the end-wall retreat, is available.
+
+**Status.**
+- H1-c is not coupled.
+- H1-a stays verified and not validated.
+- The P1 outcome stays sealed and unresolved.
+- Frozen rules are unchanged, including (5.3) and (5.8).
