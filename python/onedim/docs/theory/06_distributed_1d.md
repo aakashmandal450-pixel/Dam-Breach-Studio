@@ -1,14 +1,9 @@
 # Theory, Part 6 — The distributed 1-D breach engine
 
-*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 3 · 2026-11-26 ·
-status: sign-off candidate (correction-only draft after the review of draft 2). No code until sign-off.
-Architecture and decisions 6-1 to 6-17 settled; the step-face closure (6.16b) and the brink closure
-(§6.8.4) remain conditional on their phase B and C tests.*
-
-*Draft 2 takes in the review of 2026-11-26 (see §6.0). The main change is a correction found while
-re-deriving the interface momentum balance with explicit signs: draft 1 loaded the wall step at an
-expansion with the receiving cell's pressure, which gives an energy **gain** at an abrupt expansion.
-The step is now loaded with the upwind stage (§6.5.3).*
+*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 3.1 · 2026-11-26 ·
+status: **theory architecture signed off by the user (2026-11-26)**; accepted decisions frozen, 6-11
+accepted for v1. The step-face closure (6.16b) and the brink closure (§6.8.4) remain conditional and
+are verified in phase B (B12a–c first). The reference claim audit (Appendix 6B) continues in parallel.*
 
 *Decisions taken before this draft (plan §6, 2026-11-26): two tracks; Preissmann slot; explicit finite
 volume with HLLC and hydrostatic reconstruction; debris by per-cell sediment transport; package
@@ -17,6 +12,15 @@ decisions 2–4 are written into §6.4, §6.5, §6.7 and §6.10. New decisions r
 collected in §6.13.*
 
 ## 6.0 Changes
+
+### Draft 3.1 (sign-off, 2026-11-26)
+
+| item | change |
+|---|---|
+| 6-11 accepted for v1, with five required definitions | §6.7.4 rewritten: solids and porosity, occupied width and height, entrainment and deposition, export, separation from intact soil |
+| contact speed (6.19) | the source check found that Batten et al.'s pressure-form S* differs from the HLL star velocity used for the shallow-water HLLC (Toro 2001) by 20–55 % in test states. Since the mass and momentum fluxes are HLL, (6.19) is replaced by the HLL-consistent contact speed (Toro's form, written with A); Batten et al. is no longer needed for the scheme |
+| Einfeldt et al. (1991) scope | the paper treats the Euler equations of gas dynamics; the shallow-water positivity result is its γ = 2 isentropic analogue, as used by Toro (2001). Wording corrected (§6.5.4) |
+| three wording slips | B8 row, §6.4.2 slot test values, header note |
 
 ### Draft 3 (review of draft 2, 2026-11-26) — corrections only, no redesign
 
@@ -294,8 +298,9 @@ conditions make that so, and a_s is chosen to satisfy them, never to fit an outc
     L_p / a_s ≤ 10⁻² · t_min                   (pressure adjustment ≪ the fastest physical time scale)    (6.10)
 
 t_min is the shortest of the erosion and drawdown time scales (seconds to minutes in the cases at
-hand). **Default a_s is fixed in phase C by the insensitivity test** (§6.10): the results (Q, crown
-pressure, filling time, collapse time) change by less than 1 % when a_s is doubled. Starting value for
+hand). **Default a_s is fixed in phase C by the insensitivity test** (§6.10, C6): the results (Q, crown
+pressure, filling time, collapse time) change by less than 1 % between the two highest of a_s, 2a_s and
+4a_s. Starting value for
 the test: a_s = 50 m/s. For P1 (40 mm square pipe, A_f = 1.6 × 10⁻³ m²) this gives T_s = 6.3 × 10⁻⁶ m.
 
 **Slot storage.** The slot holds a fictitious water volume T_s (η − z_cr) Δs per cell. Relative to the
@@ -487,8 +492,10 @@ interface section.
 
     S_L = min( U_L − c_L, Ũ − c̃ ),    S_R = max( U_R + c_R, Ũ + c̃ )                                (6.17)
 
-Einfeldt speeds are chosen because, with them, the HLLE flux is positivity-preserving for the 1-D
-shallow-water equations in a rectangular channel (Einfeldt et al. 1991). That result does not by itself
+Einfeldt speeds are chosen because, with them, the HLLE flux is positively conservative under
+conditions on the wave speeds. Einfeldt et al. (1991) prove this for the Euler equations of gas
+dynamics; the shallow-water equations in a rectangular channel are their γ = 2 isentropic analogue, and
+the result is used for them in that form (Toro 2001). That result does not by itself
 cover this scheme (intersection sections, step faces, slot): positivity here rests on the argument of
 §6.5.3 and on tests B9 and B13.
 In a full conduit c = a_s, so the speeds include the slot celerity automatically.
@@ -506,10 +513,15 @@ waves, so the HLLC mass and momentum fluxes are the HLL ones (Toro 2001, Ch. 10)
 (and F(U_L) or F(U_R) when both speeds have one sign).
 
 **Concentration flux: the contact wave.** The third wave of HLLC is the contact that carries the
-concentration. Its speed is the HLLC contact speed of Batten et al. (1997)†, derived there for the Euler equations and
-written here for the pressure p = g I1 (the adaptation is ours):
+concentration. Its speed is the velocity of the HLL intermediate state, the form used for the
+shallow-water HLLC with a passive scalar (Toro 2001), written here with the flow area in place of the
+depth:
 
-    S* = [ p_R − p_L + A_L U_L (S_L − U_L) − A_R U_R (S_R − U_R) ] / [ A_L (S_L − U_L) − A_R (S_R − U_R) ]   (6.19)
+    S* = [ S_L A_R (U_R − S_R) − S_R A_L (U_L − S_L) ] / [ A_R (U_R − S_R) − A_L (U_L − S_L) ]          (6.19)
+
+This choice is consistent with the HLL mass and momentum fluxes the scheme actually uses. (Draft 3 used
+the pressure form of Batten et al. (1997)†, derived for the Euler equations; in test states it differs
+from (6.19) by 20–55 %, so it is not used.)
 
 and the sediment flux is the HLL mass flux times the upwind concentration:
 
@@ -726,23 +738,59 @@ The bulk volume eroded (or deposited) in cell i during the step is
 (Part 2 (2.9), per cell). Eroded volume is taken first from the cell's mobile store (§6.7.4), then from
 intact soil. Deposited volume goes to the mobile store. How ΔV changes the section is §6.8.1.
 
-### 6.7.4 The mobile store: debris and deposits *(plan decision 4)*
+### 6.7.4 The mobile store: debris and deposits *(decision 6-11, accepted for v1)*
 
-Each cell has one **mobile store** of solids volume M_i, lying on the intact bed z_b,i as a layer of
-uniform thickness across the bottom width (the first-version deposition assumption of Part 5 (5.12b),
-now per cell):
+**What is represented.** Each cell carries one **mobile store**: loose solids lying on its intact bed as
+a level layer. This is a v1 representation of a debris deposit in a cross-section-averaged model; it does
+not attempt the three-dimensional shape of a real deposit, a plug with a gap beside it, or debris-flow
+behaviour (§6.7.5, §6.11). The five definitions required at sign-off follow.
 
-    z_d,i = z_b,i + M_i / ( (1 − n_d) b_i Δs_i )                                                     (6.31)
+**1. Solids volume and porosity.** The state variable is the **solids volume** M_i (m³ of grains), never a
+bulk volume. Material enters as solids: a fallen roof of intact porosity n contributes (1 − n) × its
+bulk volume (§6.8.2); a failed wall wedge likewise; deposited sediment arrives as solids from (6.28);
+the suspended solids of a drying cell arrive as (A C)_i Δs_i. In the store the solids sit at the
+deposited porosity n_d (default n_d = n, sensitivity n_d > n, Part 5 (5.12a)), so the store's **bulk
+volume** is M_i/(1 − n_d).
 
-It receives:
-- the fallen roof of a collapsed conduit cell (§6.8.2);
-- bank-failure wedges (§6.8.3);
-- deposited sediment (non-cohesive, (6.28) negative).
+**2. Occupied width and height.** The layer fills the cell's section from its intact bed z_b,i upward,
+following the walls: its surface z_d,i is the level at which the section's area below z_d,i holds the
+bulk volume,
 
-It erodes before the intact soil below it, with the debris erodibility: k_d,debris and τ_c,debris
-(cohesive; default the intact values, Part 5 §5.7) or the Part 2 capacity (non-cohesive). Porosity n_d
-defaults to n. Its surface z_d,i is the cell's bottom elevation for the hydraulics (§6.2.3), so a debris
-layer obstructs the flow from the instant it forms.
+    Δs_i ∫_{z_b,i}^{z_d,i} σ_i^bed(η) dη = M_i / (1 − n_d)                                            (6.31)
+
+with σ_i^bed the width of the cell's soil section (the trapezoid or layer stack of §6.2.3, without the
+water stream tube above z_g). The occupied width at height η is σ_i^bed(η); the top width of the layer
+is σ_i^bed(z_d,i). For a vertical-walled cell this is z_d,i = z_b,i + M_i/((1 − n_d) b_i Δs_i), the
+draft-2 form. The surface z_d,i is the cell's bottom elevation for the hydraulics, so a layer obstructs
+the flow from the instant it forms.
+
+**3. Entrainment and deposition.** The wetted perimeter of the cell is split at z_d,i: the part in contact
+with the layer (its top surface, width σ_i^bed(z_d,i)) and the intact walls above it.
+- **On the layer:** cohesive debris detaches at f_kd k_d,debris (|τ_i| − τ_c,debris)⁺ (defaults: the intact
+  values, Part 5 §5.7); non-cohesive debris supplies the transport-limited exchange (6.28). Solids leave
+  M_i and enter (A C)_i.
+- **On the intact walls above the layer:** the intact law and the intact porosity p, as in §6.8.1.
+- **Deposition** (non-cohesive, (6.28) negative): solids leave (A C)_i and enter M_i; the bed of intact
+  soil does not rise.
+- If the layer is used up within a step, the remaining erosion capacity of that step acts on the intact
+  bed below, by the intact law.
+
+**4. Export.** Debris leaves the domain only **as suspended sediment**: it is entrained into (A C)_i,
+advected by (6.20), and counted in S_out when it crosses the outfall (or S_res if reverse flow carries it
+into the reservoir). There is no direct transfer from a store to the boundary. The comparison mode
+`debris_mode = "export"` is the one exception: it removes fallen solids at once and books them as S_disp,
+separately from S_out (§6.9.3).
+
+**5. Separation from the intact soil (no double counting).** The intact geometry (bed z_b,i, walls, layer
+stack) and the store M_i are separate state variables:
+- the intact geometry changes only by intact erosion (§6.8.1, walls and, once the layer is gone, bed),
+  roof collapse, wall failure and headcut crossing (§6.8.4); each of these books its solids once in
+  S_int;
+- the store changes only by its inputs (fallen roof, failed walls, deposition, drying) and by
+  entrainment from its surface;
+- solids moved from intact soil into the store are booked in S_int when they leave the intact soil and
+  counted afterwards only in S_M, never again in S_int;
+- the solids budget (6.34) checks the sum every step.
 
 **Cap.** The debris surface cannot rise above the dam surface: z_d,i ≤ z_g,i. Solids beyond that go
 to a per-cell **spoil** store, counted in the budget (6.34) and hydraulically inactive, as the spoil
@@ -1017,7 +1065,7 @@ the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 | B5 transcritical flow over a bump | the three SWASHES bump cases after Goutal and Maurel (1997)† (subcritical, transcritical with and without shock) | steady profiles within 1 % of the **analytic** Bernoulli/conjugate solution (not of the workshop's numerical results) |
 | B6 hydraulic jump | supercritical inflow, subcritical tailwater | conjugate depths (Bélanger) within 1 %; momentum flux continuous across the jump to the grid error |
 | B7 GVF profiles | M1, M2, S2 in prismatic and non-prismatic channels with Manning friction | within 1 % of a direct-step solution at the finest grid |
-| B8 wetting and drying | Thacker (1981)† parabolic bowl, 1-D | shoreline and h converge; positivity never violated |
+| B8 wetting and drying | SWASHES planar surface in a parabola (1-D reduction of Thacker 1981†), Appendix 6A | shoreline and h converge; positivity never violated |
 | B9 positivity | two strong rarefactions leaving a near-dry middle (Toro 2001) | A ≥ 0 every step; no NaN; mass to 10⁻¹² |
 | B10 steep bed steps and near-dry cells | flow down a 1:2 face onto a flat apron; step-up and step-down beds | stable; mass to 10⁻¹²; profile converges with Δs |
 | B12a steady abrupt junctions | expansions and contractions, rectangles, trapezoids and conduit → open, **in both flow directions** | steady head change within 1 % of the junction relation of §6.5.3; Borda within 3 % for expansions; contraction losses reported against data; no energy gain at any junction |
@@ -1174,9 +1222,9 @@ patch; it is not built to force agreement with one experiment.
 
 ## 6.13 Decisions
 
-Status after the review of draft 2: 6-1, 6-3, 6-5, 6-6, 6-8, 6-10, 6-12, 6-13, 6-14, 6-16 (test first)
-and 6-17 accepted; 6-2, 6-4 + 6-15 and 6-7 conditional on their tests; 6-9 accepted with the wording
-below; 6-11 not answered in the review and still open; 6-18 new.
+Status at sign-off (user, 2026-11-26): 6-1, 6-3, 6-5, 6-6, 6-8, 6-9, 6-10, 6-11, 6-12, 6-13, 6-14,
+6-16 (test first) and 6-17 accepted and frozen; 6-2, 6-4 + 6-15, 6-7 and 6-18 conditional on their phase B
+and C tests.
 
 | no. | question | proposal |
 |---|---|---|
@@ -1190,7 +1238,7 @@ below; 6-11 not answered in the review and still open; 6-18 new.
 | 6-8 | wall criteria | collapsed cells: the frozen wet undrained cut (5.17), retreat ½ H_w; open-breach cells: Part 3 (3.12)–(3.14) |
 | 6-9 | intact-crest overflow | three disjoint paths: resolved notch (domain, erodes), remaining crest max(L_cr − B_top,cr, 0) by (1.8), spillway Q_sp; a piping run with z_s above the crest stops with an out-of-scope flag in v1 |
 | 6-10 | residual-block sliding (4.10)–(4.11) | kept, on the block upstream of the most upstream brink |
-| 6-11 | debris | per-cell mobile store as a level layer (6.31); `export` as a comparison mode only |
+| 6-11 | debris | **accepted for v1 (user, 2026-11-26)**: per-cell mobile store of solids, a level layer filling the section from the intact bed (6.31), with the five definitions of §6.7.4; `export` as a comparison mode only; not a model of 3-D deposits or debris flow |
 | 6-12 | mixture effects | clear-water continuity in v1 |
 | 6-13 | numbering | call this Part 6 of the distributed engine's own theory (`python/onedim/docs/theory/06_…`), and renumber the lumped plan's future parts (impulse waves, moraine) as 7 and 8 when they are written |
 | 6-14 | minimum collapse length | none in advance; introduced only if the grid study shows non-convergence, and then with a source |
@@ -1272,17 +1320,17 @@ checked. Priority for the claim check: Batten, Einfeldt et al., SWASHES, Goutal 
 
 | reference | claim in Part 6 | status |
 |---|---|---|
-| Batten et al. (1997) | HLLC contact speed (6.19), adapted to p = g I1 | bibliographic; adaptation labelled ours; claim check pending (priority) |
+| Batten et al. (1997) | none in the scheme since draft 3.1 (the pressure-form S* is replaced by (6.19)) | abstract and the commonly cited S* form checked; retained only as background for HLLC wave speeds |
 | Bladé et al. (2012) | conservative 1-D/2-D frontal coupling | bibliographic; the area-weighted split of §6.12.2 is ours |
 | Cao et al. (2004) | coupled mixture formulation exists (later option) | bibliographic |
 | Celik et al. (2008) | GCI procedure | bibliographic; article-number formatting to confirm |
 | Chaudhry (2008) | slot equations | bibliographic; chapter to be cited |
 | Delestre et al. (2013), SWASHES | B5, B8 setups and solutions | **B5 and B8 parameters and the B8 solution checked against the arXiv version** (1110.0288); B2, B3, B7 to check |
 | Einfeldt (1988) | wave-speed estimates | bibliographic; adaptation to sections ours |
-| Einfeldt et al. (1991) | HLLE positivity, rectangular SWE | scoped in §6.5.4; claim check pending (priority) |
-| Goutal and Maurel (1997) | bump benchmarks | case values confirmed through SWASHES; author or editor roles and report to confirm (priority) |
+| Einfeldt et al. (1991) | HLLE positively conservative under wave-speed conditions | abstract checked: Godunov is positively conservative, HLLE is so under conditions on the wave speeds; the paper is for the Euler equations, the SWE use is the analogue (corrected in §6.5.4); full text pending |
+| Goutal and Maurel (1997) | bump benchmarks | case values confirmed through SWASHES, which cites the EDF report HE-43/97/016/B with Goutal and Maurel as authors; the report itself is not online; role (authors or editors) unconfirmed. B5 rests on the analytic solution, so its pass criterion does not depend on the report |
 | Hernández-Dueñas and Karni (2011) | balance laws for arbitrary sections | bibliographic; does not prove (6.13)/(6.16b) |
-| Kerger et al. (2011) | slot with Godunov scheme; exact Riemann solution for C4a; negative slot not used | bibliographic; claim check pending (priority) |
+| Kerger et al. (2011) | slot with Godunov scheme; exact Riemann solution for C4a; negative slot not used | abstract checked: unified Preissmann-slot model, first-order explicit Godunov finite volumes, a negative slot for sub-atmospheric flow, an exact Riemann solver; oscillations after the transition remain at large celerities. Supports §6.4.1, §6.4.4 and C4a; full text pending |
 | Liang and Marche (2009) | implicit friction (6.22) | bibliographic; (6.22) to be checked under our section and friction definitions |
 | Morales-Hernández et al. (2013) | conservative 1-D/2-D coupling | bibliographic; sediment and moving-interface parts ours |
 | Spinewine and Zech (2007) | D4(b) candidate | bibliographic; experiment and measurements to select |
@@ -1300,7 +1348,7 @@ New in this part (†: to be checked against the paper before sign-off):
 - Audusse, E., Bouchut, F., Bristeau, M.-O., Klein, R., and Perthame, B. (2004). A fast and stable
   well-balanced scheme with hydrostatic reconstruction for shallow water flows. *SIAM J. Sci. Comput.*,
   25(6), 2050–2065.
-- † Batten, P., Clarke, N., Lambert, C., and Causon, D. M. (1997). On the choice of wavespeeds for the
+- † Batten, P., Clarke, N., Lambert, C., and Causon, D. M. (1997). (Background only since draft 3.1.) On the choice of wavespeeds for the
   HLLC Riemann solver. *SIAM J. Sci. Comput.*, 18(6), 1553–1570.
 - † Bladé, E., Gómez-Valentín, M., Dolz, J., Aragón-Hernández, J. L., Corestein, G., and Sánchez-Juny,
   M. (2012). Integration of 1D and 2D finite volume schemes for computations of water flow in natural
