@@ -919,7 +919,7 @@ the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 | B1 lake at rest | irregular bed *and* irregular widths, trapezoids and rectangles, wet and partly dry | |U| < 10⁻¹² m/s and η constant to 10⁻¹² m after 10⁵ steps |
 | B2 Ritter dam break | dry downstream bed, rectangle | L1 error in h and U → 0 with Δs; observed order reported (≈ 1 expected at first order); front position within 1 % at the finest grid |
 | B3 Stoker dam break | wet downstream, rectangle | as B2; shock speed and intermediate state within 1 % |
-| B4 dam break in a trapezoid | variable section | conservation to 10⁻¹²; convergence with Δs |
+| B4 variable section | manufactured smooth solution in a trapezoid with varying width, side slope and bed (Appendix 6A) | observed order p ≥ 0.9; conservation to the gate |
 | B5 transcritical flow over a bump | Goutal and Maurel (1997)† cases (subcritical, transcritical with and without shock) | steady profiles within 1 % of the analytic Bernoulli/conjugate solution |
 | B6 hydraulic jump | supercritical inflow, subcritical tailwater | conjugate depths (Bélanger) within 1 %; momentum flux continuous across the jump to the grid error |
 | B7 GVF profiles | M1, M2, S2 in prismatic and non-prismatic channels with Manning friction | within 1 % of a direct-step solution at the finest grid |
@@ -952,7 +952,7 @@ approach is investigated (plan qualification 1). The choice is never made on bre
 
 | test | pass criterion |
 |---|---|
-| D1 solids budget | (6.34) to 10⁻¹² through erosion, deposition, collapse and bank failure |
+| D1 solids budget | (6.34) within the gate of §6.9.3 through erosion, deposition, collapse, bank failure and drying |
 | D2 non-equilibrium relaxation | steady uniform flow, clear inflow: C(s) = C_cap(1 − exp(−s/L_s)) within 0.5 % at Δs ≤ L_s/5 |
 | D3 uniform-flow limit | a prismatic erodible reach in uniform flow: per-cell erosion rate and widening equal the lumped (2.1)/(2.3)–(2.9) and (3.1)–(3.5) for the same τ to 10⁻⁹ |
 | D4 aggradation/degradation | a published mobile-bed benchmark, chosen at review (candidates: clear-water degradation below a dam; Spinewine and Zech 2007† dam break over a mobile bed), qualitative and order-of-magnitude |
