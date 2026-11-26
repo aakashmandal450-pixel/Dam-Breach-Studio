@@ -2177,8 +2177,17 @@ Status: **closed conditionally.**
 > whether outlet control, tailwater, or a hydraulic-grade treatment is needed. No change will be made
 > to the frozen baseline until this comparison is documented.
 
-Status: **review opened**, note O-1 (`05_piping_outlet_convention_O1.md`). (5.3) and (5.8) are
-unchanged.
+Status: **reviewed, not resolved** (note O-1 §5). (5.3) and (5.8) are retained. The HDS-5 comparison
+is a sensitivity at identical geometry, with no collapse-time correction inferred. Tailwater
+(TW = 0 is an assumption) and widened-outlet hydraulics are unresolved. Option (b) or (c) would make
+a separately labelled baseline.
+
+### Statement of status for the technical paper (2026-11-26)
+
+Three statements, kept separate:
+1. **H1-a is verified but not validated.**
+2. **The outlet convention is reviewed but not resolved.**
+3. **P1 remains an unresolved validation finding.**
 
 ## References
 

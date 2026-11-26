@@ -67,3 +67,30 @@ changes.
 
 **Whatever is chosen:** the present baseline stays reproducible, and any change gives a new,
 separately labelled baseline. The H1-a tests and the P1 records stay as recorded.
+
+## 5. Review recommendation (2026-11-26)
+
+**Status: reviewed, not resolved. The baseline stays frozen.**
+
+1. **The comparison is a sensitivity assessment at identical geometry, not a replacement
+   simulation.** The 9% lower discharge at roof collapse, and up to about 16% less wall shear, are
+   meaningful. They are not evidence that either convention is correct, and **no collapse-time
+   correction is inferred from them.** Their effect on breach timing has not been established.
+2. **The pressure reference needs justification either way.** The centreline reference of (5.3)
+   needs a clear physical basis for a pipe that discharges freely, with its jet exposed to atmospheric
+   pressure. The HDS-5 crown reference has to be assessed within its culvert assumptions, not adopted
+   by default.
+3. **Tailwater is an independent uncertainty.** The photographs show water covering the downstream
+   toe. They do not show the tailwater depth at the outlet. TW = 0 is an **assumption, not an
+   observed condition.**
+4. **The widened notch is a different hydraulic geometry.** Neither convention carries over
+   automatically from the original full-pipe outlet once H1-a produces a free-surface opening.
+   Widened-outlet hydraulics stay an unresolved question.
+5. **Part-full flow** stays in the scope of the general review, though it does not affect P1.
+
+**Actions:**
+- (5.3) and (5.8) are retained.
+- The HDS-5 comparison is recorded as a sensitivity (`verification/outlet_convention_check.txt`).
+- Tailwater and widened-outlet hydraulics are recorded as unresolved.
+- **If option (b) or (c) is selected:** create a separately labelled hydraulic baseline and re-run
+  the relevant validation cases. Never mix it with the present baseline.
