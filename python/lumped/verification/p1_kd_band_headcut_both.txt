@@ -1,0 +1,81 @@
+ARS P1 across the JET->HET k_d band (theory 5.4a), exit headcut both (5.6); tau_c 0, n_p 0.016; time steps [2.0, 1.0, 0.5] s; t_end 14400 s
+observed sequence (PAP-1017): pipe enlargement with headcutting to the base, soil-bridge collapse at 0.23 h (790-830 s), breach;
+time origin not defined in the source: comparison provisional (5.4a point 6)
+
+run                                  dt  tau0 Pa  inlet s crater s  b_cr m  retr m handov s  outcome
+field JET (R = 1) | headcut off                   2     9.85     21.2     35.5   0.283   0.940        -  sealed
+field JET (R = 1) | headcut off                   1     9.85     21.4     33.7   0.288   0.937        -  sealed
+field JET (R = 1) | headcut off                 0.5     9.85     21.3     32.9   0.292   0.946        -  sealed
+R = 9.1 (low): k_d 16.5 | headcut off             2     9.85    194.3    295.3   0.294   0.948        -  sealed
+R = 9.1 (low): k_d 16.5 | headcut off             1     9.85    194.2    293.5   0.294   0.949        -  sealed
+R = 9.1 (low): k_d 16.5 | headcut off           0.5     9.85    192.4    292.5   0.294   0.948        -  sealed
+R = 22.2 (P2): k_d 6.76 | headcut off             2     9.85    473.1    715.2   0.294   0.949        -  sealed
+R = 22.2 (P2): k_d 6.76 | headcut off             1     9.85    471.9    713.1   0.294   0.948        -  sealed
+R = 22.2 (P2): k_d 6.76 | headcut off           0.5     9.85    468.5    711.9   0.295   0.947        -  sealed
+R = 47.4 (central): k_d 3.16 | headcut off        2     9.85   1001.5   1522.1   0.294   0.948        -  sealed
+R = 47.4 (central): k_d 3.16 | headcut off        1     9.85   1006.0   1520.0   0.295   0.947        -  sealed
+R = 47.4 (central): k_d 3.16 | headcut off      0.5     9.85   1005.4   1518.9   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | headcut off            2     9.85   2152.0   3251.5   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | headcut off            1     9.85   2150.7   3249.2   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | headcut off          0.5     9.85   2150.1   3248.1   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | headcut off         2     9.85   3635.8   5493.0   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | headcut off         1     9.85   3634.6   5490.8   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | headcut off       0.5     9.85   3633.9   5489.7   0.295   0.947        -  sealed
+field JET (R = 1) | headcut on                    2     9.85     21.2     35.5   0.283   0.940        -  sealed
+field JET (R = 1) | headcut on                    1     9.85     21.4     33.7   0.288   0.937        -  sealed
+field JET (R = 1) | headcut on                  0.5     9.85     21.3     32.9   0.292   0.946        -  sealed
+R = 9.1 (low): k_d 16.5 | headcut on              2     9.85    194.3    295.3   0.294   0.948        -  sealed
+R = 9.1 (low): k_d 16.5 | headcut on              1     9.85    194.2    293.5   0.294   0.949        -  sealed
+R = 9.1 (low): k_d 16.5 | headcut on            0.5     9.85    192.4    292.5   0.294   0.948        -  sealed
+R = 22.2 (P2): k_d 6.76 | headcut on              2     9.85    473.1    715.2   0.294   0.949        -  sealed
+R = 22.2 (P2): k_d 6.76 | headcut on              1     9.85    471.9    713.1   0.294   0.948        -  sealed
+R = 22.2 (P2): k_d 6.76 | headcut on            0.5     9.85    468.5    711.9   0.295   0.947        -  sealed
+R = 47.4 (central): k_d 3.16 | headcut on         2     9.85   1001.5   1522.1   0.294   0.948        -  sealed
+R = 47.4 (central): k_d 3.16 | headcut on         1     9.85   1006.0   1520.0   0.295   0.947        -  sealed
+R = 47.4 (central): k_d 3.16 | headcut on       0.5     9.85   1005.4   1518.9   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | headcut on             2     9.85   2152.0   3251.5   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | headcut on             1     9.85   2150.7   3249.2   0.295   0.947        -  sealed
+R = 101.4 (P3): k_d 1.48 | headcut on           0.5     9.85   2150.1   3248.1   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | headcut on          2     9.85   3635.8   5493.0   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | headcut on          1     9.85   3634.6   5490.8   0.295   0.947        -  sealed
+R = 171.4 (high): k_d 0.875 | headcut on        0.5     9.85   3633.9   5489.7   0.295   0.947        -  sealed
+
+Summary (crater-start time at each step, convergence, outcome):
+field JET (R = 1) | headcut off                sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+field JET (R = 1) | headcut off                exit headcut (dt 0.5): off
+field JET (R = 1) | headcut off                crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: sealed
+R = 9.1 (low): k_d 16.5 | headcut off          sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 9.1 (low): k_d 16.5 | headcut off          exit headcut (dt 0.5): off
+R = 9.1 (low): k_d 16.5 | headcut off          crater start 295.3, 293.5, 292.5 s | p = 0.76, t_inf =    291.0 s | outcome same: sealed
+R = 22.2 (P2): k_d 6.76 | headcut off          sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 22.2 (P2): k_d 6.76 | headcut off          exit headcut (dt 0.5): off
+R = 22.2 (P2): k_d 6.76 | headcut off          crater start 715.2, 713.1, 711.9 s | p = 0.82, t_inf =    710.3 s | outcome same: sealed
+R = 47.4 (central): k_d 3.16 | headcut off     sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 47.4 (central): k_d 3.16 | headcut off     exit headcut (dt 0.5): off
+R = 47.4 (central): k_d 3.16 | headcut off     crater start 1522.1, 1520.0, 1518.9 s | p = 0.87, t_inf =   1517.6 s | outcome same: sealed
+R = 101.4 (P3): k_d 1.48 | headcut off         sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 101.4 (P3): k_d 1.48 | headcut off         exit headcut (dt 0.5): off
+R = 101.4 (P3): k_d 1.48 | headcut off         crater start 3251.5, 3249.2, 3248.1 s | p = 1.00, t_inf =   3247.0 s | outcome same: sealed
+R = 171.4 (high): k_d 0.875 | headcut off      sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 171.4 (high): k_d 0.875 | headcut off      exit headcut (dt 0.5): off
+R = 171.4 (high): k_d 0.875 | headcut off      crater start 5493.0, 5490.8, 5489.7 s | p = 1.00, t_inf =   5488.6 s | outcome same: sealed
+field JET (R = 1) | headcut on                 sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+field JET (R = 1) | headcut on                 exit headcut (dt 0.5): stage 1, base 0.000 m, brink 8.97 m (outlet 8.97), outlet retreat 0.000 m, V_hc 0.0120 m3, V_roof 0.0000 m3
+field JET (R = 1) | headcut on                 crater start 35.5, 33.7, 32.9 s | p = 1.22, t_inf =     32.4 s | outcome same: sealed
+R = 9.1 (low): k_d 16.5 | headcut on           sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 9.1 (low): k_d 16.5 | headcut on           exit headcut (dt 0.5): stage 1, base 0.000 m, brink 8.97 m (outlet 8.97), outlet retreat 0.000 m, V_hc 0.0123 m3, V_roof 0.0000 m3
+R = 9.1 (low): k_d 16.5 | headcut on           crater start 295.3, 293.5, 292.5 s | p = 0.76, t_inf =    291.0 s | outcome same: sealed
+R = 22.2 (P2): k_d 6.76 | headcut on           sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 22.2 (P2): k_d 6.76 | headcut on           exit headcut (dt 0.5): stage 1, base 0.000 m, brink 8.97 m (outlet 8.97), outlet retreat 0.000 m, V_hc 0.0123 m3, V_roof 0.0000 m3
+R = 22.2 (P2): k_d 6.76 | headcut on           crater start 715.2, 713.1, 711.9 s | p = 0.82, t_inf =    710.3 s | outcome same: sealed
+R = 47.4 (central): k_d 3.16 | headcut on      sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 47.4 (central): k_d 3.16 | headcut on      exit headcut (dt 0.5): stage 1, base 0.000 m, brink 8.97 m (outlet 8.97), outlet retreat 0.000 m, V_hc 0.0123 m3, V_roof 0.0000 m3
+R = 47.4 (central): k_d 3.16 | headcut on      crater start 1522.1, 1520.0, 1518.9 s | p = 0.87, t_inf =   1517.6 s | outcome same: sealed
+R = 101.4 (P3): k_d 1.48 | headcut on          sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 101.4 (P3): k_d 1.48 | headcut on          exit headcut (dt 0.5): stage 1, base 0.000 m, brink 8.97 m (outlet 8.97), outlet retreat 0.000 m, V_hc 0.0123 m3, V_roof 0.0000 m3
+R = 101.4 (P3): k_d 1.48 | headcut on          crater start 3251.5, 3249.2, 3248.1 s | p = 1.00, t_inf =   3247.0 s | outcome same: sealed
+R = 171.4 (high): k_d 0.875 | headcut on       sequence (dt 0.5): inlet_retreat > crater_start > crater_extend_down > sealed
+R = 171.4 (high): k_d 0.875 | headcut on       exit headcut (dt 0.5): stage 1, base 0.000 m, brink 8.97 m (outlet 8.97), outlet retreat 0.000 m, V_hc 0.0123 m3, V_roof 0.0000 m3
+R = 171.4 (high): k_d 0.875 | headcut on       crater start 5493.0, 5490.8, 5489.7 s | p = 1.00, t_inf =   5488.6 s | outcome same: sealed
+
+wall time 355 s on 8 workers; largest water-budget error 3.3e-16

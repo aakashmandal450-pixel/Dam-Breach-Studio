@@ -1186,6 +1186,17 @@ default. It is implemented as specified above, with these stated choices:
   drop can exceed d_c, which is about 0.4–0.5 m at the P1 flows. The headcut erodes the face below the
   outlet to the base, matching PAP-1017's "headcutting to the embankment base". But it cannot plunge,
   so it does not advance upstream. Tests: `tests/test_exit_headcut.py`.
+- **Result on ARS P1 (validation record, 2026-11-26, `verification/p1_kd_band_headcut_both.txt`).**
+  - Run over the six k_d values of §5.4a, each with the headcut off and on, at dt = 2, 1 and
+    0.5 s; dt-converged.
+  - The headcut reproduced downcutting to the embankment base but never reached plunging. The
+    drop stayed at least 0.05 m below d_c (dt = 0.5 s diagnostic). The outlet did not move. The
+    channel volume was 0.0120–0.0123 m³; the roof volume removed was 0.
+  - Crater-start times, sequences and the sealed outcome were identical with the option off and on.
+  - Conclusion: at the estimated invert (0.2 m), downstream headcut retreat is not the missing
+    mechanism in the P1 sequence. The result is specific to the P1 geometry, flows and estimated
+    invert. A higher invert could activate plunging, and on a taller dam the module does plunge and
+    advance.
 
 **One geometry.** Mechanism C and the exit headcut both act only through x_o and the face downstream
 of it. Pipe erosion acts only inside the pipe. After collapse, all erosion is handed to Parts 2–4. No
