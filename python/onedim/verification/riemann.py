@@ -112,7 +112,15 @@ def b2_ritter(N, h0=1.0, L=1000.0, t_end=50.0):
     h = m.depth(); u = m.velocity()
     wet = h > 1e-6
     front = float(x[wet].max() + 0.5 * ds)
+    # same-threshold diagnostic (decision 6-20): first position where h falls below h_th, linearly
+    # interpolated, in both the numerical and the exact solution
+    h_th = 1e-3
+    c0 = np.sqrt(G * h0)
+    front_th_exact = (2 * c0 - np.sqrt(9 * G * h_th)) * t_end
+    k = np.where((h[:-1] >= h_th) & (h[1:] < h_th) & (x[:-1] > 0))[0]
+    front_th = float(x[k[-1]] + ds * (h[k[-1]] - h_th) / (h[k[-1]] - h[k[-1] + 1])) if len(k) else np.nan
     return dict(N=N, ds=ds, L1_h=_l1(h, he, ds), L1_u=_l1(u, ue, ds), front=front,
+                front_th=front_th, front_th_exact=front_th_exact, front_th_err=front_th / front_th_exact - 1.0,
                 front_exact=2 * np.sqrt(G * h0) * t_end,
                 front_err=front / (2 * np.sqrt(G * h0) * t_end) - 1.0,
                 water_err=m.water_error(V0), min_area=m.min_area_seen, nan=bool(np.isnan(h).any()))

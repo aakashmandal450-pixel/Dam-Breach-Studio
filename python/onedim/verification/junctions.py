@@ -74,7 +74,7 @@ def energy(m):
 
 
 def _steady_junction(sec_up, sec_dn, Q, h_far, n_side=80, L_side=20.0, spread=0, direction=+1,
-                     tol=1e-11, t_max=3000.0, recon="velocity"):
+                     tol=1e-11, t_max=3000.0, recon="discharge_width"):
     """Steady flow through a junction between sec_up (upstream in the flow sense) and sec_dn.
     direction=+1: flow left -> right; -1: the same channel mirrored, flow right -> left.
     spread=k: the change is spread linearly over k cells (B12c), widths and side slopes
@@ -121,7 +121,7 @@ def _steady_junction(sec_up, sec_dn, Q, h_far, n_side=80, L_side=20.0, spread=0,
     A = m.A[::-1] if direction < 0 else m.A
     Ef = eta + (Qf / A) ** 2 / (2 * G)
     gain = float(max(np.diff(E).max(), 0.0)); gain_f = float(max(np.diff(Ef).max(), 0.0))
-    return dict(converged=ok, t=m.t, eta_up=eta_up, eta_dn=eta_dn, E_up=E_up, E_dn=E_dn,
+    return dict(converged=ok, t=m.t, residual=getattr(m, "steady_residual", None), eta_up=eta_up, eta_dn=eta_dn, E_up=E_up, E_dn=E_dn,
                 loss=E_up - E_dn, max_gain=gain, max_gain_flux=gain_f, Q_flux=Qf, Q_spread=float(Qc.max() - Qc.min()), model=m)
 
 
@@ -141,7 +141,7 @@ def borda(sec_a, sec_b, Q, eta_a, eta_b):
     return (Ua - Ub) ** 2 / (2 * G)
 
 
-def b12a_cases(recon="velocity", report=None):
+def b12a_cases(recon="discharge_width", report=None):
     Q, h1 = 2.0, 1.0
     out = []
     pairs = [("rect 2->4", rectangle(0, 2), rectangle(0, 4), "exp"),
@@ -225,7 +225,7 @@ def b12b_case(kind="rect", N=10, E=0.5, L_crest=2.0, L_apron=4.0, t_max=200.0):
                 water_err=None)
 
 
-def b12c_cases(recon="velocity", spreads=(5, 10, 20, 50), report=None):
+def b12c_cases(recon="discharge_width", spreads=(5, 10, 20, 50), report=None):
     """The B12a width changes spread linearly over k cells, both directions."""
     Q, h1 = 2.0, 1.0
     out = []
@@ -288,3 +288,60 @@ def b12c_one(name, a, b, k, d, recon):
     r = _steady_junction(a, b, 2.0, 1.0, spread=k, direction=d, recon=recon)
     return dict(case=name, spread=k, direction="L->R" if d > 0 else "R->L", recon=recon, loss=r["loss"],
                 max_gain=r["max_gain"], max_gain_flux=r["max_gain_flux"], converged=r["converged"])
+
+
+def b12c_refine_specs():
+    R = rectangle
+    return [("rect 2->4", R(0, 2), R(0, 4)), ("rect 2->10", R(0, 2), R(0, 10)),
+            ("rect 4->2", R(0, 4), R(0, 2)), ("rect 10->2", R(0, 10), R(0, 2))]
+
+
+def b12c_refine_one(i, ds, recon="discharge_width", L_t=2.5, L_side=10.0):
+    """Decision 6-21: a transition of fixed length L_t at grid spacing ds (flow L->R)."""
+    name, a, b = b12c_refine_specs()[i]
+    n_side = int(round(L_side / ds)); k = int(round(L_t / ds))
+    r = _steady_junction(a, b, 2.0, 1.0, n_side=n_side, L_side=L_side, spread=k, recon=recon,
+                         t_max=2000.0)
+    return dict(case=name, ds=ds, cells=k, recon=recon, loss=r["loss"], max_gain=r["max_gain"],
+                max_gain_flux=r["max_gain_flux"], converged=r["converged"])
+
+
+def b12d_one(outlet, d, recon="discharge_width"):
+    """Conduit 0.2 x 0.2 m (a_s = 50 m/s) -> open rectangle 1 m, Q = 0.05 m3/s.
+    outlet = "submerged": same bed, tailwater stage fixed; "free": the open channel is 0.5 m lower
+    and ends in a free outfall. Run until steady or 1e4 s; the outlet-flux history is returned."""
+    Q = 0.05
+    a = conduit(0.0, 0.2, 0.2, 50.0)
+    ds, n = 0.25, 80
+    if outlet == "submerged":
+        b = rectangle(0.0, 1.0)
+        r = _steady_junction(a, b, Q, 0.6, direction=d, recon=recon, t_max=1.0e4)
+        rel_up = junction_relation(a, b, Q, r["eta_dn"])
+        Ea = rel_up + (Q / _A(a, rel_up)) ** 2 / (2 * G)
+        Eb = r["eta_dn"] + (Q / _A(b, r["eta_dn"])) ** 2 / (2 * G)
+        bo = borda(a, b, Q, r["eta_up"], r["eta_dn"])
+        return dict(outlet=outlet, direction="L->R" if d > 0 else "R->L", recon=recon,
+                    converged=r["converged"], residual=r["residual"], t=r["t"], loss=r["loss"],
+                    loss_rel=Ea - Eb, borda=bo, err_rel=(r["loss"] - (Ea - Eb)) / (Ea - Eb),
+                    err_borda=(r["loss"] - bo) / bo)
+    b = rectangle(-0.5, 1.0)
+    cells = [a] * n + [b] * n
+    bcl = {"type": "discharge", "Q": Q}; bcr = {"type": "critical"}
+    if d < 0:
+        cells = cells[::-1]; bcl, bcr = {"type": "critical"}, {"type": "discharge", "Q": -Q}
+    m = Model(cells, ds, bc_left=bcl, bc_right=bcr, recon=recon)
+    eta0 = np.r_[np.full(n, 0.3), np.full(n, -0.45)]
+    m.set_stage(eta0[::-1] if d < 0 else eta0)
+    hist = []
+    ok = False
+    while m.t < 1.0e4:
+        ok = m.run_to_steady(tol=1e-10, check_every=500, t_max=m.t + 100.0)
+        j = n if d > 0 else n
+        hist.append(float(abs(m.last["FA"][j])))
+        if ok:
+            break
+    return dict(outlet=outlet, direction="L->R" if d > 0 else "R->L", recon=recon, converged=ok,
+                residual=getattr(m, "steady_residual", None), t=m.t,
+                outlet_flux=hist[-1] if hist else np.nan,
+                flux_range_last_10=(float(np.ptp(hist[-10:])) if len(hist) >= 2 else np.nan),
+                stage_upstream=float(np.mean((m.stage()[::-1] if d < 0 else m.stage())[n // 4:n // 2])))

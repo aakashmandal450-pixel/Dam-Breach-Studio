@@ -4,11 +4,11 @@ HLL mass/momentum fluxes, an HLLC contact for a passive concentration, step-face
 point-implicit Manning friction.
 
 Theory: Part 6, draft 3.1 (python/onedim/docs/theory/06_distributed_1d.md)
-    reconstruction        (6.13)-(6.14)
+    reconstruction        (6.13)-(6.14), (6.14a) at width changes (decision 6-19)
     integral balance      (6.15), step faces (6.16), loading closure (6.16b)
     wave speeds           (6.17) and the dry-side speeds of 6.5.4
     HLL flux              (6.18), contact speed (6.19), concentration flux (6.20)
-    time step             (6.21), friction (6.22)
+    time step             (6.21) incl. interface wave speeds, friction (6.22)
     budgets               (6.33), (6.34)
 
 Phase B scope: fixed geometry. No erosion, no events, no reservoir storage (the reservoir
@@ -59,7 +59,7 @@ class _BoundarySection:
 
 class Model:
     def __init__(self, cells, ds, manning_n=0.0, bc_left=None, bc_right=None, cfl=0.9,
-                 h_dry=1e-6, face_rule="upwind_capped", recon="velocity"):
+                 h_dry=1e-6, face_rule="upwind_capped", recon="discharge_width"):
         self.N = len(cells)
         self.C = SectionSet(cells)
         self.ds = np.broadcast_to(np.asarray(ds, dtype=float), (self.N,)).copy()
@@ -69,7 +69,7 @@ class Model:
         self.bc_left = bc_left or {"type": "wall"}
         self.bc_right = bc_right or {"type": "wall"}
         self.cfl, self.h_dry = cfl, h_dry
-        self.recon = recon                      # "velocity" (6.14) or "discharge_width" (experimental)
+        self.recon = recon                      # "discharge_width" (6.14a, decision 6-19) or "velocity" ((6.14), comparison only)
         self.face_rule = face_rule              # "upwind_capped" (6.16b) or "own" (draft-1 rule)
         self.A = np.zeros(self.N); self.Q = np.zeros(self.N); self.AC = np.zeros(self.N)
         self.M = np.zeros(self.N)               # solids deposited by drying cells (store)
@@ -220,8 +220,8 @@ class Model:
         AL = np.where(wl, AL, 0.0); AR = np.where(wr, AR, 0.0)
         UL = np.where(wl, U_x[:-1], 0.0); UR = np.where(wr, U_x[1:], 0.0)
         if self.recon == "discharge_width":
-            # experimental: keep the cell's discharge through a width change, scale it only by the
-            # part of the cell's flow area that lies above the interface bottom (bed step)
+            # (6.14a), decision 6-19: carry the cell's discharge through a width change, scaled only by
+            # the part of the cell's flow area above the interface bottom (blocked by a bed step)
             Cx = np.r_[0, np.arange(N), N - 1]
             Acell = np.r_[self.A[0], self.A, self.A[-1]]
             Qcell = Acell * U_x
@@ -364,6 +364,7 @@ class Model:
                 self.step()
             dA = np.max(np.abs(self.A - prevA)) / max(np.max(np.abs(self.A)), 1e-12)
             dQ = np.max(np.abs(self.Q - prevQ)) / max(np.max(np.abs(self.Q)), 1e-12)
+            self.steady_residual = (float(dA), float(dQ))
             if dA < tol and dQ < tol:
                 return True
             prevA, prevQ = self.A.copy(), self.Q.copy()

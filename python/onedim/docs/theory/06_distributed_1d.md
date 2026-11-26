@@ -1,9 +1,10 @@
 # Theory, Part 6 — The distributed 1-D breach engine
 
-*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 3.1 · 2026-11-26 ·
+*Distributed 1-D morphodynamic breach model (`python/onedim`, branch `1D`) · draft 3.2 · 2026-11-26 ·
 status: **theory architecture signed off by the user (2026-11-26)**; accepted decisions frozen, 6-11
-accepted for v1. The step-face closure (6.16b) and the brink closure (§6.8.4) remain conditional and
-are verified in phase B (B12a–c first). The reference claim audit (Appendix 6B) continues in parallel.*
+accepted for v1. Draft 3.2 records the first phase B results and the user's decisions on them
+(6-19 to 6-21, §6.0). The step-face closure (6.16b) remains conditional; the brink closure needs no
+fallback for the tested cases (B12b passed). The reference claim audit (Appendix 6B) continues.*
 
 *Decisions taken before this draft (plan §6, 2026-11-26): two tracks; Preissmann slot; explicit finite
 volume with HLLC and hydrostatic reconstruction; debris by per-cell sediment transport; package
@@ -12,6 +13,21 @@ decisions 2–4 are written into §6.4, §6.5, §6.7 and §6.10. New decisions r
 collected in §6.13.*
 
 ## 6.0 Changes
+
+### Draft 3.2 (first phase B results, user decisions, 2026-11-26)
+
+Baseline: quick run of `run_onedim_phaseB.ps1 -Quick`, 99 cases, 13 gates passed and 9 failed
+(record: `python/onedim/docs/PHASE_B_STATUS_2026-11-26.md`).
+
+| finding | decision (user, 2026-11-26) | where |
+|---|---|---|
+| with (6.14) every abrupt junction loses 3–7 × the junction relation, both directions, and gradual changes over 5 cells lose about twice the abrupt Borda head; the cause is the velocity-preserving reconstruction at a width change, which presents only part of the cell's discharge to the opening | **6-19 accepted**: discharge-preserving reconstruction at width changes, velocity-preserving at bed steps (6.14a); a reconstruction rule only, no loss coefficient; contraction and mixed-section cases stay as verification tests | §6.5.3, §6.13 |
+| with (6.14a) expansions agree with the relation to 0.1 % and Borda to 2.6 %; contractions lose 76–90 % less than the relation | **6-16 stays open**; Borda–Carnot is not a contraction benchmark; contractions are compared against a geometry- and regime-matched open-channel relation or data set (sources named by the user, to be checked at source, Appendix 6B) | §6.5.3, §6.13 |
+| conduit → open channel: no steady state in either reconstruction, loss 2.5 × (6.14a) and 28 × (6.14) the expected value | unresolved; dedicated steady-state tests (B12d) | §6.10, App. 6A |
+| B2 front 13.4 % behind the exact Ritter front at the finest quick grid (first-order smearing of the thin tip) | **6-20**: accepted as a known first-order limitation; the exact comparison and its failed 1 % target stay in the report; a same-threshold front diagnostic added | §6.10, App. 6A |
+| B12c local energy gains of millimetres in single cells in both reconstructions, shrinking as the change is spread | **6-21**: the strict per-cell test becomes a diagnostic; the gate becomes refinement-based | §6.10, App. 6A |
+| B12b: interface flux within 1e-5 of the critical discharge, decreasing with refinement, Fr at the brink 1.002–1.003 | the HLL flux reproduces the critical limit for the tested cases; fallback 6-18 not needed for them | §6.8.4 |
+| interface wave speeds exceed the cell speeds at dry fronts (S = U + Φ) | the time step also respects max(|S_L|, |S_R|) at every interface (6.21) | §6.5.5 |
 
 ### Draft 3.1 (sign-off, 2026-11-26)
 
@@ -389,6 +405,25 @@ with A_{i+1/2}(η) the area of the intersection section below η (zero if η ≤
 stage is below the interface bottom contributes a dry state, which is what makes wetting, drying and
 a debris barrier (§6.7.4) work without special cases.
 
+**Discharge at a width change (decision 6-19, draft 3.2).** (6.14) carries the cell velocity to the
+interface. Where the interface is narrower than the cell, this presents only the part of the cell's
+discharge that lies in line with the opening, A*·U_i < Q_i, although in steady flow the whole cell
+discharge passes the opening. Phase B (B12a) showed that the resulting jump in Q between the two
+reconstructed states makes the HLL flux dissipate 3–7 times the junction head. The discharge is
+therefore carried instead, reduced only by the part of the cell's flow area that lies below the
+interface bottom (blocked by a bed step):
+
+    Q*_{i,R} = Q_i · A^b_{i,R} / A_i,   A^b_{i,R} = A_i(η_i) − A_i(z_{i+1/2}) ≥ 0,   U*_{i,R} = Q*_{i,R} / A*_{i,R}     (6.14a)
+
+and likewise for the right state. A*_{i,R} is unchanged from (6.14). Limits: a pure bed step (equal
+widths) gives A^b = A*, so (6.14a) reduces to (6.14) and Audusse et al.'s scheme; a pure width change
+(equal beds) gives Q* = Q_i; at rest Q = 0 and both forms vanish, so the lake-at-rest argument below
+is unchanged. What it is and is not: a reconstruction rule, not a loss model. No empirical loss
+coefficient is attached; losses come out of the flux and the face loading (6.16b) as before. The
+reconstructed velocity U* can exceed U_i by the width ratio; the time step (6.21) uses the interface
+wave speeds, which contain it. No cap on U* is set in v1; narrow openings are tested (B12a conduit,
+B12d). Positivity rests, as before, on A* ≤ A_i and the Einfeldt speeds, and is tested (B9, B13).
+
 **Flux.** F_{i+1/2} = F_HLLC(U*_L, U*_R) on the interface section (§6.5.4).
 
 **Integral momentum balance of cell i (signs explicit).** Take +s downstream. The water in cell i
@@ -535,7 +570,11 @@ water alone HLLC and HLL are identical, so the choice does not change the hydrau
 
 **CFL step.**
 
-    Δt = CFL · min_i Δs_i / ( |U_i| + c_i ),     CFL = 0.9 (first order)                              (6.21)
+    Δt = CFL · min( min_i Δs_i / ( |U_i| + c_i ),  min_{i+1/2} Δs_{i+1/2} / max(|S_L|, |S_R|) ),   CFL = 0.9 (first order)   (6.21)
+
+with Δs_{i+1/2} the smaller of the two cells. The second term (draft 3.2) is the condition of the
+Audusse et al. positivity argument; it matters at dry fronts, where S_R = U_L + Φ_L exceeds |U| + c,
+and at narrow openings under (6.14a).
 
 CFL is a numerical parameter; the dt-convergence study repeats each case at CFL/2. In full conduit
 cells c_i = a_s, so the slot sets Δt there. P1 estimate: Δs = 0.03 m, a_s = 50 m/s → Δt ≈ 5 × 10⁻⁴ s,
@@ -1059,7 +1098,7 @@ the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 | test | setup | pass criterion |
 |---|---|---|
 | B1 lake at rest | irregular bed *and* irregular widths, trapezoids and rectangles, wet and partly dry | |U| < 10⁻¹² m/s and η constant to 10⁻¹² m after 10⁵ steps |
-| B2 Ritter dam break | dry downstream bed, rectangle | L1 error in h and U → 0 with Δs; observed order reported (≈ 1 expected at first order); front position within 1 % at the finest grid |
+| B2 Ritter dam break | dry downstream bed, rectangle | L1 error in h and U → 0 with Δs; observed order reported (≈ 1 expected at first order); front position within 1 % at the finest grid (kept and reported; a failure is a known first-order limitation, decision 6-20); diagnostic: numerical and exact front at the same depth threshold h_th = 10⁻³ m, error reported at every grid and required to fall with refinement |
 | B3 Stoker dam break | wet downstream, rectangle | as B2; shock speed and intermediate state within 1 % |
 | B4 variable section | manufactured smooth solution in a trapezoid with varying width, side slope and bed (Appendix 6A) | observed order p ≥ 0.9; conservation to the gate |
 | B5 transcritical flow over a bump | the three SWASHES bump cases after Goutal and Maurel (1997)† (subcritical, transcritical with and without shock) | steady profiles within 1 % of the **analytic** Bernoulli/conjugate solution (not of the workshop's numerical results) |
@@ -1070,7 +1109,8 @@ the author of the solver. Every run also reports ε_w and ε_s (§6.9).
 | B10 steep bed steps and near-dry cells | flow down a 1:2 face onto a flat apron; step-up and step-down beds | stable; mass to 10⁻¹²; profile converges with Δs |
 | B12a steady abrupt junctions | expansions and contractions, rectangles, trapezoids and conduit → open, **in both flow directions** | steady head change within 1 % of the junction relation of §6.5.3; Borda within 3 % for expansions; contraction losses reported against data; no energy gain at any junction |
 | B12b free overfall | subcritical approach to a drop onto a dry apron, N to 8N | computed interface flux against the independently computed critical discharge for the same upstream energy: error < 1 % and decreasing with refinement; brink-cell Fr reported; failure triggers decision 6-18 |
-| B12c gradual junctions | the B12a changes spread over 5, 10, 20, 50 cells, both directions | no energy gain in any cell; total head loss decreasing towards zero as the change is spread |
+| B12c gradual junctions | the B12a changes spread over 5, 10, 20, 50 cells, both directions; and a transition of fixed length at Δs, Δs/2, Δs/4 (decision 6-21) | gate: (1) the largest local energy gain falls with grid refinement; (2) no gain at the transition persists or grows with refinement; (3) the net head change across the transition is a loss at every grid; (4) the total transition loss converges with refinement. Diagnostics: the strict per-cell test (no gain > 10⁻⁶ m) and the loss against the number of cells used for the change |
+| B12d conduit outlet | full conduit (slot) discharging into an open channel, submerged and free outlet, both directions | a steady state is reached (change < 10⁻¹⁰ over 500 steps); head change reported against the junction relation and Borda; required before C2b |
 | B13 passive scalar | contact discontinuity in C advected through uniform, varying-section and wet/dry reaches | 0 ≤ C ≤ max C(0) every step; (A C) ≥ 0; no new extrema; solids to the ε_s gate |
 | B11 grid and dt convergence | B2, B6, B7 at Δs, Δs/2, Δs/4 and CFL, CFL/2 | observed order and GCI (Roache 1998; Celik et al. 2008†) reported |
 
@@ -1222,7 +1262,8 @@ patch; it is not built to force agreement with one experiment.
 
 ## 6.13 Decisions
 
-Status at sign-off (user, 2026-11-26): 6-1, 6-3, 6-5, 6-6, 6-8, 6-9, 6-10, 6-11, 6-12, 6-13, 6-14,
+Draft 3.2 (user, 2026-11-26): 6-19, 6-20 and 6-21 accepted; 6-16 kept open; 6-18 not needed for the
+B12b cases. Status at sign-off (user, 2026-11-26): 6-1, 6-3, 6-5, 6-6, 6-8, 6-9, 6-10, 6-11, 6-12, 6-13, 6-14,
 6-16 (test first) and 6-17 accepted and frozen; 6-2, 6-4 + 6-15, 6-7 and 6-18 conditional on their phase B
 and C tests.
 
@@ -1242,9 +1283,12 @@ and C tests.
 | 6-12 | mixture effects | clear-water continuity in v1 |
 | 6-13 | numbering | call this Part 6 of the distributed engine's own theory (`python/onedim/docs/theory/06_…`), and renumber the lumped plan's future parts (impulse waves, moraine) as 7 and 8 when they are written |
 | 6-14 | minimum collapse length | none in advance; introduced only if the grid study shows non-convergence, and then with a source |
-| 6-16 | contraction loss where an open cell drains into a conduit | the step-face result as it comes; measured in C2b against K_u = 0.05; no closure added before that evidence |
+| 6-16 | contraction loss where an open cell drains into a conduit | the step-face result as it comes; measured in C2b against K_u = 0.05; no closure added before that evidence. **Kept open (user, 2026-11-26)**: Borda–Carnot is not a contraction benchmark; compare with a geometry- and regime-matched open-channel relation or data set (candidates named by the user, unchecked: HEC-RAS Hydraulic Reference Manual contraction coefficients; Chaudhry, *Open-Channel Flow*, experimental contraction coefficients; Wu and Molinas, short lateral contractions) |
 | 6-17 | conservation gates | cumulative relative error < 10⁻¹⁰ (water and solids) every run; per-step diagnostic δ^n < 10⁻¹² in phase B, as defined in §6.9.1 |
-| 6-18 | brink flux if B12b fails | exact sonic flux of §6.8.4(a) at drop interfaces only; HLL elsewhere; used only if B12b fails |
+| 6-18 | brink flux if B12b fails | exact sonic flux of §6.8.4(a) at drop interfaces only; HLL elsewhere; used only if B12b fails. **Phase B: B12b passed (rectangle and trapezoid, N to 8N); not needed for the tested cases** |
+| 6-19 | reconstruction at a width change | **accepted (user, 2026-11-26)**: (6.14a), discharge carried through a width change, velocity through a bed step; a reconstruction rule only, no loss coefficient; verified further in B12a–d |
+| 6-20 | B2 dry front | **accepted (user, 2026-11-26)**: the exact-front 1 % target stays and its failure is reported as a known first-order limitation; same-threshold front diagnostic added; B2 does not block the phase B baseline |
+| 6-21 | B12c energy criterion | **accepted (user, 2026-11-26)**: refinement-based gate (§6.10); the strict per-cell test kept as a diagnostic |
 
 ---
 
@@ -1273,7 +1317,8 @@ cited by case name, so the reference solution is independent of this project.
 | B11 | B2, B6, B7 at N, 2N, 4N and both CFL values | observed order and GCI reported |
 | B12a | rectangles 2 → 4, 2 → 10, 4 → 2, 10 → 2 m and trapezoid equivalents, same bed, Q = 2 m³/s, h₁ = 1 m; conduit 0.2 × 0.2 m → open 1 m | the steady junction relation of §6.5.3, solved independently; Borda for expansions |
 | B12b | flat crest z = 1 m, b = 1 m, then a 1 m drop onto a dry apron; upstream energy E = 0.5 m above the crest; repeated with a trapezoid (cot β_w = 1); N, 2N, 4N, 8N | Q = √g (2E/3)^{3/2} b (rectangle) or the general critical solution (1.4)–(1.5); interface flux compared directly; brink-cell Fr |
-| B12c | as B12a, with the width change spread linearly over 5, 10, 20 and 50 cells | energy per cell; total loss against the abrupt case |
+| B12c | as B12a, with the width change spread linearly over 5, 10, 20 and 50 cells; refinement series: 2 → 4 and 2 → 10 m expansions and their reverse spread over a fixed length of 2.5 m at Δs = 0.25, 0.125, 0.0625 m | energy per cell; total loss against the abrupt case; for the series, the four gate items of §6.10 |
+| B12d | conduit 0.2 × 0.2 m (a_s = 50 m/s) → rectangle 1 m, Q = 0.05 m³/s; submerged (h = 0.6 m) and free (dry apron) outlet; both directions; run until steady or 10⁴ s, with the history of the outlet flux | steady state; junction relation and Borda |
 | B13 | rectangle, U = 1 m/s uniform; C = 1 on 4 ≤ s ≤ 6 m, 0 elsewhere; then the same (a) through B4's sections, (b) across a wetting front, (c) with the flow reversed mid-run, (d) with a wet cell draining into a dry one, (e) with a large solids source in a cell of small water volume | 0 ≤ C ≤ max C(0); positivity of A C; sediment moves with the flow direction; no solids created on drying (they go to the store); exact solids total in every sub-case |
 
 **Phase C**
