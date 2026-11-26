@@ -130,6 +130,7 @@ class PipingRun:
         self.max_water_err = 0.0
         self.max_solids_err = 0.0
         self.passes_max = 0
+        self.stall = None
         # A margin counts as failed below -M_tol. Without it, a retreat to the interpolated zero crossing
         # leaves M ~ 0 (+-round-off) at the new end and the cascade repeats zero-length retreats.
         self.M_tol = 1e-6 * case.soil.c_u0
@@ -339,7 +340,24 @@ class PipingRun:
             s = self.apply(s, chk)
             if self.stopped:
                 return s
+        self.stall = self._stall_info(s, self.checks(s))
         raise RunStop("cascade_cap", f"no convergence in {self.max_passes} passes")
+
+    def _stall_info(self, s: State, chk: dict) -> dict:
+        """Diagnostic only: what is still failing when the cascade cap is reached (state after the last pass)."""
+        info = dict(t=s.t, min_M=chk["min_M"], x_in=s.x_in, x_o=s.x_o, b=s.pipe.b)
+        cr = s.crater
+        if cr is not None:
+            info.update(x1=cr.x1, x2=cr.x2, W=cr.W, z_d=cr.z_d, z_c=cr.level(),
+                        walls={k: (m + hw, hw) for k, (m, hw) in chk["walls"].items()}, push=chk["push"])
+            for key in ("rc_up", "rc_dn"):
+                if key in chk:
+                    rc = chk[key]
+                    k = min(range(len(rc.M_c)), key=lambda j: rc.M_c[j]) if rc.M_c else None
+                    if k is not None:
+                        info[key] = dict(x=rc.x[k], M_c=rc.M_c[k], n=len(rc.x),
+                                         neighbours=[(rc.x[j], rc.M_c[j]) for j in range(max(k - 1, 0), min(k + 2, len(rc.x)))])
+        return info
 
     def apply(self, s: State, chk: dict) -> State:
         """Apply every failure found on one state together, then update the derived quantities."""
@@ -418,10 +436,10 @@ class PipingRun:
         for k in ("up", "down"):
             if walls[k][0] <= 0.0:
                 d = cr.retreat_wall(k, S_r=self._sat(walls[k][1], cr.z_d, s.z_s))
-                self._event(s, f"wall_{k}", dist=d, H_w=walls[k][1])
+                self._event(s, f"wall_{k}", dist=d, H_w=walls[k][1], H_c=walls[k][0] + walls[k][1])
         if walls["side"][0] <= 0.0:
             d = cr.retreat_wall("sides", S_r=self._sat(walls["side"][1], cr.z_d, s.z_s))
-            self._event(s, "wall_sides", dist=d, H_w=walls["side"][1])
+            self._event(s, "wall_sides", dist=d, H_w=walls["side"][1], H_c=walls["side"][0] + walls["side"][1])
         if cr.x1 <= s.x_in + 1e-12:
             return self._handover(s, "crater reached the inlet")
         if cr.x2 >= s.x_o - 1e-12:

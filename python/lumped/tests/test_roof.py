@@ -174,5 +174,19 @@ class TestCriterion(TableMixin, unittest.TestCase):
             roof.crossing_fraction(-1.0, -2.0)
 
 
+class TestSlopeBreakSections(TableMixin, unittest.TestCase):
+    def test_kinks_are_sections(self):
+        """Crest corners and the upstream waterline are checked sections when inside the reach, so the
+        linear zero crossing of the end retreat never spans a break of slope (driver note, 2026-11-26)."""
+        dam = Dam(1.3, 1.83, 3.0, 3.0, 100.0)
+        pipe = pp.Pipe(0.3, 0.3, 0.2, 9.0)
+        fl = pp.pipe_flow(1.1 - 0.2, pipe.b, pipe.D, 6.0, 0.016)
+        rc = roof.check(dam, pipe, 1.0, 7.0, 1.1, fl, self.soil, self.T, ab=False)
+        for x in (dam.x_c0, dam.x_c1, 3.0 * 1.1):
+            self.assertTrue(any(abs(x - y) < 1e-9 for y in rc.x), x)
+        gaps = [b - a for a, b in zip(rc.x, rc.x[1:])]
+        self.assertLessEqual(max(gaps), 0.5 * pipe.b + 1e-12)
+
+
 if __name__ == "__main__":
     unittest.main()

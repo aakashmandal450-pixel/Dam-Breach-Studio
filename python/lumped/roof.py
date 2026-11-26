@@ -107,7 +107,17 @@ def check(dam: Dam, pipe: Pipe, x_in: float, x_o: float, z_s: float, fl: PipeFlo
     dx = dx or 0.5 * b
     xs, Cs, nets, Mc, Mb, nst = [], [], [], [], [], []
     lip_up = lip_dn = 0.0
-    checked = [x for x in sections(x_in, x_o, dx)]
+    checked = sections(x_in, x_o, dx)
+    # breaks of slope of the piecewise-linear profile (crest corners, upstream waterline) are added as
+    # sections, so the linear zero crossing used for end retreat (ends.classify) never spans a kink in C(x)
+    # or in the surface load; without them an edge on the flat crest creeps at ~1e-5 m per pass (5.5b note)
+    kinks = [dam.x_c0, dam.x_c1]
+    if 0.0 < z_s < dam.H:
+        kinks.append(dam.x_c0 * z_s / dam.H)
+    tol = 1e-9 * max(1.0, x_o - x_in)
+    extra = [x for x in kinks if x_in + tol < x < x_o - tol and min(abs(x - y) for y in checked) > tol]
+    if extra:
+        checked = sorted(checked + extra)
     full = fl.w == 1 and fl.Q > 0.0
     x_entry = x_in if x_entry is None else x_entry          # where the flow enters (x_o for reverse flow)
     for x in checked:
