@@ -1,150 +1,204 @@
 """Phase B first gates (Part 6 Appendix 6A): B1, B2, B3, B9, B12a, B12b, B12c, B13.
 
-Usage (from the python folder):  python -B -u -m onedim.verification.run_phase_b [--quick]
-Prints one line per case as it finishes and a PASS/FAIL table at the end.
+Usage (from the python folder):
+    python -B -u -m onedim.verification.run_phase_b [--quick] [--workers N]
+Every case is an independent job; jobs run in parallel on all CPU cores (or N workers), the
+slowest first. One line is printed per case as it finishes, then a PASS/FAIL table.
 B12a and B12c are run twice: with the reconstruction (6.14) as written ("velocity") and with the
 experimental discharge-preserving variant ("discharge_width"), which is NOT adopted -- it is run
 only to inform the decision.
 """
+import os
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 
 from . import riemann as R
 from . import junctions as J
 
-QUICK = "--quick" in sys.argv
-summary = []
-T0 = time.time()
+RECONS = ("velocity", "discharge_width")
 
 
-def say(msg):
-    print(f"[{time.time() - T0:7.1f} s] {msg}", flush=True)
+def _arg(name, default):
+    if name in sys.argv:
+        return int(sys.argv[sys.argv.index(name) + 1])
+    return default
 
 
-def gate(name, ok, detail):
-    summary.append((name, ok, detail))
-    say(f"{'PASS' if ok else 'FAIL'}  {name}: {detail}")
+# ------------------------------------------------------------------ job functions (top level: picklable)
+def job_b1(steps):
+    return R.b1_lake_at_rest(steps=steps)
 
 
-def b1():
-    r = R.b1_lake_at_rest(steps=10_000 if QUICK else 100_000)
-    gate("B1 lake at rest", r["max_U"] < 1e-12 and r["max_deta"] < 1e-12 and r["dry_cells_stay_dry"],
-         f"steps={r['steps']} max|U|={r['max_U']:.1e} max|deta|={r['max_deta']:.1e} "
-         f"dry stay dry={r['dry_cells_stay_dry']} water err={r['water_err']:.1e}")
+def job_b2(N):
+    return R.b2_ritter(N)
 
 
-def b2():
-    Ns = (400, 800, 1600) if QUICK else (400, 800, 1600, 3200)
-    rs = []
-    for N in Ns:
-        r = R.b2_ritter(N); rs.append(r)
-        say(f"  B2 N={N}: L1h={r['L1_h']:.4f} L1u={r['L1_u']:.2f} front={r['front']:.1f} "
-            f"(exact {r['front_exact']:.1f}, err {100 * r['front_err']:.2f}%) water={r['water_err']:.1e}")
-    p = np.log2(rs[-2]["L1_h"] / rs[-1]["L1_h"])
-    dec = all(a["L1_h"] > b["L1_h"] for a, b in zip(rs, rs[1:]))
-    gate("B2 Ritter: L1(h) decreasing", dec, f"observed order (last pair) {p:.2f}")
-    gate("B2 Ritter: front within 1% at finest", abs(rs[-1]["front_err"]) < 0.01,
-         f"front error {100 * rs[-1]['front_err']:.2f}% (wet threshold 1e-6 m)")
+def job_b3(N):
+    return R.b3_stoker(N)
 
 
-def b3():
-    Ns = (400, 800, 1600) if QUICK else (400, 800, 1600, 3200)
-    rs = []
-    for N in Ns:
-        r = R.b3_stoker(N); rs.append(r)
-        say(f"  B3 N={N}: L1h={r['L1_h']:.4f} shock err={100 * r['shock_err']:.2f}% "
-            f"hm err={100 * r['hm_err']:.3f}% um err={100 * r['um_err']:.3f}%")
-    f = rs[-1]
-    gate("B3 Stoker", abs(f["shock_err"]) < 0.01 and abs(f["hm_err"]) < 0.01 and abs(f["um_err"]) < 0.01,
-         f"finest: shock {100 * f['shock_err']:.2f}%, hm {100 * f['hm_err']:.3f}%, um {100 * f['um_err']:.3f}%")
+def job_b9():
+    return R.b9_two_rarefactions()
 
 
-def b9():
-    r = R.b9_two_rarefactions()
-    gate("B9 positivity", r["min_area"] >= 0 and not r["nan"] and r["water_err"] < 1e-12,
-         f"min A={r['min_area']:.4f} NaN={r['nan']} water err={r['water_err']:.1e}; "
-         f"centre h={r['h_centre']:.4f} vs exact {r['h_star']:.4f} (reported)")
+def job_b13():
+    return R.b13_cases()
 
 
-def b12a(recon):
-    res = []
-
-    def rep(r):
-        res.append(r)
-        b = f" Borda={r['borda']:.4f} ({100 * r['err_borda']:+.1f}%)" if "borda" in r else ""
-        say(f"  B12a[{recon}] {r['case']:26s} {r['direction']} loss={r['loss']:.4f} "
-            f"relation={r['loss_rel']:.4f} ({100 * r['err_rel']:+.1f}%){b} conv={r['converged']}")
-
-    J.b12a_cases(recon, rep)
-    exp = [r for r in res if r["kind"] == "exp" and not r["case"].startswith("conduit")]
-    ok_rel = all(abs(r["err_rel"]) < 0.01 for r in res if not r["case"].startswith("conduit") and r["kind"] == "exp")
-    ok_borda = all(abs(r["err_borda"]) < 0.03 for r in exp)
-    no_gain = all(r["loss"] > 0 for r in res)
-    gate(f"B12a[{recon}] expansions vs relation (1%)", ok_rel,
-         "max err " + f"{100 * max(abs(r['err_rel']) for r in exp):.1f}%")
-    gate(f"B12a[{recon}] expansions vs Borda (3%)", ok_borda,
-         "max err " + f"{100 * max(abs(r['err_borda']) for r in exp):.1f}%")
-    con = [r for r in res if r["kind"] == "con"]
-    gate(f"B12a[{recon}] contractions vs relation (1%)", all(abs(r["err_rel"]) < 0.01 for r in con),
-         "errors " + ", ".join(f"{r['case']} {100 * r['err_rel']:+.0f}%" for r in con[::2]))
-    cnd = [r for r in res if r["case"].startswith("conduit")]
-    gate(f"B12a[{recon}] conduit->open vs relation (1%)", all(abs(r["err_rel"]) < 0.01 for r in cnd),
-         ", ".join(f"{r['direction']} {100 * r['err_rel']:+.0f}% conv={r['converged']}" for r in cnd))
-    gate(f"B12a[{recon}] no net energy gain at any junction", no_gain, "")
+def job_b12b(kind, N):
+    return J.b12b_case(kind, N)
 
 
-def b12b():
+def job_b12a(i, d, recon):
+    name, a, b, kind, Q, h1 = J.b12a_specs()[i]
+    return J.b12a_one(name, a, b, kind, Q, h1, d, recon)
+
+
+def job_b12c(i, k, d, recon):
+    name, a, b = J.b12c_specs()[i]
+    return J.b12c_one(name, a, b, k, d, recon)
+
+
+def build_jobs(quick):
+    Ns = (400, 800, 1600) if quick else (400, 800, 1600, 3200)
+    Nb = (10, 20, 40) if quick else (10, 20, 40, 80)
+    spreads = (5, 20) if quick else (5, 10, 20, 50)
+    jobs = []                                     # (cost estimate, key, fn, args)
+    for recon in RECONS:
+        for k in spreads:
+            for i in range(len(J.b12c_specs())):
+                for d in (+1, -1):
+                    jobs.append((30 + k, ("B12c", recon, i, k, d), job_b12c, (i, k, d, recon)))
+        for i in range(len(J.b12a_specs())):
+            for d in (+1, -1):
+                jobs.append((40 if i == 8 else 25, ("B12a", recon, i, d), job_b12a, (i, d, recon)))
     for kind in ("rect", "trap"):
-        rs = []
-        for N in ((10, 20, 40) if QUICK else (10, 20, 40, 80)):
-            r = J.b12b_case(kind, N); rs.append(r)
-            say(f"  B12b {kind} N={N}: Q/Qc-1={r['err']:+.2e} Fr_brink={r['Fr_brink']:.4f} drift={r['drift']:.1e}")
-        dec = all(abs(a["err"]) >= abs(b["err"]) for a, b in zip(rs, rs[1:]))
-        gate(f"B12b free overfall [{kind}]", all(abs(r["err"]) < 0.01 for r in rs) and dec,
-             "errors " + ", ".join("%+.1e" % r["err"] for r in rs) + f"; decreasing={dec}")
+        for N in Nb:
+            jobs.append((N / 4, ("B12b", kind, N), job_b12b, (kind, N)))
+    jobs.append((60 if not quick else 8, ("B1",), job_b1, (10_000 if quick else 100_000,)))
+    for N in Ns:
+        jobs.append((N / 400, ("B2", N), job_b2, (N,)))
+        jobs.append((N / 400, ("B3", N), job_b3, (N,)))
+    jobs.append((2, ("B9",), job_b9, ()))
+    jobs.append((5, ("B13",), job_b13, ()))
+    jobs.sort(key=lambda j: -j[0])                # longest first: better load balance
+    return jobs, Ns, Nb, spreads
 
 
-def b12c(recon):
-    res = []
+def describe(key, r):
+    t = key[0]
+    if t == "B1":
+        return f"max|U|={r['max_U']:.1e} max|deta|={r['max_deta']:.1e} steps={r['steps']}"
+    if t == "B2":
+        return f"N={key[1]} L1h={r['L1_h']:.4f} front err={100 * r['front_err']:.2f}%"
+    if t == "B3":
+        return f"N={key[1]} shock {100 * r['shock_err']:.2f}% hm {100 * r['hm_err']:.3f}%"
+    if t == "B9":
+        return f"min A={r['min_area']:.4f} NaN={r['nan']}"
+    if t == "B13":
+        return ", ".join(f"{k} bounded={v['bounded']}" for k, v in r.items())
+    if t == "B12b":
+        return f"{key[1]} N={key[2]} Q/Qc-1={r['err']:+.2e} Fr_brink={r['Fr_brink']:.4f}"
+    if t == "B12a":
+        b = f" Borda {100 * r['err_borda']:+.1f}%" if "borda" in r else ""
+        return (f"[{r['recon']}] {r['case']} {r['direction']} loss={r['loss']:.4f} "
+                f"relation={r['loss_rel']:.4f} ({100 * r['err_rel']:+.1f}%){b}")
+    if t == "B12c":
+        return (f"[{r['recon']}] {r['case']} k={r['spread']} {r['direction']} loss={r['loss']:.4f} "
+                f"max cell gain={r['max_gain_flux']:.1e}")
+    return str(r)
 
-    def rep(r):
-        res.append(r)
-        say(f"  B12c[{recon}] {r['case']:11s} k={r['spread']:2d} {r['direction']} loss={r['loss']:.4f} "
-            f"max cell gain={r['max_gain_flux']:.1e} conv={r['converged']}")
 
-    J.b12c_cases(recon, spreads=(5, 20) if QUICK else (5, 10, 20, 50), report=rep)
-    gain = max(r["max_gain_flux"] for r in res)
-    gate(f"B12c[{recon}] no energy gain in any cell (1e-6 m)", gain < 1e-6, f"max cell gain {gain:.1e} m")
-    falling = True
-    for case in sorted({r["case"] for r in res}):
-        L = [r["loss"] for r in res if r["case"] == case and r["direction"] == "L->R"]
-        falling &= all(a >= b for a, b in zip(L, L[1:]))
-    gate(f"B12c[{recon}] loss falls as the change is spread", falling, "")
+# ------------------------------------------------------------------ gates
+def gates(res, Ns, Nb, spreads):
+    out = []
 
+    def gate(name, ok, detail=""):
+        out.append((name, bool(ok), detail))
 
-def b13():
-    out = R.b13_cases()
-    for k, v in out.items():
-        say(f"  B13 {k}: C in [{v['C_min']:.4f}, {v['C_max']:.4f}] (h>1mm: [{v['C_min_h_gt_1mm']:.4f}, "
-            f"{v['C_max_h_gt_1mm']:.4f}]) AC_min={v['AC_min_before_drying']:.1e} solids err={v['solids_err']:.1e} "
-            f"store={v['store']:.2e}")
-    gate("B13 passive scalar bounded, solids exact",
-         all(v["bounded"] and v["solids_err"] < 1e-12 for v in out.values()),
-         "sub-case (e) (solids source) not run: no sources in phase B")
+    r = res.get(("B1",))
+    if r:
+        gate("B1 lake at rest", r["max_U"] < 1e-12 and r["max_deta"] < 1e-12 and r["dry_cells_stay_dry"],
+             f"steps={r['steps']} max|U|={r['max_U']:.1e} max|deta|={r['max_deta']:.1e} water err={r['water_err']:.1e}")
+    b2 = [res[("B2", N)] for N in Ns if ("B2", N) in res]
+    if len(b2) == len(Ns):
+        p = np.log2(b2[-2]["L1_h"] / b2[-1]["L1_h"])
+        gate("B2 Ritter: L1(h) decreasing", all(a["L1_h"] > b["L1_h"] for a, b in zip(b2, b2[1:])),
+             f"observed order (last pair) {p:.2f}")
+        gate("B2 Ritter: front within 1% at finest", abs(b2[-1]["front_err"]) < 0.01,
+             f"front error {100 * b2[-1]['front_err']:.2f}% (wet threshold 1e-6 m)")
+    b3 = [res[("B3", N)] for N in Ns if ("B3", N) in res]
+    if len(b3) == len(Ns):
+        f = b3[-1]
+        gate("B3 Stoker", abs(f["shock_err"]) < 0.01 and abs(f["hm_err"]) < 0.01 and abs(f["um_err"]) < 0.01,
+             f"finest: shock {100 * f['shock_err']:.2f}%, hm {100 * f['hm_err']:.3f}%, um {100 * f['um_err']:.3f}%")
+    r = res.get(("B9",))
+    if r:
+        gate("B9 positivity", r["min_area"] >= 0 and not r["nan"] and r["water_err"] < 1e-12,
+             f"min A={r['min_area']:.4f}; centre h={r['h_centre']:.4f} vs exact {r['h_star']:.4f} (reported)")
+    r = res.get(("B13",))
+    if r:
+        gate("B13 passive scalar bounded, solids exact",
+             all(v["bounded"] and v["solids_err"] < 1e-12 for v in r.values()),
+             "sub-case (e) not run: no solids sources in phase B")
+    for kind in ("rect", "trap"):
+        rs = [res[("B12b", kind, N)] for N in Nb if ("B12b", kind, N) in res]
+        if len(rs) == len(Nb):
+            dec = all(abs(a["err"]) >= abs(b["err"]) for a, b in zip(rs, rs[1:]))
+            gate(f"B12b free overfall [{kind}]", all(abs(x["err"]) < 0.01 for x in rs) and dec,
+                 "errors " + ", ".join("%+.1e" % x["err"] for x in rs) + f"; decreasing={dec}")
+    for recon in RECONS:
+        a = [v for k, v in res.items() if k[0] == "B12a" and k[1] == recon]
+        if a:
+            exp = [x for x in a if x["kind"] == "exp" and not x["case"].startswith("conduit")]
+            con = [x for x in a if x["kind"] == "con"]
+            cnd = [x for x in a if x["case"].startswith("conduit")]
+            gate(f"B12a[{recon}] expansions vs relation (1%)", all(abs(x["err_rel"]) < 0.01 for x in exp),
+                 f"max err {100 * max(abs(x['err_rel']) for x in exp):.1f}%")
+            gate(f"B12a[{recon}] expansions vs Borda (3%)", all(abs(x["err_borda"]) < 0.03 for x in exp),
+                 f"max err {100 * max(abs(x['err_borda']) for x in exp):.1f}%")
+            gate(f"B12a[{recon}] contractions vs relation (1%)", all(abs(x["err_rel"]) < 0.01 for x in con),
+                 ", ".join(f"{x['case']} {100 * x['err_rel']:+.0f}%" for x in con if x["direction"] == "L->R"))
+            gate(f"B12a[{recon}] conduit->open vs relation (1%)", all(abs(x["err_rel"]) < 0.01 for x in cnd),
+                 ", ".join(f"{x['direction']} {100 * x['err_rel']:+.0f}% conv={x['converged']}" for x in cnd))
+            gate(f"B12a[{recon}] no net energy gain at any junction", all(x["loss"] > 0 for x in a))
+        c = [v for k, v in res.items() if k[0] == "B12c" and k[1] == recon]
+        if c:
+            gain = max(x["max_gain_flux"] for x in c)
+            gate(f"B12c[{recon}] no energy gain in any cell (1e-6 m)", gain < 1e-6, f"max cell gain {gain:.1e} m")
+            falling = True
+            for case in sorted({x["case"] for x in c}):
+                L = [x["loss"] for x in sorted(c, key=lambda y: y["spread"])
+                     if x["case"] == case and x["direction"] == "L->R"]
+                falling &= all(p >= q for p, q in zip(L, L[1:]))
+            gate(f"B12c[{recon}] loss falls as the change is spread", falling)
+    return out
 
 
 def main():
-    say(f"Phase B first gates {'(quick)' if QUICK else '(full)'}")
-    for f in (b1, b2, b3, b9, b13, b12b, lambda: b12a("velocity"), lambda: b12a("discharge_width"),
-              lambda: b12c("velocity"), lambda: b12c("discharge_width")):
-        try:
-            f()
-        except Exception as e:                      # report and continue
-            import traceback
-            traceback.print_exc()
-            gate(getattr(f, "__name__", "case"), False, f"ERROR {e!r}")
+    quick = "--quick" in sys.argv
+    workers = _arg("--workers", os.cpu_count() or 1)
+    jobs, Ns, Nb, spreads = build_jobs(quick)
+    T0 = time.time()
+    print(f"Phase B first gates {'(quick)' if quick else '(full)'}: {len(jobs)} cases on {workers} workers", flush=True)
+    res, errors = {}, []
+    done = 0
+    with ProcessPoolExecutor(max_workers=workers) as ex:
+        futs = {ex.submit(fn, *args): key for _, key, fn, args in jobs}
+        for f in as_completed(futs):
+            key = futs[f]; done += 1
+            try:
+                res[key] = f.result()
+                print(f"[{time.time() - T0:7.1f} s] {done:3d}/{len(jobs)} {key[0]:5s} {describe(key, res[key])}", flush=True)
+            except Exception as e:
+                errors.append((key, repr(e)))
+                print(f"[{time.time() - T0:7.1f} s] {done:3d}/{len(jobs)} ERROR {key}: {e!r}", flush=True)
+    summary = gates(res, Ns, Nb, spreads)
+    for key, e in errors:
+        summary.append((f"{key}", False, f"ERROR {e}"))
     print("\n================ SUMMARY ================", flush=True)
     for name, ok, d in summary:
         print(f"{'PASS' if ok else 'FAIL'}  {name}  {d}")

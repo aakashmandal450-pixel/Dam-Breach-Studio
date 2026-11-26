@@ -243,3 +243,48 @@ def b12c_cases(recon="velocity", spreads=(5, 10, 20, 50), report=None):
                 if report:
                     report(res)
     return out
+
+
+# ---------------------------------------------------------------------- single cases (parallel runner)
+def b12a_specs():
+    """(name, sec_a, sec_b, kind, Q, h_far) for every B12a junction."""
+    R, T = rectangle, trapezoid
+    s = [("rect 2->4", R(0, 2), R(0, 4), "exp"), ("rect 2->10", R(0, 2), R(0, 10), "exp"),
+         ("rect 4->2", R(0, 4), R(0, 2), "con"), ("rect 10->2", R(0, 10), R(0, 2), "con"),
+         ("trap 2->4", T(0, 2, 1.0, 5.0), T(0, 4, 1.0, 5.0), "exp"),
+         ("trap 2->10", T(0, 2, 1.0, 5.0), T(0, 10, 1.0, 5.0), "exp"),
+         ("trap 4->2", T(0, 4, 1.0, 5.0), T(0, 2, 1.0, 5.0), "con"),
+         ("trap 10->2", T(0, 10, 1.0, 5.0), T(0, 2, 1.0, 5.0), "con")]
+    out = [(n, a, b, k, 2.0, 1.0) for n, a, b, k in s]
+    out.append(("conduit 0.2x0.2 -> open 1", conduit(0.0, 0.2, 0.2, 50.0), rectangle(0.0, 1.0), "exp", 0.05, 0.6))
+    return out
+
+
+def b12a_one(name, a, b, kind, Q, h1, d, recon):
+    r = _steady_junction(a, b, Q, h1, direction=d, recon=recon)
+    eta_a_rel = junction_relation(a, b, Q, r["eta_dn"])
+    Ea = eta_a_rel + (Q / _A(a, eta_a_rel)) ** 2 / (2 * G)
+    Eb = r["eta_dn"] + (Q / _A(b, r["eta_dn"])) ** 2 / (2 * G)
+    loss_rel = Ea - Eb
+    res = dict(case=name, direction="L->R" if d > 0 else "R->L", kind=kind, recon=recon,
+               loss=r["loss"], loss_rel=loss_rel, err_rel=(r["loss"] - loss_rel) / loss_rel,
+               max_gain=r["max_gain"], max_gain_flux=r["max_gain_flux"],
+               converged=r["converged"], Q_spread=r["Q_spread"])
+    if kind == "exp":
+        bo = borda(a, b, Q, r["eta_up"], r["eta_dn"])
+        res["borda"] = bo; res["err_borda"] = (r["loss"] - bo) / bo
+    return res
+
+
+def b12c_specs():
+    R, T = rectangle, trapezoid
+    return [("rect 2->4", R(0, 2), R(0, 4)), ("rect 2->10", R(0, 2), R(0, 10)),
+            ("rect 4->2", R(0, 4), R(0, 2)), ("rect 10->2", R(0, 10), R(0, 2)),
+            ("trap 2->10", T(0, 2, 1.0, 5.0), T(0, 10, 1.0, 5.0)),
+            ("trap 10->2", T(0, 10, 1.0, 5.0), T(0, 2, 1.0, 5.0))]
+
+
+def b12c_one(name, a, b, k, d, recon):
+    r = _steady_junction(a, b, 2.0, 1.0, spread=k, direction=d, recon=recon)
+    return dict(case=name, spread=k, direction="L->R" if d > 0 else "R->L", recon=recon, loss=r["loss"],
+                max_gain=r["max_gain"], max_gain_flux=r["max_gain_flux"], converged=r["converged"])
