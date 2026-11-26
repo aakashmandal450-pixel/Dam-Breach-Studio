@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.15 · 2026-11-26 · status: exit-headcut diagnostic on P1 frozen (§5.6c: never plunges; k_d not adjusted); P1 validation finding under §5.7b recorded and frozen (§5.7b.4, unresolved); roof-remnant geometry under investigation; debris D1-a/D5 frozen (§5.7b, plugs option), downstream-reach erosion recorded as unresolved (§5.7c); state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.16 · 2026-11-26 · status: H1-d closed conditionally; outlet-convention review O-1 opened (no change to (5.3)/(5.8)); exit-headcut diagnostic on P1 frozen (§5.6c: never plunges; k_d not adjusted); P1 validation finding under §5.7b recorded and frozen (§5.7b.4, unresolved); roof-remnant geometry under investigation; debris D1-a/D5 frozen (§5.7b, plugs option), downstream-reach erosion recorded as unresolved (§5.7c); state and geometry rules crater_spilling, pipe ≤ crater width, floor ≥ base (§5.7a.11); debris comparison treatments level/instant/tank implemented (§5.7, `05_piping_debris_draft.md` rev. 2); end-wall volume corrections (§5.7a.3); exit headcut (§5.6) implemented, off by default; JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -2156,6 +2156,29 @@ published:
      tension cut-off and remoulding.
    - **Hand-over:** when the reservoir connects to the crater by open flow (§5.7a.8).
 ---
+
+### Decision 2026-11-26: H1-d (exit end-wall erosion by expansion eddies)
+
+> **H1-d decision:** We will pursue this mechanism only if a defensible source or experimental basis
+> for shear enhancement at a lateral expansion is identified. Otherwise, the P1 investigation will be
+> closed as an unresolved validation finding. The existing H1-a result will be retained without adding
+> an unsupported shear correction.
+
+Status: **closed conditionally.**
+- No eddy-shear law is added on intuition, and none is tuned to the photographed width.
+- H1-a stays verified, not validated (note H-1 §9–11); its tests are unchanged and reproducible.
+- The P1 outcome stays sealed and unresolved (§5.7b.4, §5.6c).
+
+### Decision 2026-11-26: outlet convention (separate from H1-d)
+
+> **Outlet-convention question:** Separately from the H1-d decision, we will review the current
+> free-discharge outlet convention against the relevant HDS-5 hydraulic assumptions. This review will
+> determine whether the present boundary condition is appropriate for the P1 pipe configuration, or
+> whether outlet control, tailwater, or a hydraulic-grade treatment is needed. No change will be made
+> to the frozen baseline until this comparison is documented.
+
+Status: **review opened**, note O-1 (`05_piping_outlet_convention_O1.md`). (5.3) and (5.8) are
+unchanged.
 
 ## References
 
