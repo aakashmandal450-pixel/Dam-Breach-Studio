@@ -1,6 +1,6 @@
 # Theory, Part 5 — Breach initiated by internal erosion (piping): pipe enlargement and roof collapse
 
-*Lumped 1-D morphodynamic breach model · draft 5.8 · 2026-11-25 · status: sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
+*Lumped 1-D morphodynamic breach model · draft 5.9 · 2026-11-26 · status: JET→HET k_d conversion (§5.4a) written and frozen before use; τ_c and n_p ruled out for P1 timing; sealed state, reverse flow and implicit crater balance (first P1 baseline withdrawn: explicit-scheme artefact); debris erosion pending theory; stage 3c driver coded (`piping_run.py`), first ARS P1 diagnostic; end-failure rule decided and coded (`ends.py`), crater state coded (`crater.py`); stage 2 coded (`roof.py`), end lips and surface load stated, end-failure rule proposed; stage 1 coded (`piping.py`), (5.7a) volume-consistent side retreat; exact full-pipe identity (5.16b) replaces the support factor; finer a_p/b_p at shallow cover; overburden shift (5.15b) and sparse self-weight axis added to the table (§5.5b); §5.5b table decisions and §5.7a crater sequence reviewed; pore-water storage, continuous obstruction and the wet-wall range check added; wet-wall domain and pore-water accounting made explicit; theory frozen pending the crater-equation checks (`crater_balance_check.py`); strength regime decided (undrained, c_u increasing with depth); roof criterion (§5.5b) and collapse-spreading rule (§5.7a) written for review; crater-wall height verified (5.17); 3-D crater-edge assumption stated as an unverified limitation, with a 3-D bound as a conditional pre-publication task (§5.8)*
 
 *What is verified and what is not.* The limit-analysis code is verified as a numerical method: its bounds
 bracket an exact solution and published bounds (§5.5a, §5.5b). That does not verify Part 5. Whether a
@@ -218,6 +218,117 @@ Q_b C_out dt/(1 − p) is spread over the wetted wall area P L_p, which gives ε
 **Backward erosion piping in sands** (Sellmeijer) is a different mechanism — a pipe growing from
 the downstream side toward the reservoir — and would be a separate future module. Part 5 assumes a
 concentrated leak that already crosses the dam.
+
+---
+
+## 5.4a Converting field-JET erodibility to a pipe-flow (HET) equivalent (draft 5.9, 2026-11-26, frozen before use)
+
+**Why this note.** §5.4 prefers hole-erosion-test (HET) values for the pipe stage. ARS P1 has no HET
+value, because its specimens collapsed when filled with water (PAP-1017, Table 5). Its only
+measurements are jet erosion tests (JET). The first P1 runs with the field JET k_d reach crater
+formation in 29–36 s against an observed soil-bridge collapse at 790–830 s. The one-at-a-time study
+(`verification/p1_sensitivity.txt`, 2026-11-26) shows that τ_c (0–1 Pa) and n_p (0.012–0.030)
+cannot account for that. Every case converged in dt with p = 0.98–1.28, with the same outcome at all
+three steps. That finding is kept in the validation record, and τ_c and n_p are not adjusted further.
+This note defines, from independent data only, how a JET value is converted to an HET-equivalent value
+for the pipe stage. It is written and frozen before any P1 run that uses it.
+
+**1. Paired measurements (USBR PAP-1017, Wahl 2010).** All values are k_d in cm³/(N·s), τ_c in Pa.
+"Matched" means compacted to approximate the ARS embankments (Table 6). Field JET values were measured
+in place on the embankments (Table 4).
+
+| soil | test | conditions | w (%) | γ_d (g/cm³) | k_d | τ_c |
+|---|---|---|---|---|---|---|
+| P2 | field JET | embankment, after breach | 12.67 | 1.746 | 2.0 | 2.5 |
+| P2 | lab JET | matched, 166 kJ/m³ | 12.5 | 1.732 / 1.752 | 0.391 / 0.192 | 0.911 / 0.756 |
+| P2 | lab HET | matched, 166 kJ/m³ | 12.4 / 12.0 | 1.749 / 1.731 | 0.037 / 0.220 | 231 / 357 |
+| P3 | field JET | upper lifts (failure zone) | 15.06 | 1.776 | 1.2 | 4.6 |
+| P3 | lab JET | matched, 213 kJ/m³ | 15.3 / 15.4 | 1.765 / 1.775 | 0.186 / 0.050 | 1.616 / 18.82 |
+| P3 | lab HET | matched, 213 kJ/m³ | 15.1 / 16.2 | 1.768 / 1.744 | 0.007 / 0.020 | 346 / 203 |
+| P1 | field JET | embankment, after breach | 11.49 | 1.696 | 150 | 0.0 |
+| P1 | lab JET | matched, 166 kJ/m³ | 11.0 | 1.692 | 274 / 309 | 8.7·10⁻⁵ / 3.1·10⁻⁴ |
+| P1 | lab HET | — | — | — | not testable | — |
+
+The report itself states the comparison:
+- at matched field conditions, HET k_d is about one order of magnitude lower than JET k_d, and HET
+  τ_c two or more orders higher;
+- at representative conditions (optimum, 95 % compaction, Table 5) the k_d gap is one to two orders.
+
+It attributes the difference to the simplified stress descriptions of the two tests, different erosion
+mechanisms, the geometry of the exposed surface, and different sensitivity to soil fabric. It does not
+recommend one test over the other for piping.
+
+**2. Definition.** The conversion factor is defined as
+
+    R = k_d,field JET / k_d,HET          (JET → HET:  k_d,HET-eq = k_d,field JET / R)          (5.6a)
+
+It converts the field-JET value, the value the model uses for P1, to an HET-equivalent value. It is
+defined on field JET, not lab JET, because the converted quantity is the P1 field value. The measured
+values are never changed: the case file keeps k_d,field JET = 150, and the run records R and the
+converted value as separate inputs. τ_c is **not** converted (point 5).
+
+**3. Values and the empirical band.** Each field-JET value is divided by each matched HET value of the
+same soil:
+
+| soil | R, individual pairs | R, geometric mean of the two HETs |
+|---|---|---|
+| P2 | 2.0/0.220 = 9.1;  2.0/0.037 = 54.1 | 22.2 |
+| P3 | 1.2/0.020 = 60.0;  1.2/0.007 = 171.4 | 101.4 |
+
+- **Band:** R from 9.1 to 171.4, the full spread of the four pairs.
+- **Central value:** R = 47.4, the geometric mean of the two soils' values (22.2 and 101.4). The
+  geometric mean is used because the ratios span more than an order of magnitude.
+- **What the band is.** With two soils and two HET specimens each, this is an *empirical range of the
+  observed ratios*. It is not a statistical confidence interval, and it is not a general relation
+  between the two tests for any soil.
+
+For P1 (k_d,field JET = 150) this gives:
+
+| R | 9.1 (low) | 22.2 (P2) | 47.4 (central) | 101.4 (P3) | 171.4 (high) |
+|---|---|---|---|---|---|
+| k_d,HET-eq (cm³/(N·s)) | 16.5 | 6.77 | 3.16 | 1.48 | 0.88 |
+
+**4. Application to P1.** P1 is run across these five values with every other input unchanged (k_d is
+the only change from the baseline). The converted value is an independently motivated estimate:
+- it is derived from P2 and P3 only;
+- no value of R is chosen, rejected or weighted by the P1 result.
+
+P1 remains a validation case. If the band brings the timing closer to the observation, that is
+evidence for the transfer. It does not show that the conversion is physically correct.
+
+**5. Limitations of the transfer.**
+- **Different soil.** P1 is a non-plastic silty sand (SM, 24 % fines). P2 and P3 are low-plasticity
+  clays, (CL) with PI 9 and 24. P1 was too weak for the HET, which the report places in erodibility
+  group 1–2, against groups 3–4 for P2 and P3. The test-to-test bias may differ for a cohesionless,
+  collapsible soil.
+- **The field/lab relation differs.** For P2 and P3 the field JET is 7.3 and 12.4 times the matched
+  lab JET. For P1 it is 0.52 times. So P1's field value relates differently to its lab values than
+  those of P2 and P3, and the field-to-HET ratio may not transfer.
+- **Only two soils, two specimens each.** The band rests on four pairs, and within one soil the two
+  HET values differ by a factor of 3–6.
+- **τ_c is not transferred.** The matched HET τ_c values are 203–357 Pa. That is 20–35 times the
+  wall shear of the initial P1 pipe (about 10 Pa), and P1 has no HET to show what its own τ_c would
+  be. Converting τ_c along with k_d would make a different and larger assumption: that the HET
+  threshold applies to a soil the HET could not test. τ_c stays at the field-JET value (0). The
+  combined (k_d, τ_c) transfer is listed as an open question, not run.
+- **Different erosion process.** The HET is a small pipe under a fixed gradient. The ARS pipe grows
+  from 40 mm to about 0.3 m under a constant reservoir, and it also loses its inlet by retreat. The
+  relation between the HET and a growing field pipe is itself untested here.
+
+**6. The time origin of the observation (open, before any timing comparison).** PAP-1017 gives no
+explicit definition of time zero. Piping began when the 1.5-inch pipe was pulled out through the
+downstream side. Figure 1 shows P1 nine minutes after initiation, and Table 1 gives 0.23 h to
+soil-bridge collapse. The report also states that headcutting to the embankment base occurred at the
+same time as the pipe enlarged. The digitised hydrograph (Chen et al. 2019, Fig. 6) shows
+0.1–0.25 m³/s in the first 0.1 h. That is about 100 times what a 40 mm pipe passes at this head
+(0.0015 m³/s), so either the time origin or the early flow record differs from the model's
+assumption. Until this is resolved, every timing comparison with P1 is **provisional**. The comparison
+is made with the observed *sequence*:
+1. pipe enlargement with headcutting to the base;
+2. soil-bridge collapse;
+3. breach.
+
+It is not made with the 830 s value alone.
 
 ---
 
