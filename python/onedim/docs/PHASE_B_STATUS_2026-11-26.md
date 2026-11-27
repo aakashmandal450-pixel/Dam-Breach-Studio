@@ -204,3 +204,27 @@ Commit `68da86d`, user's PC, 364 s. Log: `docs/logs/onedim_b12d_mechanism_202611
 Conclusion so far: the outlet failure is a stability limit of the explicit update at a cell where
 a slot (tiny storage width) meets a free-surface neighbour (large storage width); the standard CFL
 (6.21) does not capture it. Not yet established: the limit itself and a rule for it.
+
+## 9. Linear stability analysis (2026-11-27)
+
+Commit `c1128ed`, user's PC, 271 s. Log: `docs/logs/onedim_b12d_stability_20261127_222408.log`.
+Jacobian of one explicit step (320 × 320) about the steady state; ρ = spectral radius; CFL relative
+to the solver's own (6.21) step at that state.
+
+| case | critical CFL (ρ = 1) | worst mode |
+|---|---|---|
+| outlet: pressurised conduit 0.2 m → open 1 m | **0.207** | cells 78–81 (two conduit, two open), 99 % in Q, oscillatory (complex λ) |
+| outlet, a_s = 100 m/s | 0.203 | same |
+| outlet, open channel 0.4 m | 0.529 | same |
+| pressurised conduit → 1 × 1 m conduit with a free surface | 0.207 | same (identical to the 1 m outlet) |
+| pressurised → pressurised 0.4 × 0.4 conduit | 0.831 | cells 78–82 |
+| uniform pressurised conduit | stable to 0.9 | — |
+
+- The analysis reproduces the time-step runs (stable at 0.1125, marginal at 0.225, strongly unstable
+  at 0.9: ρ = 2.31), so it can be used to test a rule.
+- The limit is a fixed fraction of the solver's step, independent of a_s (0.207 vs 0.203).
+- It depends on the free-surface width of the downstream cell: 1 m → 0.207, 0.4 m → 0.529; the ratio
+  of conduit width to that free-surface width (0.2 and 0.5) is close to the critical CFL in both
+  cases. With two data points this is a candidate scaling, not a result.
+- The mode lives in the discharge of the two cells on either side of the interface; stage takes ~1 %.
+  It does not need the open channel (the free-surface conduit gives the identical number).
