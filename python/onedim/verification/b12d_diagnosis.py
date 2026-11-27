@@ -166,7 +166,9 @@ def main():
 
     t_max = float(sys.argv[sys.argv.index("--tmax") + 1]) if "--tmax" in sys.argv else 1.0e4
     workers = int(sys.argv[sys.argv.index("--workers") + 1]) if "--workers" in sys.argv else (os.cpu_count() or 1)
-    jobs = [(c, o, d) for c in ("D3", "D2", "D1", "D4") for o in ("submerged", "free") for d in (+1, -1)]
+    cfgs = sys.argv[sys.argv.index("--configs") + 1].split(",") if "--configs" in sys.argv else ["D3", "D2", "D1", "D4"]
+    outs = sys.argv[sys.argv.index("--outlets") + 1].split(",") if "--outlets" in sys.argv else ["submerged", "free"]
+    jobs = [(c, o, d) for c in cfgs for o in outs for d in (+1, -1)]
     T0 = time.time()
     print(f"B12d diagnosis: {len(jobs)} runs on {workers} workers, t_max = {t_max:.0f} s "
           f"(D3 is the slowest: 4x more steps than D1)", flush=True)

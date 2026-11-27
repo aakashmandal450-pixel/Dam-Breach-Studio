@@ -98,3 +98,60 @@ Observations:
   between the slot (width g·b·a/a_s² ≈ 6e-6 m) and the 1 m open section. Cause not yet established;
   candidates: the slot celerity a_s (C6 sensitivity not yet run), the treatment of the crown level
   on the interface section, and the absence of any damping in a frictionless pressurised reach.
+
+## 6. B12d conduit-outlet diagnosis (2026-11-27)
+
+Plan by the user (D1 a_s, D2 2a_s, D3 4a_s frictionless; D4 a_s with Manning n = 0.012; geometry,
+IC, BC, CFL and the steady criterion unchanged). Commit `3b4e20e`, user's PC, t_max = 10⁴ s. Log:
+`docs/logs/onedim_b12d_diagnosis_20261127_104701.log`. 14 of 16 runs completed; both D3 submerged
+runs were terminated by the operating system after ~5.5 h (BrokenProcessPool; no Python error).
+Both directions gave identical numbers in every completed run.
+
+Last conduit cell, last 20 % of each run:
+
+| case | steady | stage oscillation | period | slot depth (crown pressure head) | upstream stage | E_up − E_dn |
+|---|---|---|---|---|---|---|
+| D1 submerged | no | 0.742 m, flat over all 20 windows of 500 s | 0.031 s | 0.30 – 1.04 m | 0.768 m (relation 0.600) | 0.237 m (Borda 0.069) |
+| D2 submerged | no | 0.807 m, flat | 0.014 s | 0.28 – 1.10 m | 0.738 m, range 0.79 m | 0.207 m |
+| D3 submerged | — | not completed | | | | |
+| D4 submerged | no | 0.730 m, flat | 0.031 s | 0.30 – 1.03 m | 0.916 m | 0.385 m, of which friction 0.151–0.154, junction 0.231–0.234 |
+| D1 free | no (decaying) | 4.6e-5 m; window ranges fall from 7.6e-2 to 9.7e-6 | — | −0.015 m (not pressurised) | 0.185 m | (includes the 0.5 m drop) |
+| D2 free | no (decaying) | 4.6e-5 m, same decay | — | −0.015 m | 0.185 m | |
+| D3 free | **yes, at 2879 s** | 3.7e-7 m | — | −0.016 m | 0.184 m | |
+| D4 free | no | 3.7e-5 m, **flat** from 500 s on | 0.178 s | −0.014 to −0.002 m (touches the crown) | 0.345 m | |
+
+Water balance < 3.2e-11 in every run.
+
+Reading against the user's criteria:
+
+- Submerged (pressurised) outlet: the oscillation persists, undamped, at a_s and 2a_s, with an
+  amplitude (0.73–0.81 m) almost independent of a_s and of friction. Its period scales with 1/a_s
+  (0.031 → 0.014 s), i.e. a few slot-wave crossings of one cell (Δs/a_s = 0.005 s at D1): a grid-scale
+  mode. Friction does not reduce it (D4 0.730 m vs D1 0.742 m). By the user's rule this points to the
+  interface flux and section treatment, not to the slot stiffness.
+- Free outlet: the conduit runs just below the crown (−1.5 cm) and the transient decays, slowly in
+  D1/D2 and to steady in D3. Not a sustained oscillation. With friction (D4) the free surface rises
+  to within 2 mm of the crown and a small (3.7e-5 m) flat oscillation persists — the crown is
+  touched intermittently.
+
+Isolation runs in the container (submerged, D1, 200 s, oscillation in the last conduit cell over the
+last 50 s; reference 0.742 m, loss 0.238 m):
+
+| change (one at a time) | oscillation | upstream stage | loss |
+|---|---|---|---|
+| open 0.2 m rectangle → 1 m (no crown) | 7.6e-3 m | 0.608 | 0.0068 |
+| conduit with a 2 m crown (never pressurised) | 7.6e-3 m | 0.608 | 0.0068 |
+| conduit → larger conduit 1 × 1 m | 0.745 m | 0.766 | 0.235 |
+| Δs/2 | 0.696 m | 0.768 | 0.237 |
+| CFL 0.45 | 0.130 m | 0.628 | 0.098 |
+| face rule "own" (draft 1) | 0.105 m | 0.218 | −0.313 (energy gain) |
+| reconstruction (6.14) instead of (6.14a) | 0.016 m | 2.527 | 1.99 |
+
+What this establishes: the mode appears only when the upstream cell is pressurised (in the slot);
+the open downstream section is not needed for it; it does not shrink with Δs; it shrinks strongly
+with the time step; it is sensitive to the reconstruction and to the face rule. What it does not yet
+establish: the mechanism. Working hypothesis (unproven): in the slot the reconstructed areas on the
+two sides of the interface are nearly equal (the slot width is ~6e-6 m) while the stages differ by
+decimetres, so the HLL mass flux hardly responds to the pressure difference across the interface —
+a low-Mach (flow speed ≪ a_s) decoupling of pressure and mass flux, confined to the interface where
+(6.14a) and (6.16b) meet the slot.
