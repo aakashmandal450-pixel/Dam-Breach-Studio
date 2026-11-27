@@ -63,3 +63,38 @@ max\|U\| = 3.2e-14 m/s, max\|Δη\| = 1.2e-13 m (passes).
    Δs = 0.25, 0.125, 0.0625 m); B12d conduit outlets; B12a with (6.14) kept as a diagnostic.
 3. Full run (`run_onedim_phaseB.ps1`, no `-Quick`), compared against this baseline.
 4. Source check of the 6-16 candidates; then choose the contraction reference and geometry.
+
+## 5. Full run after decisions 6-19 to 6-21 (2026-11-27)
+
+Commit `944c33d`, `run_onedim_phaseB.ps1` (full grids), 119 cases, 12 workers, 3997 s. Log:
+`docs/logs/onedim_phaseB_20261126_221044_full.log`. **27 pass, 3 fail, 1 known limitation.**
+
+| gate | result | measured |
+|---|---|---|
+| B1 lake at rest (10⁵ steps, (6.14a)) | PASS | max\|U\| = 4.0e-14 m/s, max\|Δη\| = 2.3e-13 m, water error 1.8e-16 |
+| B2 L1(h) decreasing | PASS | observed order 0.77 |
+| B2 exact front within 1 % | KNOWN (6-20) | −20.2, −16.2, −13.4, −10.6 % (N = 400…3200) |
+| B2 same-threshold front (h_th = 1 mm) falls | PASS | −19.4, −15.1, −11.1, −7.7 % |
+| B3 Stoker | PASS | shock −0.26 %, h_m −0.010 %, u_m −0.072 % |
+| B9, B13 | PASS | as the baseline |
+| B12b rectangle / trapezoid | PASS | errors to −5.6e-6 / −7.3e-6 at N = 80, decreasing |
+| B12a expansions vs relation / Borda | PASS | 0.1 % / 2.6 % |
+| B12a contractions vs relation | FAIL (6-16 open) | −76, −80, −83, −90 % |
+| B12a conduit → open | FAIL | +248 %, not steady |
+| B12a no net gain | PASS | |
+| B12c refinement, four items × four cases | PASS (16/16) | e.g. 2→10: max local gain 4.3e-3, 2.4e-3, 9.6e-4 m; loss 0.0104, 0.0064, 0.0036 m |
+| B12d steady state | FAIL | none of the four cases steady after 10⁴ s; submerged loss 0.2375 m vs Borda 0.0692 m (+243 %); free outlet: outlet flux constant to 9e-9 but stage residual 2.8e-6 |
+
+Observations:
+
+- B12c: over a fixed 2.5 m transition, local gains and the total loss both fall roughly in proportion
+  to Δs, i.e. the loss converges towards zero, as expected for a frictionless gradual transition
+  computed at first order. The finest 2 → 10 case did not meet the steady tolerance (reported
+  conv = False) but was included.
+- B12d diagnosis (container, submerged outlet, 200 s): the stage in the last two conduit cells next
+  to the outlet oscillates between 0.53 and 1.02 m while the open channel is steady to 10⁻⁴ m and the
+  conduit 30 m upstream is steady to about 1 cm. The upstream conduit stage settles about 0.1 m above
+  the relation value; that extra head is the excess loss. The oscillation sits at the interface
+  between the slot (width g·b·a/a_s² ≈ 6e-6 m) and the 1 m open section. Cause not yet established;
+  candidates: the slot celerity a_s (C6 sensitivity not yet run), the treatment of the crown level
+  on the interface section, and the absence of any damping in a frictionless pressurised reach.
