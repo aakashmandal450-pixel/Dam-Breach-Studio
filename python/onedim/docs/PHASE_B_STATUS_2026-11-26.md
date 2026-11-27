@@ -228,3 +228,41 @@ to the solver's own (6.21) step at that state.
   cases. With two data points this is a candidate scaling, not a result.
 - The mode lives in the discharge of the two cells on either side of the interface; stage takes ~1 %.
   It does not need the open channel (the free-surface conduit gives the identical number).
+
+## 10. Stability sweep (user plan, 2026-11-28)
+
+Commit `050d944`, user's PC, 876 s. Log: `docs/logs/onedim_b12d_sweep_20261127_232640.log`.
+Conduit 0.2 × 0.2 m, a_s = 50 m/s, frictionless; critical CFL by linearisation as in §9.
+
+| case | B_c/B_free | critical CFL | CFL_crit / (B_c/B_free) | CFL_crit · A_free / A_c |
+|---|---|---|---|---|
+| forward, B_free 0.3 m, h 0.6 m, Q 0.05 | 0.667 | 0.6911 | 1.037 | 3.11 |
+| forward, 0.6 m | 0.333 | 0.3454 | 1.036 | 3.11 |
+| forward, 1 m | 0.200 | 0.2072 | 1.036 | 3.11 |
+| forward, 2 m | 0.100 | 0.1036 | 1.036 | 3.11 |
+| forward, 5 m | 0.040 | < 0.05 (not bracketed; the CFL 0.05 steady run itself drifted 9.5e-5) | — | — |
+| forward, 1 m, h 0.4 m | 0.200 | 0.3103 | 1.551 | 3.10 |
+| forward, 1 m, h 1.0 m | 0.200 | 0.1251 | 0.625 | 3.13 |
+| forward, 1 m, Q 0.02 | 0.200 | 0.2045 | 1.022 | 3.07 |
+| forward, 1 m, Q 0.10 | 0.200 | 0.2115 | 1.058 | 3.17 |
+| reverse (free surface → pressurised), 0.3, 1, 5 m | — | stable to 1.0 | — | — |
+| uniform pressurised conduit | — | stable to 1.0 | — | — |
+
+A_free = B_free · h (flow area of the free-surface cell, h = conduit head; the tailwater is 0.2–6 % higher),
+A_c = 0.04 m² (conduit area = interface flow area).
+
+- The width-ratio hypothesis holds at fixed depth (ratio 1.036–1.037 for 0.3–2 m) and is nearly
+  independent of discharge (1.02–1.06 for Q = 0.02–0.10), but **fails across depths** (0.63–1.55).
+- All eight bracketed forward cases collapse onto one relation in the **area ratio**:
+  CFL_crit ≈ 3.1 · A_c / A_free (3.07–3.17, ±2 %). The 5 m case is consistent with it (predicted 0.041).
+  A_free / A_c is the factor by which (6.14a) amplifies the reconstructed velocity at the interface
+  (U* = Q_i / A*). This is an empirical collapse of eight cases with one conduit size and one a_s, not
+  a derived condition; the constant 3.1 is unexplained.
+- The reverse transition is stable to CFL 1.0 at all three widths: the restriction is one-directional
+  (pressurised cell discharging into a free-surface cell).
+- Not yet tested: whether the same relation applies to an open-channel expansion (free surface on
+  both sides); B12a expansions with A*/A_i ≈ 0.2 ran stably at CFL 0.9, which suggests the large
+  interface wave speed of the slot is also part of the condition.
+- Cost implication: the stable step scales with A_c / A_free. For the 5 m case it is ≈ 0.04 of the
+  normal step (≈ 22 × slower); for a realistic piping outlet (e.g. a 0.5 m pipe into a breach channel
+  tens of metres wide and metres deep) the ratio is of order 10⁻³, i.e. 100–1000 × slower.
