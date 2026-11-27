@@ -176,3 +176,31 @@ right steady state; the explicit step at CFL 0.9 (with (6.21) as written) is not
 pressurised outlet. The stability limit lies between CFL 0.1125 and 0.225 for this case. Mechanism
 checks M1–M4 (`run_b12d_mechanism.ps1`) follow. The B12d steady criterion (10⁻¹¹ over 500 steps)
 was not met by T4 within 1000 s, although its residual oscillation is 10⁻⁸ m.
+
+## 8. Mechanism checks M1–M4 (2026-11-27)
+
+Commit `68da86d`, user's PC, 364 s. Log: `docs/logs/onedim_b12d_mechanism_20261127_221209.log`.
+
+- **M1 interface flux response** (change per metre of stage difference across one interface):
+  free surface (0.2 m open, 0.5 m deep): mass flux 0.21, momentum flux 0.57; pressurised
+  conduit | conduit: mass flux 0.0039 (54 × weaker), momentum flux 0.20; conduit | open 1 m outlet:
+  identical to conduit | conduit (the outlet interface is the conduit section). The mass flux hardly
+  sees a stage difference in the slot, as hypothesised; but the outlet interface itself is no different
+  from an interior conduit interface.
+- **M2 no section change** (120 s, CFL 0.9, oscillation in cell 79): uniform pressurised conduit
+  2.4e-3 m (residual start-up pressure wave between two reflecting boundaries, frictionless);
+  pressurised 0.2 → pressurised 0.4 × 0.4 conduit 8.1e-2 m; pressurised 0.2 → 1 × 1 m conduit with a free
+  surface 0.74 m (= the outlet case). The full instability needs a pressurised cell next to a
+  free-surface cell; the open channel and the crown geometry are not needed.
+- **M3 term trace** (last conduit cell): the step-face contribution W is exactly zero in that cell (its
+  section equals the interface section), so (6.16b) is not involved. At CFL 0.9 the cell runs a
+  7-step sawtooth: stage jumps 0.51 → 1.22 m in two steps and relaxes over five, driven by mass-flux
+  imbalances of ~3e-3 m³/s, which in the slot (T_s ≈ 6e-6 m) move the stage by decimetres per step.
+  At CFL 0.1125 every term is steady (residual 1e-11).
+- **M4 contractions** (open channels): losses identical to five figures at CFL 0.9 and 0.1125
+  (−76.1, −80.4, −83.4, −89.6 % against the relation). The contraction result is not a time-step
+  effect; 6-16 is unaffected.
+
+Conclusion so far: the outlet failure is a stability limit of the explicit update at a cell where
+a slot (tiny storage width) meets a free-surface neighbour (large storage width); the standard CFL
+(6.21) does not capture it. Not yet established: the limit itself and a rule for it.
