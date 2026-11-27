@@ -2,6 +2,7 @@
 # Usage:  powershell -ExecutionPolicy Bypass -File .\run_b12d_diagnosis.ps1              (t_max = 10000 s, the B12d spec)
 #         powershell -ExecutionPolicy Bypass -File .\run_b12d_diagnosis.ps1 -TMax 2000   (shorter first look)
 #         powershell -ExecutionPolicy Bypass -File .\run_b12d_diagnosis.ps1 -Configs D3 -Outlets submerged   (only those runs)
+#         powershell -ExecutionPolicy Bypass -File .\run_b12d_diagnosis.ps1 -Configs T1,T2,T3,T4 -Outlets submerged -TMax 1000   (time-step series, CFL 0.9 to 0.1125)
 param([double]$TMax = 10000, [string]$Configs = "D3,D2,D1,D4", [string]$Outlets = "submerged,free")
 $Repo  = "D:\My Projects\Dam-Breach-Studio"
 $Stamp = Get-Date -Format "yyyyMMdd_HHmmss"

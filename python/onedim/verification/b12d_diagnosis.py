@@ -32,12 +32,15 @@ from ..solver import Model, G
 from .junctions import _solve_downstream, junction_relation, borda, _A
 
 A_S0 = 50.0
-CONFIGS = {"D1": (A_S0, 0.0), "D2": (2 * A_S0, 0.0), "D3": (4 * A_S0, 0.0), "D4": (A_S0, 0.012)}
+CONFIGS = {"D1": (A_S0, 0.0), "D2": (2 * A_S0, 0.0), "D3": (4 * A_S0, 0.0), "D4": (A_S0, 0.012),
+           # time-step series (CFL), a_s and friction as D1
+           "T1": (A_S0, 0.0), "T2": (A_S0, 0.0), "T3": (A_S0, 0.0), "T4": (A_S0, 0.0)}
+CFLS = {"T1": 0.9, "T2": 0.45, "T3": 0.225, "T4": 0.1125}
 Q = 0.05
 N_SIDE, DS = 80, 0.25
 
 
-def _setup(outlet, d, a_s, n_manning):
+def _setup(outlet, d, a_s, n_manning, cfl=0.9):
     a = conduit(0.0, 0.2, 0.2, a_s)
     n = N_SIDE
     if outlet == "submerged":
@@ -60,16 +63,22 @@ def _setup(outlet, d, a_s, n_manning):
         bcl, bcr = ({"type": "stage", "eta": eta_dn} if outlet == "submerged" else {"type": "critical"},
                     {"type": "discharge", "Q": -Q})
         eta0 = eta0[::-1]
-    m = Model(cells, DS, manning_n=n_manning, bc_left=bcl, bc_right=bcr)
+    m = Model(cells, DS, manning_n=n_manning, bc_left=bcl, bc_right=bcr, cfl=cfl)
     m.set_stage(eta0)
     if outlet == "submerged":
         m.Q = np.full(2 * n, Q * d)
     return m, a, b, eta_dn, tol
 
 
-def diagnose(config, outlet, d, t_max=1.0e4, sample_dt=0.5, check_every=500):
+def diagnose(config, outlet, d, t_max=1.0e4, sample_dt=0.5, check_every=500, progress_every=None):
+    import time as _time
     a_s, n_manning = CONFIGS[config]
-    m, a, b, eta_dn, tol = _setup(outlet, d, a_s, n_manning)
+    cfl = CFLS.get(config, 0.9)
+    m, a, b, eta_dn, tol = _setup(outlet, d, a_s, n_manning, cfl)
+    if progress_every is None:
+        progress_every = max(t_max / 20.0, 1.0)
+    next_report = progress_every; w0 = _time.time()
+    tag = f"{config} {outlet} {'L->R' if d > 0 else 'R->L'}"
     n = N_SIDE
     # indices in the model's own (left-to-right) order
     if d > 0:
@@ -100,6 +109,11 @@ def diagnose(config, outlet, d, t_max=1.0e4, sample_dt=0.5, check_every=500):
             if eta is None:
                 eta = m.stage()
             fine_t.append(m.t); fine_s.append(eta[last2[-1]])
+        if m.t >= next_report:
+            last = np.array(s2[-200:])[:, -1] if s2 else np.zeros(1)
+            print(f"    .. {tag}: t = {m.t:8.1f} / {t_max:.0f} s, step {m.nsteps:9d}, dt = {m.last['dt']:.2e} s, "
+                  f"stage range (last 100 s) = {np.ptp(last):.3e} m, wall {_time.time() - w0:6.0f} s", flush=True)
+            next_report += progress_every
         if k % check_every == 0:
             dA = np.max(np.abs(m.A - prevA)) / max(np.max(np.abs(m.A)), 1e-12)
             dQ = np.max(np.abs(m.Q - prevQ)) / max(np.max(np.abs(m.Q)), 1e-12)
@@ -133,7 +147,7 @@ def diagnose(config, outlet, d, t_max=1.0e4, sample_dt=0.5, check_every=500):
         Sf = n_manning ** 2 * Qf ** 2 / (A ** 2 * (A / P) ** (4.0 / 3.0))
         h_f = float(np.sum(Sf[lo:hi + 1] * m.ds[lo:hi + 1]))
     loss = float(np.mean(Eup[late]) - np.mean(Edn[late]))
-    out = dict(config=config, a_s=a_s, n=n_manning, outlet=outlet, direction="L->R" if d > 0 else "R->L",
+    out = dict(config=config, a_s=a_s, n=n_manning, cfl=cfl, dt_last=float(m.last["dt"]), outlet=outlet, direction="L->R" if d > 0 else "R->L",
                t=float(m.t), steps=m.nsteps, steady=steady_at is not None, steady_at=steady_at,
                residual=residual,
                osc_range_last20=float(np.ptp(s2[late, -1])), osc_range_last20_cell2=float(np.ptp(s2[late, 0])),
@@ -193,10 +207,10 @@ def main():
             except Exception as e:
                 print(f"ERROR {key}: {e!r}", flush=True)
     print("\n================ TABLE (last conduit cell; last 20 % of each run) ================")
-    print(f"{'cfg':4s} {'a_s':>5s} {'n':>6s} {'outlet':9s} {'dir':5s} {'steady':6s} {'osc m':>9s} {'period s':>8s} "
+    print(f"{'cfg':4s} {'a_s':>5s} {'n':>6s} {'CFL':>6s} {'dt s':>8s} {'outlet':9s} {'dir':5s} {'steady':6s} {'osc m':>9s} {'period s':>8s} "
           f"{'slot max':>8s} {'stage_up':>8s} {'loss m':>7s} {'jn loss':>7s} {'water':>8s}")
     for r in sorted(res, key=lambda x: (x["outlet"], x["config"], x["direction"])):
-        print(f"{r['config']:4s} {r['a_s']:5.0f} {r['n']:6.3f} {r['outlet']:9s} {r['direction']:5s} {str(r['steady']):6s} "
+        print(f"{r['config']:4s} {r['a_s']:5.0f} {r['n']:6.3f} {r['cfl']:6.4f} {r['dt_last']:8.2e} {r['outlet']:9s} {r['direction']:5s} {str(r['steady']):6s} "
               f"{r['osc_range_last20']:9.2e} {r['osc_period']:8.3f} {r['slot_depth_max']:8.3f} {r['stage_up_mean']:8.4f} "
               f"{r['loss']:7.4f} {r['junction_loss']:7.4f} {r['water_err']:8.1e}")
     sub = [r for r in res if "loss_relation" in r]
