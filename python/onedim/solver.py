@@ -345,7 +345,8 @@ class Model:
         self.sol_in += dt * FC[0]; self.sol_out += dt * FC[-1]
         self.A, self.Q, self.AC = A_new, Q_new, AC_new
         self.t += dt; self.nsteps += 1
-        self.last = dict(FA=FA, FQ=FQ, FC=FC, SL=SL, SR=SR, dt=dt)
+        self.last = dict(FA=FA, FQ=FQ, FC=FC, SL=SL, SR=SR, dt=dt,
+                         WR=G * (I1c_R - I1i_R), WL=G * (I1c_L - I1i_L), etaf_R=efR, etaf_L=efL)
         return dt
 
     def run(self, t_end, max_steps=10 ** 8, callback=None, every=0):

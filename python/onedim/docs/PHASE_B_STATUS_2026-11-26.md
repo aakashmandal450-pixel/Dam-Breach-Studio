@@ -155,3 +155,24 @@ two sides of the interface are nearly equal (the slot width is ~6e-6 m) while th
 decimetres, so the HLL mass flux hardly responds to the pressure difference across the interface —
 a low-Mach (flow speed ≪ a_s) decoupling of pressure and mass flux, confined to the interface where
 (6.14a) and (6.16b) meet the slot.
+
+## 7. Time-step (CFL) series, B12d submerged (2026-11-27)
+
+D1 configuration (a_s = 50 m/s, frictionless), CFL varied only; t_max = 1000 s; user's PC, commit
+`fc83feb`. Log: `docs/logs/onedim_b12d_diagnosis_20261127_210729_cfl.log`. Both directions identical.
+
+| run | CFL | Δt | oscillation, last conduit cell | period | upstream stage | E_up − E_dn |
+|---|---|---|---|---|---|---|
+| T1 | 0.9 | 4.38e-3 s | 0.736 m | 0.031 s | 0.7676 m | 0.2368 m |
+| T2 | 0.45 | 2.19e-3 s | 0.130 m | 0.020 s | 0.6284 m | 0.0976 m |
+| T3 | 0.225 | 1.10e-3 s | 0.027 m | 0.012 s | 0.6005 m | 0.0698 m |
+| T4 | 0.1125 | 5.48e-4 s | 1.3e-8 m (decayed from 5.4e-4 m in the first 500 s) | — | 0.6000 m | 0.0692 m |
+
+Reference: relation 0.0692 m and upstream stage 0.6000 m; Borda 0.0693 m.
+
+Finding: at CFL 0.1125 the oscillation is gone and the conduit outlet reproduces the junction
+relation and Borda to four decimals. The interface reconstruction (6.14a) and loading (6.16b) give the
+right steady state; the explicit step at CFL 0.9 (with (6.21) as written) is not stable at a
+pressurised outlet. The stability limit lies between CFL 0.1125 and 0.225 for this case. Mechanism
+checks M1–M4 (`run_b12d_mechanism.ps1`) follow. The B12d steady criterion (10⁻¹¹ over 500 steps)
+was not met by T4 within 1000 s, although its residual oscillation is 10⁻⁸ m.
