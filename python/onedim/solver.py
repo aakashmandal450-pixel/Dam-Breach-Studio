@@ -16,6 +16,8 @@ boundary holds a fixed level).
 """
 from __future__ import annotations
 
+import os
+
 import numpy as np
 from scipy.optimize import brentq
 
@@ -59,7 +61,7 @@ class _BoundarySection:
 
 class Model:
     def __init__(self, cells, ds, manning_n=0.0, bc_left=None, bc_right=None, cfl=0.9,
-                 h_dry=1e-6, face_rule="upwind_capped", recon="discharge_width"):
+                 h_dry=1e-6, face_rule="upwind_capped", recon="discharge_width", interface_coupling=None, c2_mode=None):
         self.N = len(cells)
         self.C = SectionSet(cells)
         self.ds = np.broadcast_to(np.asarray(ds, dtype=float), (self.N,)).copy()
@@ -69,6 +71,11 @@ class Model:
         self.bc_left = bc_left or {"type": "wall"}
         self.bc_right = bc_right or {"type": "wall"}
         self.cfl, self.h_dry = cfl, h_dry
+        # interface coupling at expansions: "none" (explicit, default) or "c2" (note 06, draft 2.1, §9;
+        # experimental). The environment variables allow whole test suites to be run with C2.
+        self.coupling = interface_coupling or os.environ.get("ONEDIM_COUPLING", "none")
+        self.c2_mode = c2_mode or os.environ.get("ONEDIM_C2_MODE", "independent")   # or "chain"
+        self.c2_blocks = 0; self.c2_fallback = 0; self.c2_skipped_ad = 0; self.c2_max_rel = 0.0
         self.recon = recon                      # "discharge_width" (6.14a, decision 6-19) or "velocity" ((6.14), comparison only)
         self.face_rule = face_rule              # "upwind_capped" (6.16b) or "own" (draft-1 rule)
         self.A = np.zeros(self.N); self.Q = np.zeros(self.N); self.AC = np.zeros(self.N)
@@ -232,8 +239,13 @@ class Model:
                 fR = np.where(Acell[1:] > 0, np.clip(AbR, 0, None) / np.where(Acell[1:] > 0, Acell[1:], 1.0), 0.0)
                 QL = np.where(wl, Qcell[:-1] * fL, 0.0); QR = np.where(wr, Qcell[1:] * fR, 0.0)
                 UL = np.where(wl, QL / np.where(AL > 0, AL, 1.0), 0.0); UR = np.where(wr, QR / np.where(AR > 0, AR, 1.0), 0.0)
+            sQL, sQR = np.where(wl, fL, 0.0), np.where(wr, fR, 0.0)
         else:
             QL, QR = AL * UL, AR * UR
+            Acx = np.r_[self.A[0], self.A, self.A[-1]]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                sQL = np.where(wl & (Acx[:-1] > 0), AL / np.where(Acx[:-1] > 0, Acx[:-1], 1.0), 0.0)
+                sQR = np.where(wr & (Acx[1:] > 0), AR / np.where(Acx[1:] > 0, Acx[1:], 1.0), 0.0)
         pL = G * I.i1_h(np.where(wl, hL, 0.0)); pR = G * I.i1_h(np.where(wr, hR, 0.0))
         TL, TR = I.width_h(hL), I.width_h(hR)
         cL_ = np.where(wl, np.sqrt(G * AL / np.where(TL > 0, TL, 1.0)), 0.0)
@@ -308,6 +320,10 @@ class Model:
         # corrected momentum fluxes seen by cell i; at rest (Phi - g I1_int) is exactly 0
         FQ_right = (FQ[1:] - G * I1i_R) + G * I1c_R
         FQ_left = (FQ[:-1] - G * I1i_L) + G * I1c_L
+        # locally implicit coupling at expansion interfaces (C2, note 06 §9) --------------
+        if self.coupling == "c2" and N > 1:
+            FA, FC, FQ_right, FQ_left = self._c2(dt, FA, FC, Cup, FQ_right, FQ_left, SL, SR, a2,
+                                                 sQL, sQR, UL, UR, eta, h, U, efL, efR)
         # update (6.12) ------------------------------------------------------------------
         r = dt / self.ds
         A_new = self.A - r * (FA[1:] - FA[:-1])
@@ -348,6 +364,101 @@ class Model:
         self.last = dict(FA=FA, FQ=FQ, FC=FC, SL=SL, SR=SR, dt=dt,
                          WR=G * (I1c_R - I1i_R), WL=G * (I1c_L - I1i_L), etaf_R=efR, etaf_L=efL)
         return dt
+
+    def _c2(self, dt, FA, FC, Cup, FQ_right, FQ_left, SL, SR, a2, sQL, sQR, UL, UR, eta, h, U, efL, efR):
+        """C2 (note 06, draft 2.1, §§9-9.5): at each interior interface where (6.16b) loads the receiving
+        (wide) cell's face at the narrow neighbour's stage, solve the two coupling links implicitly.
+        Corrections are made to the shared interface fluxes before any cell is updated (§9.3a)."""
+        N, C, I = self.N, self.C, self.I
+        r = dt / self.ds
+        span = SR - SL
+        safe = np.where(span > 0, span, 1.0)
+        al = SR / safe; be = -SL / safe; aa2 = np.abs(a2)
+        T = C.width_h(h)
+        hmin = 10.0 * self.h_dry
+        blocks = []
+        for k in range(1, N):
+            if not (SL[k] < 0.0 < SR[k]) or FA[k] == 0.0 or self.face_rule != "upwind_capped":
+                continue
+            if FA[k] > 0:
+                n, w = k - 1, k
+            else:
+                n, w = k, k - 1
+            if not (eta[n] < eta[w]) or h[n] <= hmin or h[w] <= hmin or T[n] <= 0:
+                continue
+            ef = efL[w] if w == k else efR[w]
+            if ef != eta[n]:
+                continue
+            An = float(I.area(np.array([eta[n]]), rows=[k])[0])
+            Awf = float(C.area(np.array([eta[n]]), rows=[w])[0])
+            if not (Awf > An * (1.0 + 1e-9)) or An <= 0:
+                continue                                     # no width change: no A_w term, no loop
+            if w == k:                                       # flow to the right, wide cell on the right
+                c_a = be[k] * sQR[k]; omega = al[k]; tau = 1.0; sig_n = -r[n]; sig_w = r[w]
+                D1 = aa2[k] + aa2[k - 1]
+                D2 = (2 * al[k + 1] * U[w] + aa2[k + 1]) - sQR[k] * (2 * be[k] * UR[k] - aa2[k])
+            else:                                            # flow to the left, wide cell on the left
+                c_a = al[k] * sQL[k]; omega = be[k]; tau = -1.0; sig_n = r[n]; sig_w = -r[w]
+                D1 = aa2[k] + aa2[k + 1]
+                D2 = sQL[k] * (2 * al[k] * UL[k] + aa2[k]) + aa2[k - 1] - 2 * be[k - 1] * U[w]
+            a_ = 1.0 - r[n] * D1; d_ = 1.0 - r[w] * D2
+            if abs(a_) > 1.0 or abs(d_) > 1.0:
+                self.c2_skipped_ad += 1
+                continue
+            Phat = G * (omega * An + (Awf - An))
+            blocks.append(dict(k=k, n=n, w=w, c_a=c_a, sig_n=sig_n, sig_w=sig_w, kappa=tau * r[w] * Phat,
+                               Tn=float(T[n]), An=An, Awf=Awf, omega=omega))
+        if not blocks:
+            return FA, FC, FQ_right, FQ_left
+        dA_E = -r * (FA[1:] - FA[:-1])
+        dQ_E = -r * (FQ_right - FQ_left)
+        nb = len(blocks)
+
+        def touch(bp, cell):
+            if cell == bp["n"]:
+                return bp["sig_n"] * bp["c_a"]
+            if cell == bp["w"]:
+                return bp["sig_w"] * bp["c_a"]
+            return 0.0
+
+        M = np.eye(nb); rhs = np.zeros(nb)
+        for i, b in enumerate(blocks):
+            rhs[i] = dQ_E[b["w"]] + b["kappa"] * dA_E[b["n"]] / b["Tn"]
+            others = range(nb) if self.c2_mode == "chain" else [i]
+            for j in others:
+                M[i, j] -= b["kappa"] / b["Tn"] * touch(blocks[j], b["n"])
+        x = np.linalg.solve(M, rhs)
+        FA = FA.copy(); FC = FC.copy(); FQ_right = FQ_right.copy(); FQ_left = FQ_left.copy()
+        corr = []
+        for i, b in enumerate(blocks):
+            others = range(nb) if self.c2_mode == "chain" else [i]
+            dAn = dA_E[b["n"]] + sum(touch(blocks[j], b["n"]) * x[j] for j in others)
+            deta = dAn / b["Tn"]
+            dFA = b["c_a"] * x[i]
+            dFs = b["omega"] * G * b["An"] * deta            # shared interface-pressure correction
+            dW = G * (b["Awf"] - b["An"]) * deta             # step-face correction, wide cell only
+            corr.append((dFA, dFs, dW))
+        def apply(i, sgn):
+            b = blocks[i]; k, w = b["k"], b["w"]
+            dFA, dFs, dW = corr[i]
+            FA[k] += sgn * dFA; FC[k] += sgn * dFA * Cup[k]
+            FQ_right[k - 1] += sgn * dFs; FQ_left[k] += sgn * dFs
+            if w == k:
+                FQ_left[w] += sgn * dW
+            else:
+                FQ_right[w] += sgn * dW
+        for i in range(nb):
+            apply(i, +1.0)
+        # positivity of both cells sharing each corrected flux; revert whole blocks (§9.5)
+        A_try = self.A - r * (FA[1:] - FA[:-1])
+        for i, b in enumerate(blocks):
+            if A_try[b["n"]] < self.A_dry or A_try[b["w"]] < self.A_dry:
+                apply(i, -1.0); self.c2_fallback += 1
+        self.c2_blocks += nb
+        fmax = max(float(np.max(np.abs(FA))), 1e-30)
+        self.c2_max_rel = max(self.c2_max_rel, max(abs(c[0]) for c in corr) / fmax)
+        self.last_c2 = dict(blocks=blocks, x=x, corr=corr)
+        return FA, FC, FQ_right, FQ_left
 
     def run(self, t_end, max_steps=10 ** 8, callback=None, every=0):
         while self.t < t_end - 1e-12 and self.nsteps < max_steps:
