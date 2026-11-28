@@ -309,8 +309,8 @@ At an interface with S_L < 0 < S_R, |a₂| = |S_L| S_R / (S_R − S_L) ≤ ½ ma
   near-symmetric wave-speed estimates. It is **not** a guarantee for every configuration. C2 therefore
   computes a and d at each eligible interface in each step (they are by-products of the flux) and is
   applied only where |a| ≤ 1 and |d| ≤ 1; elsewhere the interface stays explicit and the event is
-  counted. In every measured case so far a ∈ [0.12, 0.99] and d ∈ [0.56, 0.99] at CFL 0.9 (hand, from
-  the D₁, D₂ of §7a). For supercritical flow into the wide cell (S_L⁻ ≥ 0) β⁻ = 0, so P = 0 and C2 is
+  counted. In the ten measured cases a ∈ [0.12, 0.57] and d ∈ [0.14, 0.62] at CFL 0.9 (from the D₁, D₂
+  and Δt of §7a). For supercritical flow into the wide cell (S_L⁻ ≥ 0) β⁻ = 0, so P = 0 and C2 is
   inactive: there is no loop.
 
 For the conduit → 1 m outlet at CFL 0.9 (r = 0.9/51.3 s m⁻¹, D₁ = 50.0, D₂ = 25.1, P = 1.77e4, hand):
