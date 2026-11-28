@@ -1,7 +1,10 @@
-# Part 6 — Note: stability of the first wide cell at an expansion (draft 1, 2026-11-28)
+# Part 6 — Note: stability of the first wide cell at an expansion (draft 2, 2026-11-28)
 
-*Theory note for review. Context: phase B status §§6–11 (`docs/PHASE_B_STATUS_2026-11-26.md`). No
-solver change is proposed until this note is reviewed. All numbers marked "hand" were evaluated by
+*Theory note for review. Context: phase B status §§6–12 (`docs/PHASE_B_STATUS_2026-11-26.md`). No
+solver change is made until this note is reviewed. Draft 2 adds §§9–12: the derivation of candidate C2
+(user's preferred candidate, 2026-11-28), its amplification factor, the six required properties, the
+four additional analysis checks, and the verification plan; C1 (relaxation) and C3 (local subcycling)
+are kept as comparison methods only. All numbers marked "hand" were evaluated by
 hand from steady states reported in the logs; the check script (§7) recomputes them from the solver's
 own wave speeds.*
 
@@ -39,7 +42,7 @@ interface). With s_Q = ∂Q*_R/∂Q_j (= 1 for (6.14a), = A*_R/A_w for (6.14)) a
     ∂F^A_{j−½}/∂Q_j = β⁻ s_Q                  ∂F^A_{j−½}/∂A_{j−1} = −a₂⁻ = |a₂⁻|
     ∂F^A_{j−3/2}/∂A_{j−1} = a₂⁼                (cell j − 1 is the right state there)
     ∂F^Q_{j−½}/∂Q_j = s_Q (2 β⁻ U* + a₂⁻)      ∂F^Q_{j+½}/∂Q_j = 2 α⁺ U_w − a₂⁺
-    ∂(F^Q_{j−½} − W_{j,L})/∂η_{j−1} = g (α⁻ A_n + (A_w − A_n)) = g (A_w − β⁻ A_n)     [face at η_{j−1}]
+    ∂(F^Q_{j−½} + W_{j,L})/∂η_{j−1} = g (α⁻ A_n + (A_w − A_n)) = g (A_w − β⁻ A_n)     [face at η_{j−1}]
 
 (superscripts: ⁼ interface j − 3/2, ⁻ interface j − ½, ⁺ interface j + ½). The last line has two parts:
 the interface pressure of the left state, α⁻ g A_n, and the step face of the wide cell, g (A_w − A_n),
@@ -179,3 +182,149 @@ neighbours (Q_{j−1}, A_j) carry more of the mode (§8). The note's mechanism i
   (≤ 0.18 in Q, 1–25 % in A), and V1 measures the resulting error.
 - The wave speeds are frozen; this is exact at a uniform steady state and approximate at the junction.
 - Nothing here concerns contractions (6-16): they are stable and their loss is a separate question.
+
+
+---
+
+# Draft 2
+
+## 9. Candidate C2: locally implicit coupling at an expansion interface
+
+### 9.1 Where it applies
+
+At an interface j − ½ where, in the current step, (6.16b) loads the receiving cell's step face at the
+neighbour's stage: mass flux enters cell j (F^A_{j−½} > 0 for flow to the right), η_{j−1} < η_j, and the
+interface section is narrower than cell j (A_j(η) > A_∩(η)). These are exactly the interfaces where the
+feedback gain P of §4 carries the factor A_w − β A_n. Elsewhere (contractions, uniform reaches, bed steps
+without a width change, dry or near-dry cells: h ≤ h_C2, §9.5) the update is the present explicit one.
+For flow to the left the roles of the two cells are mirrored.
+
+### 9.2 The two coupling terms and their implicit form
+
+The loop of §4 has exactly two links. In the explicit update both are evaluated at time n:
+
+    link a (narrow cell's mass):    the part β⁻ s_Q Q_j of F^A_{j−½}, which depends on the wide cell's discharge
+    link b (wide cell's momentum):  the part P̂ η_{j−1} of F^Q_{j−½} + W_{j,L}, which depends on the narrow
+                                    cell's stage; P̂ = g(α⁻ A_∩ + (A_j − A_∩)) at η_f = η_{j−1}
+
+C2 evaluates both links at n + 1 and leaves every other term explicit. With the explicit increments
+ΔA^E = A^E_{j−1} − Aⁿ_{j−1} and ΔQ^E = Q^E_j − Qⁿ_j from the present scheme (6.12), and
+ΔA = A^{n+1}_{j−1} − Aⁿ_{j−1}, ΔQ = Q^{n+1}_j − Qⁿ_j:
+
+    ΔA = ΔA^E − r β⁻ s_Q ΔQ
+    ΔQ = ΔQ^E + (r P̂ / T_n) ΔA
+
+a 2 × 2 linear system per interface, solved in closed form:
+
+    ΔQ = (ΔQ^E + (r P̂/T_n) ΔA^E) / (1 + r² P),     ΔA = ΔA^E − r β⁻ s_Q ΔQ,      P = β⁻ s_Q P̂ / T_n     (C2.1)
+
+The coefficients β⁻, s_Q, P̂ and T_n are those of §4, evaluated at time n from the same quantities the
+flux uses; they are the derivatives of the update, not tuning parameters. The block is linearised about
+time n (one Newton step), so no iteration is needed.
+
+### 9.3 Conservative form
+
+The two corrections are written as corrections to the shared interface fluxes, applied with opposite
+signs to both cells, so the scheme stays conservative:
+
+    F^{A,C2}_{j−½} = F^A_{j−½} + β⁻ s_Q ΔQ                        (used by cells j − 1 and j)
+    F^{Q,C2}_{j−½} = F^Q_{j−½} + α⁻ g A_∩ Δη_{j−1}                 (interface pressure part; used by both cells)
+    W^{C2}_{j,L}   = W_{j,L}   + g (A_j − A_∩) Δη_{j−1}             (step-face part; cell j only, as W itself)
+
+with Δη_{j−1} = ΔA / T_n. Sign convention as in the solver: cell j receives F^Q_{j−½} + W_{j,L} through
+its left face (§2), so both momentum corrections raise Q_j when the narrow stage rises. Water: whatever the narrow cell loses through F^{A,C2} the wide cell gains, so
+the water budget (6.33) is exact. Momentum: the interface part is shared; the step-face part is a wall
+force, as in the present scheme, and is not a flux. The wide cell's mass update and the narrow cell's
+momentum update receive the shared corrections too; they are outside the two-variable block, so their
+effect on stability is measured, not assumed (§12).
+
+### 9.4 Amplification factor
+
+With the two-variable model of §4 (x = δA_{j−1}, y = δQ_j, a = 1 − r D₁, d = 1 − r D₂):
+
+    [1     r β⁻ s_Q] [x]ⁿ⁺¹   [a  0] [x]ⁿ                     1        [ a      −r β⁻ s_Q d ]
+    [−rP̂/T_n   1  ] [y]    = [0  d] [y]      ⇒   G_C2 = ————————— [                     ]
+                                                             1 + r²P   [ a rP̂/T_n     d     ]
+
+    det G_C2 = a d / (1 + r² P),        tr G_C2 = (a + d) / (1 + r² P)                                  (C2.2)
+
+For a real 2 × 2 map, |λ| < 1 for both eigenvalues if and only if |det| < 1 and |tr| < 1 + det (Jury).
+With |a| ≤ 1 and |d| ≤ 1:
+
+- |det| = |a d| / (1 + r²P) < 1 for P > 0 (and = |ad| ≤ 1 at P = 0);
+- 1 + det − tr = ((1 − a)(1 − d) + r²P) / (1 + r²P) > 0, and 1 + det + tr = ((1 + a)(1 + d) + r²P) / (1 + r²P) > 0.
+
+So **G_C2 is stable for every feedback gain P ≥ 0 whenever |1 − r D₁| ≤ 1 and |1 − r D₂| ≤ 1**, i.e. under
+the ordinary CFL condition r ≤ 2 / max(D₁, D₂) alone. The area-ratio restriction of (N.1) disappears. For
+comparison, the explicit scheme has det = a d + r²P (§4), and the simpler sequential (Gauss–Seidel)
+variant — taking the narrow stage predicted from its new mass but keeping Q_j at n in link a — has
+det = a d and tr = a + d − r²P, which is unstable once r²P > (1 + a)(1 + d), i.e. CFL ≈ 0.77 for the
+conduit outlet and lower for larger area ratios: it is not sufficient, and is not proposed.
+
+For the conduit → 1 m outlet at CFL 0.9 (r = 0.9/51.3 s m⁻¹, D₁ = 50.0, D₂ = 25.1, P = 1.77e4, hand):
+a = 0.123, d = 0.560, r²P = 5.45, so det = 0.0107 and tr = 0.106: |λ| ≈ 0.10, against 2.31 for the
+explicit scheme.
+
+### 9.5 Limits of the closed form
+
+- Near dry: T_n → small free-surface width or A_∩ → 0 makes the coefficients ill-defined; C2 is not
+  applied when either cell has h ≤ h_C2 = 10 h_dry, or when the face rule does not use the neighbour's
+  stage (§9.1). Positivity there rests on the explicit scheme as now.
+- Positivity elsewhere: ΔA is limited so that A^{n+1}_{j−1} ≥ A_dry and A^{n+1}_j ≥ A_dry; if the limit
+  is active the step falls back to the explicit update for that interface and the event is counted
+  (it is a diagnostic, expected to be zero in the tests).
+- Slot state: η_{j−1} is recomputed from A^{n+1}_{j−1} by the section inverse, so a pressurised cell stays
+  on its slot branch or crosses the crown consistently; T_n is the width at time n (§10, property 6).
+- Successive expansions: a cell that is the wide cell of one block and the narrow cell of the next is
+  solved block by block in the flow direction with the latest values (one Gauss–Seidel pass); whether a
+  coupled tridiagonal solve is needed is tested (V13), not assumed.
+
+## 10. The six required properties
+
+| property (user, 2026-11-28) | status in this draft |
+|---|---|
+| 1 steady-state preservation | **proved**: at a steady state ΔA^E = ΔQ^E = 0, so (C2.1) gives ΔA = ΔQ = 0 and every correction in §9.3 vanishes; B12a/B12d steady results are unchanged by construction. Tested (V8 null test) |
+| 2 conservation | **proved for water** (the correction is a shared interface flux, §9.3); momentum: shared interface part, step-face part a wall force as now. Tested to round-off (V6) |
+| 3 stability | **proved for the two-variable model** under the ordinary CFL (§9.4); the full system is tested by linearisation at CFL 0.9 for all ten N.1 cases, both directions, three grid spacings (V9–V11) |
+| 4 consistency | **proved**: the corrections are r β s_Q ΔQ and r P̂ ΔA/T_n with ΔQ, ΔA = O(Δt), i.e. O(Δt²) per step; the scheme stays first order and tends to the 6-19 update as Δt → 0. Tested by a Δt series at fixed Δs (V12) |
+| 5 energy behaviour | **not proved**: the implicit block damps the coupled fast mode; whether it alters the slow, physical expansion loss is measured by the energy decomposition (V7) and by B12a/B12d at CFL 0.9 (V14) |
+| 6 positivity, valid slot state | by the limits of §9.5 (fallback, counted); tested on B9, B13 and the near-dry B12d free outlet (V14) |
+
+## 11. Additional analysis checks (user, 2026-11-28)
+
+Applied to the present explicit scheme (to characterise the failure) and to C2 (to accept it):
+
+- **V5 nonlinear amplitude**: start the conduit → 1 m and free 0.0667 → 1 m cases from the steady state
+  plus the computed unstable eigenvector scaled to 10⁻⁶, 10⁻³ and 10⁻¹ of the local state; run 2000 steps
+  at CFL 0.9 and at 0.9 × the (N.1) limit; report the growth rate against |λ| and the saturated amplitude.
+- **V6 conservation under the unstable mode**: water and solids budgets (6.33)–(6.34) per step during V5;
+  the mode must redistribute, not create, water (|δ_w| < 10⁻¹²).
+- **V7 energy decomposition**: per step and per cell around the junction, the change of
+  E = ∫(g η + U²/2)A ds split into interface-flux work, step-face work, and friction (zero here); for the
+  steady state, the junction loss must come from the step face, as Borda requires; for the unstable mode,
+  where the energy is supplied.
+- **V8 steady-state null test**: one step of C2 from the converged steady states of all ten N.1 cases:
+  max |correction| / |flux| below 10⁻¹².
+
+The two-variable model neglects the neighbours Q_{j−1} and A_j; its error (±9 %, §7a) is documented
+here and measured again for C2 by the full linearisation. No full-domain analytical stability analysis is
+attempted.
+
+## 12. Verification plan for C2 (after review of this draft)
+
+Implementation as an option (`interface_coupling="c2"`), default unchanged until the plan passes:
+
+| test | content | pass condition |
+|---|---|---|
+| V5–V8 | §11, explicit scheme and C2 | as stated in §11 |
+| V9 linearisation | the ten N.1 cases with C2 | ρ ≤ 1 at CFL 0.9 in all ten |
+| V10 grid spacing | Δs = 0.5, 0.25, 0.125 m | ρ ≤ 1 at CFL 0.9 at every spacing |
+| V11 direction | contractions and reverse flow | unchanged from the explicit scheme (C2 inactive) |
+| V12 consistency | conduit → 1 m transient from a perturbed state at Δt, Δt/2, Δt/4 (fixed Δs) | C2 and the explicit scheme (stable at the smallest Δt) converge to the same solution, first order |
+| V13 successive expansions | 0.2 → 0.6 → 2 m in two steps, and a conduit → 0.6 m → 2 m | ρ ≤ 1 at CFL 0.9 with the block-by-block pass |
+| V14 benchmarks at CFL 0.9 | B12a (relation 1 %, Borda 3 %), B12b, B12d submerged and free (steady; relation and Borda within 1 %), B12c refinement gates, B1, B9, B13 | all pass; fallback count 0 |
+| V15 comparisons | C3 local subcycling of the two cells (reference) and C1 relaxation | C2 within the C3 transient to first order; C1 reported only |
+| V16 cost | wall time per step with and without C2 | reported |
+
+The target, in the user's words: stable at the intended time step, conservative, steady-state preserving,
+and still accurate for the expansion and conduit-outlet benchmarks.
