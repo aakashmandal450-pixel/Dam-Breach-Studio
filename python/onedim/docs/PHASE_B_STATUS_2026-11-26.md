@@ -302,3 +302,37 @@ Note `docs/theory/06_note_expansion_stability.md`; check commit `2767352`, user'
 `docs/logs/onedim_b12d_theory_check_20261128_110210.log`. All four tests pass: (N.1) predicts the
 linearised critical step within ±9 % in ten cases (six within 4 %); the critical CFL is identical at
 Δs = 0.5, 0.25, 0.125 m; contractions and the (6.14) reconstruction are predicted and measured stable.
+
+## 13. C2 verification (2026-11-28)
+
+C2 as an experimental option (commit `0f4d10c`), independent blocks; user's PC. Logs:
+`docs/logs/onedim_c2_stage{A,B,C}_20261128.log`.
+
+**Stage A (linear) — 31 pass, 0 fail.** V8 null: one C2 step from each steady state changes the
+flux by 0.03–1.1 × … at most 2.8 × the steady residual itself (criterion ≤ 10 ×); V9: C2 brings ρ at
+CFL 0.9 from 1.03–3.31 (explicit) to ≤ 1 in all ten cases (largest 1.0000 in the conduit cases, a
+neutral mode); V10: the same at Δs = 0.5 and 0.125 m; V11: contractions identical to the explicit
+scheme, C2 inactive; V13: successive expansions, ρ ≤ 1 with independent blocks — the chain solve is
+not needed.
+
+**Stage C (V14, full phase B with C2 on) — 28 pass, 2 fail, 1 known.** New passes: B12a conduit → open
+(−0 % against the relation, steady, both directions; was +248 %); B12d submerged outlet steady, relation
+and Borda −0 % (was +243 %). Every other gate gives the same numbers as without C2 (expansions 0.1 % /
+2.6 %, B12c refinement, B1–B13). Remaining fails: B12a contractions (6-16 open) and B12d free outlet not
+steady within 10⁴ s (slow decay of a frictionless conduit running 1.5 cm below its crown; it was not
+steady without C2 either).
+
+**Stage B (nonlinear) — 22 pass, 7 fail.**
+
+| test | result | reading |
+|---|---|---|
+| V5 eigenvector seeds | 16/18; the two fails are ε = 10⁻⁶ (free case, C2 and explicit at 0.9 × limit) | every free-case run ends at the same amplitude (4–6e-5) whatever the scheme, seed or stability: the residual transient of a steady state converged only to ~10⁻⁶. A 10⁻⁶ seed sits below that floor; the "growth" is the floor, not the mode. C2 decays the 10⁻³ and 10⁻¹ seeds (0.994, 0.972 per step) while the explicit scheme at CFL 0.9 grows them to 0.5 |
+| V6 conservation | pass in all 18 | water ≤ 1.5e-15, per-step imbalance ≤ 2.8e-12, solids ≤ 1.2e-15 |
+| V7c energy source (explicit, CFL 0.9) | reported | in the unstable runs face work exceeds the interface work loss (e.g. −1.725e+1 vs +1.701e+1): the step face is the source, as the note predicts |
+| V5b disturbances | 3/6 pass | the three fails are the test, not C2: the "no growth" window compares 10–20 % with 90–100 % of the run, before the boundary disturbance has reached the junction; C2's late-window oscillation is ≤ 1.13 × the explicit reference in all six cases (free tailwater 2.06e-2 vs 1.82e-2 m; free inflow 4.5e-4 vs 6.6e-4; conduit bump 4.8e-7 vs 4.1e-7); the conduit bump also misses the 10⁻⁶ end-state agreement by dQ 1.3e-6 |
+| V7a steady loss at CFL 0.9 | pass both | free 0.0667 → 1 m −0.02 % relation, −0.14 % Borda; conduit → 1 m −0.00 %, −0.11 %; upstream stage 0.6000 = relation |
+| V7b closed reach | conduit pass; free fail | conduit: no energy increase in any step, dissipation 0.98 × the explicit reference. Free: C2 at CFL 0.9 shows step-to-step increases up to 2.8e-7 (explicit at CFL 0.1 also 4.0e-9, so the 10⁻¹² criterion is not met by the base scheme either) and dissipates 0.43 × the explicit reference at CFL 0.1. Whether the difference is C2 or the CFL (0.9 vs 0.1) is not separated by this test |
+| V12 consistency | fail (ratio) | L1 differences 1.8e-7, 9.8e-8, 6.2e-9 at CFL 0.9, 0.45, 0.225 (explicit CFL 0.1: 2.1e-9). First order between 0.9 and 0.45 (1.87); the 15.8 between 0.45 and 0.225 is the transition r²P ≈ 1 (r²P = 5.45, 1.36, 0.34): above it C2's coupling error dominates (≈ 30 × the explicit error at CFL 0.9, still 1.8e-7 relative), below it C2 matches the explicit scheme |
+| V16 cost | reported | 10.4 ms per step with C2 vs 2.2 ms explicit (+364 %), from a Python loop over all interfaces in `_c2`; not optimised |
+
+Fallback and |a|, |d| skip counts were zero in every stage B run.
