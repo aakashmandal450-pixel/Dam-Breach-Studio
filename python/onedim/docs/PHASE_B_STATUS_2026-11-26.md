@@ -336,3 +336,18 @@ steady without C2 either).
 | V16 cost | reported | 10.4 ms per step with C2 vs 2.2 ms explicit (+364 %), from a Python loop over all interfaces in `_c2`; not optimised |
 
 Fallback and |a|, |d| skip counts were zero in every stage B run.
+
+## 14. C2 verification, revision 2 (2026-11-28)
+
+Commit `4bf1fba` (C2 vectorised; bit-identical to the tested version), user's PC, 9119 s. Log:
+`docs/logs/onedim_c2_revised_20261128_195946.log`. Steady states converged with C2 to < 1e-12 per 500
+steps (all four geometries, 1092–2323 s). **21 pass, 5 fail, 1 inconclusive.**
+
+| test | result | numbers |
+|---|---|---|
+| V5r (baseline-referenced seeds) | **18/18 pass** | C2 damps every seed, 0.88–0.97 per step (δ 3e-2 → 7e-7, 4e-2 → 5e-4); the explicit control at CFL 0.9 grows (1.006–1.066 per step); explicit at 0.9 × limit decays; the tightened steady states put the noise floor at 2e-13 – 2e-12, so no seed is inconclusive; water ≤ 9e-14 |
+| V12r | **pass** | stage differences 0.467, 0.152, 0.010, 0.005 mm at CFL 0.9, 0.45, 0.225, 0.1125 (explicit 0.1: 0.002 mm); asymptotic ratio 1.88; bound 1 mm met |
+| V7br conduit | **pass** | same CFL (0.186): dissipation ratio 1.000; no energy increase in any step at any CFL; dissipation 0.0114–0.0116 % for all four runs |
+| V7br free surface | **fail** (window criterion) | same CFL (0.45): dissipation ratio 0.996, worst step identical (5.1e-8); at CFL 0.9 C2 has one 10 s window whose mean energy is 2.8e-6 above the previous one (criterion 1e-10), worst single step 2.8e-7; its cumulative energy never exceeds E0 (max drift −3.0e-8) and the 2nd-half trend is negative (−7.2e-7 /s). Dissipation falls with CFL in both schemes (explicit 0.0185 % at 0.1, 0.0148 % at 0.45; C2 0.0147 % at 0.45, 0.0079 % at 0.9) |
+| V5br | 1 pass, 4 fail, 1 inconclusive | envelope ratio C2 (0.9) / explicit reference: free bump 2.94, inflow 1.31, tailwater 1.83; conduit inflow 10.5, tailwater 1.00, bump 0.15 (pass, end states agree 6e-8). The reference runs at CFL 0.1 (free) and 0.104 (conduit); a first-order scheme is more diffusive at a small CFL, so the comparison mixes the C2 effect with the CFL effect; it has no same-CFL control, unlike V7br. The ratio is a maximum over windows and is not normalised to the disturbance size |
+| COST (20 s) | reported | speed-up of C2 (CFL 0.9) over the explicit scheme at 0.9 × its predicted critical CFL: conduit → 1 m 4.1 ×; free 0.0667 → 1 m 1.4 ×; breach conduit 0.5 × 0.5 → 20 m (h 3 m) **46 ×** (4731 vs 335 193 steps; 15 s vs 698 s); breach open 2 → 40 m 2.3 ×. Per-step cost C2 2.9–3.2 ms vs 2.1–2.7 ms. End-stage differences 0.006–0.64 mm, except breach open 2 → 40 m: **11.0 mm** (unexplained; the explicit CFL 0.328 is within the ±9 % uncertainty of (N.1), so the explicit run may itself be marginally unstable) |
