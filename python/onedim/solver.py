@@ -377,22 +377,23 @@ class Model:
         T = C.width_h(h)
         hmin = 10.0 * self.h_dry
         blocks = []
-        for k in range(1, N):
-            if not (SL[k] < 0.0 < SR[k]) or FA[k] == 0.0 or self.face_rule != "upwind_capped":
-                continue
-            if FA[k] > 0:
-                n, w = k - 1, k
-            else:
-                n, w = k, k - 1
-            if not (eta[n] < eta[w]) or h[n] <= hmin or h[w] <= hmin or T[n] <= 0:
-                continue
-            ef = efL[w] if w == k else efR[w]
-            if ef != eta[n]:
-                continue
-            An = float(I.area(np.array([eta[n]]), rows=[k])[0])
-            Awf = float(C.area(np.array([eta[n]]), rows=[w])[0])
-            if not (Awf > An * (1.0 + 1e-9)) or An <= 0:
-                continue                                     # no width change: no A_w term, no loop
+        if self.face_rule != "upwind_capped":
+            return FA, FC, FQ_right, FQ_left
+        # vectorised pre-selection of candidate interfaces (same tests as below, cheap)
+        kk = np.arange(1, N)
+        fa = FA[1:N]
+        right = fa > 0
+        nn = np.where(right, kk - 1, kk); ww = np.where(right, kk, kk - 1)
+        ef = np.where(right, efL[ww], efR[ww])
+        cand = ((SL[1:N] < 0.0) & (SR[1:N] > 0.0) & (fa != 0.0) & (eta[nn] < eta[ww]) & (h[nn] > hmin)
+                & (h[ww] > hmin) & (T[nn] > 0) & (ef == eta[nn]))
+        if not np.any(cand):
+            return FA, FC, FQ_right, FQ_left
+        kc, nc, wc = kk[cand], nn[cand], ww[cand]
+        An_v = I.area(eta[nc], rows=kc); Awf_v = C.area(eta[nc], rows=wc)
+        wider = (Awf_v > An_v * (1.0 + 1e-9)) & (An_v > 0)       # width change: the A_w term exists
+        for k, n, w, An, Awf in zip(kc[wider], nc[wider], wc[wider], An_v[wider], Awf_v[wider]):
+            An = float(An); Awf = float(Awf)
             if w == k:                                       # flow to the right, wide cell on the right
                 c_a = be[k] * sQR[k]; omega = al[k]; tau = 1.0; sig_n = -r[n]; sig_w = r[w]
                 D1 = aa2[k] + aa2[k - 1]
