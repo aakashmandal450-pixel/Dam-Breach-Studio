@@ -295,3 +295,10 @@ Same linearisation; (6.14a), (6.16b); CFL relative to each case's own (6.21) ste
   interface into the wide cell.
 - The 3.1 area relation of §10 does not carry over: CFL_crit / r = 7.4 (free, r 0.066), 4.3 (free,
   r 0.2), 3.2 (pressurised → free), 3.8 (pressurised → pressurised). It stays a diagnostic observation.
+
+## 12. Theory-note verification (2026-11-28)
+
+Note `docs/theory/06_note_expansion_stability.md`; check commit `2767352`, user's PC, 867 s. Log:
+`docs/logs/onedim_b12d_theory_check_20261128_110210.log`. All four tests pass: (N.1) predicts the
+linearised critical step within ±9 % in ten cases (six within 4 %); the critical CFL is identical at
+Δs = 0.5, 0.25, 0.125 m; contractions and the (6.14) reconstruction are predicted and measured stable.

@@ -158,6 +158,21 @@ For a candidate (after review): its own amplification factor; the linearisation 
 case above (ρ ≤ 1); B12a (expansions within 1 % of the relation, 3 % of Borda), B12d submerged (steady,
 relation and Borda within 1 %), B12c refinement gates, B1 lake at rest, B13; and a full phase B run.
 
+## 7a. Results of the verification matrix (user's PC, 2026-11-28, 867 s)
+
+Log: `docs/logs/onedim_b12d_theory_check_20261128_110210.log`. (N.1) evaluated with the solver's own
+speeds, areas and widths at each steady state.
+
+| test | result |
+|---|---|
+| V1 prediction (10 cases) | **pass**: within −9.2 % to +8.9 % of the linearised Δt_crit; six of the ten within 4 % (conduit → 2 m −0.2 %, h 1.0 −0.6 %, conduit → 1 m −1.9 %). The B12a 2 → 10 m case is predicted at CFL 0.99 and measured stable to 1.0 (ρ = 0.999), consistent |
+| V2 grid spacing | **pass**: linearised CFL_crit identical at Δs = 0.5, 0.25, 0.125 m (0.2072 and 0.4884, spread 0.0 %); (N.1) identical too. The defect is a property of the interface update, not of resolution |
+| V3 direction (contractions) | **pass**: predicted limit CFL ≈ 1.99 (above the ordinary CFL); linearisation stable to 1.0 at 0.3, 1 and 5 m |
+| V4 reconstruction (6.14) | **pass**: s_Q = 0.091 cuts P from 1.77e4 to 57.5; predicted stable (the ordinary limit binds, CFL 2.05); linearisation stable to 1.0 |
+
+The largest errors (±9 %) are in the free-surface and the 0.3 m case, where the neglected
+neighbours (Q_{j−1}, A_j) carry more of the mode (§8). The note's mechanism is confirmed.
+
 ## 8. Open points
 
 - The two-variable model neglects Q_{j−1} and A_j; their share in the measured modes is small
