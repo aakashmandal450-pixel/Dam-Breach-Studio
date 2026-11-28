@@ -452,7 +452,7 @@ class Model:
         # positivity of both cells sharing each corrected flux; revert whole blocks (§9.5)
         A_try = self.A - r * (FA[1:] - FA[:-1])
         for i, b in enumerate(blocks):
-            if A_try[b["n"]] < self.A_dry or A_try[b["w"]] < self.A_dry:
+            if A_try[b["n"]] < self.A_dry[b["n"]] or A_try[b["w"]] < self.A_dry[b["w"]]:
                 apply(i, -1.0); self.c2_fallback += 1
         self.c2_blocks += nb
         fmax = max(float(np.max(np.abs(FA))), 1e-30)

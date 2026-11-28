@@ -285,7 +285,7 @@ def v7b(kind, scheme, T=100.0):
     m = Model(cells, ds, bc_left={"type": "wall"}, bc_right={"type": "wall"}, cfl=0.05,
               interface_coupling="c2" if scheme == "c2 0.9" else "none")
     x = ds * (np.arange(2 * n) + 0.5)
-    m.set_stage(0.6 + 0.05 * (x / x[-1] - 0.5))
+    m.set_stage(0.6 + 0.05 * (0.5 - x / x[-1]))          # higher on the narrow side: starts as an expansion
     d1 = dt_unit(m)
     cfl = 0.9 if scheme == "c2 0.9" else (0.1 if kind == "ff" else 0.1 * CRIT["pf 0.2 conduit -> 1 m"])
     m.cfl = 1e3; dt = cfl * d1
