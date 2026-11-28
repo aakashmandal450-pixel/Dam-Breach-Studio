@@ -308,8 +308,8 @@ linearised critical step within ±9 % in ten cases (six within 4 %); the critica
 C2 as an experimental option (commit `0f4d10c`), independent blocks; user's PC. Logs:
 `docs/logs/onedim_c2_stage{A,B,C}_20261128.log`.
 
-**Stage A (linear) — 31 pass, 0 fail.** V8 null: one C2 step from each steady state changes the
-flux by 0.03–1.1 × … at most 2.8 × the steady residual itself (criterion ≤ 10 ×); V9: C2 brings ρ at
+**Stage A (linear) — 31 pass, 0 fail.** V8 null: in one C2 step from each steady state the correction is
+0.003–0.4 × the steady residual, and 2.8 × in the pp 1.0 × 0.55 case (criterion ≤ 10 ×); V9: C2 brings ρ at
 CFL 0.9 from 1.03–3.31 (explicit) to ≤ 1 in all ten cases (largest 1.0000 in the conduit cases, a
 neutral mode); V10: the same at Δs = 0.5 and 0.125 m; V11: contractions identical to the explicit
 scheme, C2 inactive; V13: successive expansions, ρ ≤ 1 with independent blocks — the chain solve is
