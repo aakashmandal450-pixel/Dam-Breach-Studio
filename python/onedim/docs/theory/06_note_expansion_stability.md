@@ -190,6 +190,11 @@ neighbours (Q_{j−1}, A_j) carry more of the mode (§8). The note's mechanism i
 
 ## 9. Candidate C2: locally implicit coupling at an expansion interface
 
+Naming from draft 2 on (user, 2026-11-28): **C2** locally implicit coupling (this section); **C1**
+interface-flux relaxation and **C3** local subcycling of the two cells, both comparison methods only.
+The draft-1 table of §6 used C1 for the (N.1) time-step limit and C3 for a reduced sensitivity s_Q;
+those two are not pursued.
+
 ### 9.1 Where it applies
 
 At an interface j − ½ where, in the current step, (6.16b) loads the receiving cell's step face at the
@@ -258,8 +263,9 @@ So **G_C2 is stable for every feedback gain P ≥ 0 whenever |1 − r D₁| ≤ 
 the ordinary CFL condition r ≤ 2 / max(D₁, D₂) alone. The area-ratio restriction of (N.1) disappears. For
 comparison, the explicit scheme has det = a d + r²P (§4), and the simpler sequential (Gauss–Seidel)
 variant — taking the narrow stage predicted from its new mass but keeping Q_j at n in link a — has
-det = a d and tr = a + d − r²P, which is unstable once r²P > (1 + a)(1 + d), i.e. CFL ≈ 0.77 for the
-conduit outlet and lower for larger area ratios: it is not sufficient, and is not proposed.
+det = a d and tr = a + d − r²P, which is unstable once r²P > (1 + a)(1 + d), i.e. CFL ≈ 0.60 for the
+conduit outlet (hand: 6.25 c² + 2.93 c − 4 = 0) and lower for larger area ratios: it is not sufficient,
+and is not proposed.
 
 For the conduit → 1 m outlet at CFL 0.9 (r = 0.9/51.3 s m⁻¹, D₁ = 50.0, D₂ = 25.1, P = 1.77e4, hand):
 a = 0.123, d = 0.560, r²P = 5.45, so det = 0.0107 and tr = 0.106: |λ| ≈ 0.10, against 2.31 for the
