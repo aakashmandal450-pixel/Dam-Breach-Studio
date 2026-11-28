@@ -266,3 +266,32 @@ A_c = 0.04 m² (conduit area = interface flow area).
 - Cost implication: the stable step scales with A_c / A_free. For the 5 m case it is ≈ 0.04 of the
   normal step (≈ 22 × slower); for a realistic piping outlet (e.g. a 0.5 m pipe into a breach channel
   tens of metres wide and metres deep) the ratio is of order 10⁻³, i.e. 100–1000 × slower.
+
+## 11. Expansion check (user plan, 2026-11-28)
+
+Commit `9f6be84`, user's PC, 359 s. Log: `docs/logs/onedim_b12d_expansion_20261128_103731.log`.
+Same linearisation; (6.14a), (6.16b); CFL relative to each case's own (6.21) step.
+
+| case | area ratio A_up/A_down | max interface speed | critical CFL | dt_crit | ρ at CFL 0.9 | dominant mode |
+|---|---|---|---|---|---|---|
+| 1 free → free, 0.0667 → 1 m, h 0.6, Q 0.05 | 0.066 | 3.7 m/s | **0.488** | 3.3e-2 s | 1.242 | Q of cell 80 (first wide cell) = 1, cell 78 −0.02, cell 81 +0.12; 19 % in A |
+| 1 free → free, 0.2 → 1 m | 0.199 | 2.9 m/s | **0.862** | 7.5e-2 s | 1.028 | Q of cell 80 = 1, cell 78 −0.18, cell 81 +0.10; 25 % in A |
+| 1 free → free, 2 → 10 m, h 1, Q 2 (B12a) | 0.198 | 4.2 m/s | stable to 1.0 | — | 0.999 | smooth, not localised |
+| 2 pressurised → free, conduit → 1 m | 0.066 | 51.3 m/s | **0.207** | 1.0e-3 s | 2.309 | Q of cell 80 = 1, cell 78 −0.07; 1 % in A |
+| 3 pressurised → pressurised, → 1.0 × 0.55 conduit | 0.073 | 51.3 m/s | **0.280** | 1.4e-3 s | 2.191 | Q of cell 80 = 1, cell 78 −0.08; 1 % in A |
+| 3 pressurised → pressurised, → 1.0 × 0.40 conduit | 0.100 | 51.3 m/s | **0.375** | 1.8e-3 s | 1.843 | Q of cell 80 = 1, cell 78 −0.11; 1 % in A |
+
+- The instability is **not** specific to a slot meeting a free surface: free → free expansions with a
+  small area ratio are unstable too (0.488 at r = 0.066, 0.862 at r = 0.2), and so are
+  pressurised → pressurised expansions (0.280, 0.375). The slot lowers the limit (0.207 against 0.488
+  at the same area ratio) but is not needed.
+- In every unstable case the mode is the same: an oscillatory (complex λ) perturbation of the
+  discharge of the first wide cell downstream of the narrow interface (cell 80), with little in the
+  neighbours. That is the cell whose discharge (6.14a) presents through the narrow interface,
+  amplified to U* = Q_i / A*.
+- The B12a 2 → 10 m case (higher depth and discharge) is stable to CFL 1.0; the 0.2 → 1 m case at
+  CFL 0.9 is just unstable (ρ = 1.028), which no phase B gate detected (B12a ran steady).
+- Contractions and the reverse transition (§10) are stable: the mode needs flow from the narrow
+  interface into the wide cell.
+- The 3.1 area relation of §10 does not carry over: CFL_crit / r = 7.4 (free, r 0.066), 4.3 (free,
+  r 0.2), 3.2 (pressurised → free), 3.8 (pressurised → pressurised). It stays a diagnostic observation.
